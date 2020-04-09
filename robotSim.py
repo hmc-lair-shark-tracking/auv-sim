@@ -1,11 +1,18 @@
 import math
+import matplotlib.pyplot as plt
 import time  # temporarily import time so the code can sleep
+
 
 class RobotSim:
     def __init__(self, initX, initY, initTheta):
+        # initialize auv's data
         self.x = initX
         self.y = initY
         self.theta = initTheta
+
+        # initialize the 3d scatter position plot for the auv and shark
+        self.fig = plt.figure()
+        self.ax = self.fig.add_subplot(111, projection='3d')
 
     def getAuvState(self):
         """
@@ -43,17 +50,36 @@ class RobotSim:
         # dummy value: set time step
         delta_t = 0.1
         self.calculateNewAuvState(v, w, delta_t)
+        
 
     def logData(self):
         """
         Print in the terminal (and possibly write the 
-        data in a log file)
+        data in a log file?)
         """
+        print("AUV [x postion, y position, theta]:  [", self.x, ", " , self.y, ", ", self.theta, "]")
+
+        (sharkX, sharkY, sharkTheta)= self.getSharkState()
+
+        print("Shark [x postion, y position, theta]:  [", sharkX, ", " , sharkY, ", ", sharkTheta, "]")
     
     def plotData(self):
         """
         Plot the position of the robot and the shark
         """
+        # plot the new auv position as a red "o"
+        self.ax.scatter(self.x, self.y, -10, marker = "o", color='red')
+
+        (sharkX, sharkY, sharkTheta)= self.getSharkState()
+     
+        # plot the new shark position as a blue "o"
+        self.ax.scatter(sharkX, sharkY, -15, marker = "x", color="blue")
+
+        plt.draw()
+
+        # pause so the plot can be updated
+        plt.pause(1)
+
 
     def mainNavigationLoop(self):
         """ 
@@ -62,20 +88,21 @@ class RobotSim:
             getting data -> get trajectory -> send trajectory to actuators
             -> log and plot data
         """
+        
         while True:
             # dummy values for linear and angular velocity
             v = 10
             w = 10
+
+            # update the auv position
             self.sendTrajectoryToActuators(v, w)
             
-            print("x postion: ", self.x)
-            print("y position: ", self.y)
-            print("theta: ", self.theta)
-            # sleep for 1 seconds before repeating the calculation
-            time.sleep(1)
+            self.logData()
+
+            self.plotData()
 
 def main():
-    testRobot = RobotSim(0,0,0.1)
+    testRobot = RobotSim(10,10,0.1)
     testRobot.mainNavigationLoop()
 
 if __name__ == "__main__":
