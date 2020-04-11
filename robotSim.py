@@ -1,6 +1,5 @@
 import math
 import matplotlib.pyplot as plt
-import time  # temporarily import time so the code can sleep
 from mpl_toolkits.mplot3d import Axes3D
 
 class RobotSim:
@@ -119,8 +118,8 @@ class RobotSim:
         
         while True:
             # dummy values for linear and angular velocity
-            v = 10
-            w = 10
+            v = 10  # m/s
+            w = 1   # rad/s
             
             (currAuvX, currAuvY, currAuvTheta) = self.getAuvState()
             print("==================")
