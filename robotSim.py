@@ -49,6 +49,15 @@ class RobotSim:
         return (sharkX, sharkY, sharkTheta)
 
 
+    def trackTrajectory(self, trajectory):
+        """
+        Return a list representing the trajectory point 0.5 sec ahead
+        of current time
+
+        Parameter: 
+            trajectory - a list of trajectory points, where each element is 
+            a list that consist of timeStamp x, y, theta
+        """
     def calculateNewAuvState (self, v, w, delta_t):
         """ 
         Calculate new x, y and theta
@@ -118,8 +127,8 @@ class RobotSim:
         
         while True:
             # dummy values for linear and angular velocity
-            v = 10  # m/s
-            w = 1   # rad/s
+            v = 2  # m/s
+            w = 0.5   # rad/s
             
             (currAuvX, currAuvY, currAuvTheta) = self.getAuvState()
             print("==================")
