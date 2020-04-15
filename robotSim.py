@@ -1,6 +1,7 @@
 import math
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from numpy import arange
 
 class RobotSim:
     def __init__(self, initX, initY, initZ, initTheta):
@@ -23,6 +24,37 @@ class RobotSim:
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111, projection='3d')
 
+        # assume v = 1 m/s
+        # the testing trajectory will travel in a square path that has
+        # side length 1 meters. 
+        # the robot will start at time_stamp = 0, x = 0, y = 0, theta = 0
+        self.testingList = []
+
+        # the robot only moves in positive x direction
+        # (moves to the right)
+        for x in arange(0.5, 5.5, 0.5):
+            self.testingList += [[x, x, 0, 0] ]
+        # turn the robot, so it heads north
+        self.testingList += [[5.5, 5, 0, math.pi/2.0]]
+        # the robot only moves in the positive y direction
+        # (moves up)
+        for y in arange(0.5, 5.5, 0.5):
+            self.testingList += [[5.5+y, 5, y, math.pi/2.0]]
+        # turn the robot, so it heads west
+        self.testingList += [[11, 5, 5, math.pi]]
+        # the robot only moves in the negative x direction
+        # (moves to the left)
+        for x in arange(0.5, 5.5, 0.5):
+            self.testingList += [[11+x, 5-x, 5, math.pi]]
+        # turn the robot, so it heads south
+        self.testingList += [[16.5, 0, 5, 3.0*math.pi/2.0]]
+        # the robot only moves in the negative y direction
+        # (moves down)
+        for y in arange(0.5, 5.5, 0.5):
+            self.testingList += [[16.5+y, 5-y, 5, 3.0*math.pi/2.0]]
+        # turn the robot, so it heads south
+        self.testingList += [[22, 0, 0, 0]]
+        print(self.testingList)
 
     def getAuvState(self):
         """
@@ -58,6 +90,8 @@ class RobotSim:
             trajectory - a list of trajectory points, where each element is 
             a list that consist of timeStamp x, y, theta
         """
+        
+
     def calculateNewAuvState (self, v, w, delta_t):
         """ 
         Calculate new x, y and theta
@@ -127,7 +161,7 @@ class RobotSim:
         
         while True:
             # dummy values for linear and angular velocity
-            v = 2  # m/s
+            v = 1  # m/s
             w = 0.5   # rad/s
             
             (currAuvX, currAuvY, currAuvTheta) = self.getAuvState()
