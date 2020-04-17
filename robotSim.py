@@ -26,39 +26,43 @@ class RobotSim:
 
         # keep track of the current time that we are in
         # each iteration in the while loop will be assumed as 0.1 sec
-        self.currTime = 0
+        self.curr_time = 0
+
+        # index for which trajectory point that we should
+        # keep track of
+        self.curr_traj_pt_index = 0
 
         # assume v = 1 m/s
         # the testing trajectory will travel in a square path that has
         # side length 1 meters. 
         # the robot will start at time_stamp = 0, x = 0, y = 0, theta = 0
-        self.testingTrajectory = []
+        self.testing_trajectory = []
 
         # the robot only moves in positive x direction
         # (moves to the right)
         for x in arange(0.5, 5.5, 0.5):
-            self.testingTrajectory += [[x, x, 0, 0] ]
+            self.testing_trajectory += [[x, x, 0, 0] ]
         # turn the robot, so it heads north
-        self.testingTrajectory += [[5.5, 5, 0, math.pi/2.0]]
+        self.testing_trajectory += [[5.5, 5, 0, math.pi/2.0]]
         # the robot only moves in the positive y direction
         # (moves up)
         for y in arange(0.5, 5.5, 0.5):
-            self.testingTrajectory += [[5.5+y, 5, y, math.pi/2.0]]
+            self.testing_trajectory += [[5.5+y, 5, y, math.pi/2.0]]
         # turn the robot, so it heads west
-        self.testingTrajectory += [[11, 5, 5, math.pi]]
+        self.testing_trajectory += [[11, 5, 5, math.pi]]
         # the robot only moves in the negative x direction
         # (moves to the left)
         for x in arange(0.5, 5.5, 0.5):
-            self.testingTrajectory += [[11+x, 5-x, 5, math.pi]]
+            self.testing_trajectory += [[11+x, 5-x, 5, math.pi]]
         # turn the robot, so it heads south
-        self.testingTrajectory += [[16.5, 0, 5, 3.0*math.pi/2.0]]
+        self.testing_trajectory += [[16.5, 0, 5, 3.0*math.pi/2.0]]
         # the robot only moves in the negative y direction
         # (moves down)
         for y in arange(0.5, 5.5, 0.5):
-            self.testingTrajectory += [[16.5+y, 5-y, 5, 3.0*math.pi/2.0]]
+            self.testing_trajectory += [[16.5+y, 5-y, 5, 3.0*math.pi/2.0]]
         # turn the robot, so it heads south
-        self.testingTrajectory += [[22, 0, 0, 0]]
-        print(self.testingTrajectory)
+        self.testing_trajectory += [[22, 0, 0, 0]]
+        print(self.testing_trajectory)
 
     def getAuvState(self):
         """
@@ -83,7 +87,7 @@ class RobotSim:
 
         return (sharkX, sharkY, sharkTheta)
 
-    def trackTrajectory(self, trajectory):
+    def track_trajectory(self, trajectory):
         """
         Return a list representing the trajectory point 0.5 sec ahead
         of current time
@@ -92,20 +96,16 @@ class RobotSim:
             trajectory - a list of trajectory points, where each element is 
             a list that consist of timeStamp x, y, theta
         """
-        for trajPt in trajectory: 
-            diff = trajPt[0] - self.currTime
-            # ideally, we want diff to be 0.5 sec exactly
-            # However, since that is not always the case, we also set
-            # a tolerance
-            if abs(diff-0.5) < 0.25:
-                return trajPt
+        # determine how ahead should the trajectory point be compared to current time
+        look_ahead_time = 0.5
+       
+        while (self.curr_time + look_ahead_time) > trajectory[self.curr_traj_pt_index][0]:
+            # only increment the index if it hasn't reached the end of the trajectory list
+            if self.curr_traj_pt_index < len(trajectory):
+                self.curr_traj_pt_index += 1
 
-        # if we are at the end of the loop, 
-        # there isn't any more trajectory points that is 0.5 second ahead of 
-        # current time, so we just return the last trajectory point
-        return trajectory[-1]
+        return trajectory[self.curr_traj_pt_index]
         
-
     def calculateNewAuvState (self, v, w, delta_t):
         """ 
         Calculate new x, y and theta
@@ -187,8 +187,7 @@ class RobotSim:
             print("==================")
 
             # test trackTrajectory
-            trackingPt = self.trackTrajectory(self.testingTrajectory)
-
+            trackingPt = self.track_trajectory(self.testing_trajectory)
             print ("Currently tracking: ", trackingPt)
             print("==================")
 
@@ -199,7 +198,8 @@ class RobotSim:
 
             self.plotData()
 
-            self.currTime += 0.1
+            # increment the current time by 0.1 second
+            self.curr_time += 0.1
 
 def main():
     testRobot = RobotSim(10,10,-10,0.1)
