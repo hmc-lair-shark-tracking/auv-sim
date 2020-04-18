@@ -2,6 +2,7 @@ import math
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from numpy import arange
+import numpy as np 
 
 class RobotSim:
     def __init__(self, initX, initY, initZ, initTheta):
@@ -164,7 +165,18 @@ class RobotSim:
         # pause so the plot can be updated
         plt.pause(1)
 
+    def get_shark_sensor_measurements(self, currSharkX, currSharkY, currAuvX, currAuvY):
 
+        delta_x = currSharkX - currAuvX
+        delta_y = currSharkY - currAuvY
+        rangeRandom = np.random.normal(0,5)#Gaussian noise with 0 mean and standard deviation 5
+        bearingRandom = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
+
+        Z_shark_range = math.sqrt(delta_x**2+delta_y**2) + rangeRandom
+        Z_shark_bearing = math.atan2(delta_y, delta_x) + bearingRandom
+
+        return (Z_shark_range, Z_shark_bearing)
+    
     def mainNavigationLoop(self):
         """ 
         Wrapper function for the robot simulator
@@ -190,6 +202,8 @@ class RobotSim:
             trackingPt = self.track_trajectory(self.testing_trajectory)
             print ("Currently tracking: ", trackingPt)
             print("==================")
+
+            (currSharkZRange, currSharkZBearing) = self.get_shark_sensor_measurements(currSharkX, currSharkY, currAuvX, currAuvY)
 
             # update the auv position
             self.sendTrajectoryToActuators(v, w)
