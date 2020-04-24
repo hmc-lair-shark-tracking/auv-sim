@@ -120,6 +120,10 @@ Although Github allows you to delete the branch on Github, you still have to del
 1. In your terminal, go to this repository's directory
 (When you type `ls`, you should see the robotSim.py file)
 
+2. First, you will want to switch to master branch and pull the changes
+   - `git checkout master`
+   - `git pull`
+
 2. You can see all the local branches by typing `git branch`
    - You can see all the local and Github branchess by typing `git branch -a`
    - To exit, type `q`

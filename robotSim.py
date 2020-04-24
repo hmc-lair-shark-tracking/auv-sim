@@ -2,6 +2,7 @@ import math
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from numpy import arange
+import numpy as np 
 
 class RobotSim:
     def __init__(self, init_x, init_y, init_z, init_theta):
@@ -76,16 +77,16 @@ class RobotSim:
         Return a tuple representing the orientation
         of the shark
         """
-        sharkX = 10
-        sharkY = 10
-        sharkZ = -15
-        sharkTheta = 0
+        shark_X = 10
+        shark_Y = 10
+        shark_Z = -15
+        shark_Theta = 0
 
-        self.shark_x_list += [sharkX]
-        self.shark_y_list += [sharkY]
-        self.shark_z_list += [sharkZ]
+        self.shark_x_list += [shark_X]
+        self.shark_y_list += [shark_Y]
+        self.shark_z_list += [shark_Z]
 
-        return (sharkX, sharkY, sharkTheta)
+        return (shark_X, shark_Y, shark_Theta)
 
     def track_trajectory(self, trajectory):
         """
@@ -164,7 +165,26 @@ class RobotSim:
         # pause so the plot can be updated
         plt.pause(1)
 
+    def get_shark_sensor_measurements(self, currSharkX, currSharkY, currAuvX, currAuvY):
+        delta_x = currSharkX - currAuvX
+        delta_y = currSharkY - currAuvY
+        range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
+        bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
 
+        Z_shark_range = math.sqrt(delta_x**2+delta_y**2) + range_random
+        Z_shark_bearing = math.atan2(delta_y, delta_x) + bearing_random
+
+        return (Z_shark_range, Z_shark_bearing)
+    
+    def track_way_point(self):
+        "calculates the v&w to get to the next point along the trajectory"
+        #K_P and v are stand in values
+        K_P = 1.0  
+        v = 1.0 
+        angle_to_traj_point = atan2(way_point.y - self.y, way_point.x - self.x) 
+        w = K_P * angle_wrap(angle_to_traj_point - self.yaw) #proportional control
+        return v, w
+    
     def main_navigation_loop(self):
         """ 
         Wrapper function for the robot simulator
@@ -178,18 +198,25 @@ class RobotSim:
             v = 1  # m/s
             w = 0.5   # rad/s
             
-            (currAuvX, currAuvY, currAuvTheta) = self.get_auv_state()
+            (curr_auv_x, curr_auv_y, curr_auv_theta) = self.get_auv_state()
             print("==================")
-            print("Testing get_auv_state [x, y, theta]:  [", currAuvX, ", " , currAuvY, ", ", currAuvTheta, "]")
+            print("Testing get_auv_state [x, y, theta]:  [", curr_auv_x, ", " , curr_auv_y, ", ", curr_auv_theta, "]")
             
-            (currSharkX, currSharkY, currSharkTheta) = self.get_shark_state()
-            print("Testing get_shark_state [x, y, theta]:  [", currSharkX, ", " , currSharkY, ", ", currSharkTheta, "]")
+            (curr_shark_x, curr_shark_y, curr_shark_theta) = self.get_shark_state()
+            print("Testing get_shark_state [x, y, theta]:  [", curr_shark_x, ", " , curr_shark_y, ", ", curr_shark_theta, "]")
             print("==================")
 
             # test trackTrajectory
-            trackingPt = self.track_trajectory(self.testing_trajectory)
-            print ("Currently tracking: ", trackingPt)
+            tracking_pt = self.track_trajectory(self.testing_trajectory)
+            print ("Currently tracking: ", tracking_pt)
             print("==================")
+            
+            #v&w to the next point along the trajectory
+            way_pt = self.track_way_point()
+            print ("Currently tracking: ", way_pt)
+            print("==================")
+            
+            (curr_shark_z_range, curr_shark_z_bearing) = self.get_shark_sensor_measurements(curr_shark_x, curr_shark_y, curr_auv_x, curr_auv_y)
 
             # update the auv position
             self.send_trajectory_to_actuators(v, w)
@@ -202,8 +229,19 @@ class RobotSim:
             self.curr_time += 0.1
 
 def main():
-    testRobot = RobotSim(10,10,-10,0.1)
-    testRobot.main_navigation_loop()
+    test_robot = RobotSim(10,10,-10,0.1)
+    test_robot.main_navigation_loop()
 
 if __name__ == "__main__":
     main()
+    
+def angle_wrap(ang):
+    "takes an angle in radians & sets it between the range of -pi to pi"
+    if -math.pi <= ang <= math.pi:
+        return ang
+    elif ang > math.pi: 
+        ang += (-2 * math.pi)
+        return angle_wrap(ang)
+    elif ang < -math.pi: 
+        ang += (2 * math.pi)
+        return angle_wrap(ang)
