@@ -177,6 +177,15 @@ class RobotSim:
 
         return (Z_shark_range, Z_shark_bearing)
     
+    def track_way_point(self):
+        "calculates the v&w to get to the next point along the trajectory"
+        #K_P and v are stand in values
+        K_P = 1.0  
+        v = 1.0 
+        angle_to_traj_point = atan2(way_point.y - self.y, way_point.x - self.x) 
+        w = K_P * angle_wrap(angle_to_traj_point - self.yaw) #proportional control
+        return v, w
+    
     def mainNavigationLoop(self):
         """ 
         Wrapper function for the robot simulator
@@ -202,7 +211,12 @@ class RobotSim:
             trackingPt = self.track_trajectory(self.testing_trajectory)
             print ("Currently tracking: ", trackingPt)
             print("==================")
-
+            
+            #v&w to the next point along the trajectory
+            wayPt = self.track_way_point()
+            print ("Currently tracking: ", wayPt)
+            print("==================")
+            
             (currSharkZRange, currSharkZBearing) = self.get_shark_sensor_measurements(currSharkX, currSharkY, currAuvX, currAuvY)
 
             # update the auv position
@@ -221,3 +235,14 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
+def angle_wrap(ang):
+    "takes an angle in radians & sets it between the range of -pi to pi"
+    if -math.pi <= ang <= math.pi:
+        return ang
+    elif ang > math.pi: 
+        ang += (-2 * math.pi)
+        return angle_wrap(ang)
+    elif ang < -math.pi: 
+        ang += (2 * math.pi)
+        return angle_wrap(ang)
