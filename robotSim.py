@@ -5,21 +5,21 @@ from numpy import arange
 import numpy as np 
 
 class RobotSim:
-    def __init__(self, initX, initY, initZ, initTheta):
+    def __init__(self, init_x, init_y, init_z, init_theta):
         # initialize auv's data
-        self.x = initX
-        self.y = initY
-        self.theta = initTheta
+        self.x = init_x
+        self.y = init_y
+        self.theta = init_theta
 
         # need lists to keep track of all the points if we want to
         #   connect lines between the position points and create trajectories
-        self.xList = [initX]
-        self.yList = [initY]
-        self.zList = [initZ]
+        self.x_list = [init_x]
+        self.y_list = [init_y]
+        self.z_list = [init_z]
 
-        self.sharkXList = []
-        self.sharkYList = []
-        self.sharkZList = []
+        self.shark_x_list = []
+        self.shark_y_list = []
+        self.shark_z_list = []
 
         # initialize the 3d scatter position plot for the auv and shark
         self.fig = plt.figure()
@@ -65,28 +65,28 @@ class RobotSim:
         self.testing_trajectory += [[22, 0, 0, 0]]
         print(self.testing_trajectory)
 
-    def getAuvState(self):
+    def get_auv_state(self):
         """
         Return a tuple representing the orientation
         of the robot
         """
         return (self.x, self.y, self.theta)
 
-    def getSharkState(self):
+    def get_shark_state(self):
         """
         Return a tuple representing the orientation
         of the shark
         """
-        sharkX = 10
-        sharkY = 10
-        sharkZ = -15
-        sharkTheta = 0
+        shark_X = 10
+        shark_Y = 10
+        shark_Z = -15
+        shark_Theta = 0
 
-        self.sharkXList += [sharkX]
-        self.sharkYList += [sharkY]
-        self.sharkZList += [sharkZ]
+        self.shark_x_list += [shark_X]
+        self.shark_y_list += [shark_Y]
+        self.shark_z_list += [shark_Z]
 
-        return (sharkX, sharkY, sharkTheta)
+        return (shark_X, shark_Y, shark_Theta)
 
     def track_trajectory(self, trajectory):
         """
@@ -107,7 +107,7 @@ class RobotSim:
 
         return trajectory[self.curr_traj_pt_index]
         
-    def calculateNewAuvState (self, v, w, delta_t):
+    def calculate_new_auv_state (self, v, w, delta_t):
         """ 
         Calculate new x, y and theta
 
@@ -120,20 +120,20 @@ class RobotSim:
         self.y = self.y + v * math.sin(self.theta)*delta_t
         self.theta = self.theta + w * delta_t
 
-        self.xList += [self.x]
-        self.yList += [self.y]
-        self.zList += [self.zList[0]]
+        self.x_list += [self.x]
+        self.y_list += [self.y]
+        self.z_list += [self.z_list[0]]
 
 
-    def sendTrajectoryToActuators(self, v, w):
+    def send_trajectory_to_actuators(self, v, w):
         # TODO: For now this should just update AUV States?
 
         # dummy value: set time step
         delta_t = 0.1
-        self.calculateNewAuvState(v, w, delta_t)
+        self.calculate_new_auv_state(v, w, delta_t)
         
 
-    def logData(self):
+    def log_data(self):
         """
         Print in the terminal (and possibly write the 
         data in a log file?)
@@ -142,23 +142,23 @@ class RobotSim:
         print("AUV [x postion, y position, theta]:  [", self.x, ", " , self.y, ", ", self.theta, "]")
 
         # get the latest position from the shark postion lists
-        print("Shark [x postion, y position, theta]:  [", self.sharkXList[-1], ", " , self.sharkYList[-1], ", ", self.sharkZList[-1], "]")
+        print("Shark [x postion, y position, theta]:  [", self.shark_x_list[-1], ", " , self.shark_y_list[-1], ", ", self.shark_z_list[-1], "]")
     
-    def plotData(self):
+    def plot_data(self):
         """
         Plot the position of the robot and the shark
         """
         # plot the new auv position as a red "o"
         self.ax.scatter(self.x, self.y, -10, marker = "o", color='red')
         # draw the lines between the points
-        self.ax.plot(self.xList, self.yList, self.zList, color='red')
+        self.ax.plot(self.x_list, self.y_list, self.z_list, color='red')
       
      
         # plot the new shark position as a blue "o"
         # get the latest position from the shark postion lists
-        self.ax.scatter(self.sharkXList[-1], self.sharkYList[-1], self.sharkZList[-1], marker = "x", color="blue")
+        self.ax.scatter(self.shark_x_list[-1], self.shark_y_list[-1], self.shark_z_list[-1], marker = "x", color="blue")
         # draw the lines between the points
-        self.ax.plot(self.sharkXList, self.sharkYList, self.sharkZList, color='red')
+        self.ax.plot(self.shark_x_list, self.shark_y_list, self.shark_z_list, color='red')
 
         plt.draw()
 
@@ -166,14 +166,13 @@ class RobotSim:
         plt.pause(1)
 
     def get_shark_sensor_measurements(self, currSharkX, currSharkY, currAuvX, currAuvY):
-
         delta_x = currSharkX - currAuvX
         delta_y = currSharkY - currAuvY
-        rangeRandom = np.random.normal(0,5)#Gaussian noise with 0 mean and standard deviation 5
-        bearingRandom = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
+        range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
+        bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
 
-        Z_shark_range = math.sqrt(delta_x**2+delta_y**2) + rangeRandom
-        Z_shark_bearing = math.atan2(delta_y, delta_x) + bearingRandom
+        Z_shark_range = math.sqrt(delta_x**2+delta_y**2) + range_random
+        Z_shark_bearing = math.atan2(delta_y, delta_x) + bearing_random
 
         return (Z_shark_range, Z_shark_bearing)
     
@@ -186,7 +185,7 @@ class RobotSim:
         w = K_P * angle_wrap(angle_to_traj_point - self.yaw) #proportional control
         return v, w
     
-    def mainNavigationLoop(self):
+    def main_navigation_loop(self):
         """ 
         Wrapper function for the robot simulator
         The loop follows this process:
@@ -199,39 +198,39 @@ class RobotSim:
             v = 1  # m/s
             w = 0.5   # rad/s
             
-            (currAuvX, currAuvY, currAuvTheta) = self.getAuvState()
+            (curr_auv_x, curr_auv_y, curr_auv_theta) = self.get_auv_state()
             print("==================")
-            print("Testing getAuvState [x, y, theta]:  [", currAuvX, ", " , currAuvY, ", ", currAuvTheta, "]")
+            print("Testing get_auv_state [x, y, theta]:  [", curr_auv_x, ", " , curr_auv_y, ", ", curr_auv_theta, "]")
             
-            (currSharkX, currSharkY, currSharkTheta) = self.getSharkState()
-            print("Testing getSharkState [x, y, theta]:  [", currSharkX, ", " , currSharkY, ", ", currSharkTheta, "]")
+            (curr_shark_x, curr_shark_y, curr_shark_theta) = self.get_shark_state()
+            print("Testing get_shark_state [x, y, theta]:  [", curr_shark_x, ", " , curr_shark_y, ", ", curr_shark_theta, "]")
             print("==================")
 
             # test trackTrajectory
-            trackingPt = self.track_trajectory(self.testing_trajectory)
-            print ("Currently tracking: ", trackingPt)
+            tracking_pt = self.track_trajectory(self.testing_trajectory)
+            print ("Currently tracking: ", tracking_pt)
             print("==================")
             
             #v&w to the next point along the trajectory
-            wayPt = self.track_way_point()
-            print ("Currently tracking: ", wayPt)
+            way_pt = self.track_way_point()
+            print ("Currently tracking: ", way_pt)
             print("==================")
             
-            (currSharkZRange, currSharkZBearing) = self.get_shark_sensor_measurements(currSharkX, currSharkY, currAuvX, currAuvY)
+            (curr_shark_z_range, curr_shark_z_bearing) = self.get_shark_sensor_measurements(curr_shark_x, curr_shark_y, curr_auv_x, curr_auv_y)
 
             # update the auv position
-            self.sendTrajectoryToActuators(v, w)
+            self.send_trajectory_to_actuators(v, w)
             
-            self.logData()
+            self.log_data()
 
-            self.plotData()
+            self.plot_data()
 
             # increment the current time by 0.1 second
             self.curr_time += 0.1
 
 def main():
-    testRobot = RobotSim(10,10,-10,0.1)
-    testRobot.mainNavigationLoop()
+    test_robot = RobotSim(10,10,-10,0.1)
+    test_robot.main_navigation_loop()
 
 if __name__ == "__main__":
     main()
