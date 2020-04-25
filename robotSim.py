@@ -132,7 +132,7 @@ class RobotSim:
             t = t + delta_t
             x = x
             y = y + v*delta_t 
-            theta = 3*(math.pi)/2
+            theta = -(math.pi)/2
 
             traj_list.insert(len(traj_list), [t,x,y,theta]) 
         return traj_list
