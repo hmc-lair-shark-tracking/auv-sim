@@ -10,12 +10,12 @@ noise = np.random.normal(0,1,100)
 # 1 is the standard deviation of the normal distribution
 # 100 is the number of elements you get in array noise
 class ObjectState:
-    def __init__(self, x, y, theta):
+    def __init__(self, x, y, theta, time_stamp):
         # initialize auv's data
         self.x = x
         self.y = y
         self.theta = theta
-        self.time_stamp = 0 
+        self.time_stamp = time_stamp 
 
     def get_auv_sensor_measurements(self):
         Z_auv = ObjectState(self.x, self.y, self.theta)

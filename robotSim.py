@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from numpy import arange
 import numpy as np 
+from ObjectState import ObjectState
 
 class RobotSim:
     def __init__(self, init_x, init_y, init_z, init_theta):
@@ -42,28 +43,36 @@ class RobotSim:
         # the robot only moves in positive x direction
         # (moves to the right)
         for x in arange(0.5, 5.5, 0.5):
-            self.testing_trajectory += [[x, x, 0, 0] ]
+            # self.testing_trajectory += [[x, x, 0, 0] ]
+            self.testing_trajectory += [ ObjectState(x, 0, 0, x) ]
         # turn the robot, so it heads north
-        self.testing_trajectory += [[5.5, 5, 0, math.pi/2.0]]
+        # self.testing_trajectory += [[5.5, 5, 0, math.pi/2.0]]
+        self.testing_trajectory += [ ObjectState(5, 0, math.pi/2.0, 5.5)]
         # the robot only moves in the positive y direction
         # (moves up)
         for y in arange(0.5, 5.5, 0.5):
-            self.testing_trajectory += [[5.5+y, 5, y, math.pi/2.0]]
+            # self.testing_trajectory += [[5.5+y, 5, y, math.pi/2.0]]
+            self.testing_trajectory += [ ObjectState(5, y, math.pi/2.0, 5.5+y)]
         # turn the robot, so it heads west
-        self.testing_trajectory += [[11, 5, 5, math.pi]]
+        # self.testing_trajectory += [[11, 5, 5, math.pi]]
+        self.testing_trajectory += [ ObjectState(5, 5, math.pi, 11) ]
         # the robot only moves in the negative x direction
         # (moves to the left)
         for x in arange(0.5, 5.5, 0.5):
-            self.testing_trajectory += [[11+x, 5-x, 5, math.pi]]
+            # self.testing_trajectory += [[11+x, 5-x, 5, math.pi]]
+            self.testing_trajectory += [ ObjectState(5-x, 5, math.pi, 11+x) ]
         # turn the robot, so it heads south
-        self.testing_trajectory += [[16.5, 0, 5, 3.0*math.pi/2.0]]
+        # self.testing_trajectory += [[16.5, 0, 5, 3.0*math.pi/2.0]]
+        self.testing_trajectory += [ ObjectState(0, 5, 3.0*math.pi/2.0, 16.5) ]
         # the robot only moves in the negative y direction
         # (moves down)
         for y in arange(0.5, 5.5, 0.5):
-            self.testing_trajectory += [[16.5+y, 5-y, 5, 3.0*math.pi/2.0]]
+            # self.testing_trajectory += [[16.5+y, 5-y, 5, 3.0*math.pi/2.0]]
+            self.testing_trajectory += [ ObjectState(5-y, 5, 3.0*math.pi/2.0, 16.5+y) ]
         # turn the robot, so it heads south
-        self.testing_trajectory += [[22, 0, 0, 0]]
-        print(self.testing_trajectory)
+        # self.testing_trajectory += [[22, 0, 0, 0]]
+        self.testing_trajectory += [ ObjectState(0, 0, 0, 22) ]
+
 
     def get_auv_state(self):
         """
@@ -71,6 +80,7 @@ class RobotSim:
         of the robot
         """
         return (self.x, self.y, self.theta)
+
 
     def get_shark_state(self):
         """
@@ -88,25 +98,66 @@ class RobotSim:
 
         return (shark_X, shark_Y, shark_Theta)
 
+
+    def get_auv_trajectory(self, v, delta_t):
+        traj_list = []
+        t = 0
+        x = 10
+        y = 10
+        for i in range(20):
+            t = t + delta_t
+            x = x + v*delta_t
+            y = y
+            theta = 0
+
+            traj_list.insert(len(traj_list), [t,x,y,theta])
+
+        for i in range(20):
+            t = t + delta_t
+            x = x
+            y = y + v*delta_t
+            theta = math.pi/2
+
+            traj_list.insert(len(traj_list), [t,x,y,theta])     
+    
+        for i in range(20):
+            t = t + delta_t
+            x = x+ v*delta_t
+            y = y 
+            theta = math.pi
+
+            traj_list.insert(len(traj_list), [t,x,y,theta]) 
+
+        for i in range(20):
+            t = t + delta_t
+            x = x
+            y = y + v*delta_t 
+            theta = 3*(math.pi)/2
+
+            traj_list.insert(len(traj_list), [t,x,y,theta]) 
+        return traj_list
+
+
     def track_trajectory(self, trajectory):
         """
-        Return a list representing the trajectory point 0.5 sec ahead
+        Return an ObjectState object representing the trajectory point 0.5 sec ahead
         of current time
 
         Parameter: 
             trajectory - a list of trajectory points, where each element is 
-            a list that consist of timeStamp x, y, theta
+            a ObjectState object that consist of timeStamp x, y, theta
         """
         # determine how ahead should the trajectory point be compared to current time
         look_ahead_time = 0.5
        
-        while (self.curr_time + look_ahead_time) > trajectory[self.curr_traj_pt_index][0]:
+        while (self.curr_time + look_ahead_time) > trajectory[self.curr_traj_pt_index].time_stamp:
             # only increment the index if it hasn't reached the end of the trajectory list
             if self.curr_traj_pt_index < len(trajectory):
                 self.curr_traj_pt_index += 1
 
         return trajectory[self.curr_traj_pt_index]
-        
+
+
     def calculate_new_auv_state (self, v, w, delta_t):
         """ 
         Calculate new x, y and theta
@@ -143,7 +194,8 @@ class RobotSim:
 
         # get the latest position from the shark postion lists
         print("Shark [x postion, y position, theta]:  [", self.shark_x_list[-1], ", " , self.shark_y_list[-1], ", ", self.shark_z_list[-1], "]")
-    
+
+
     def plot_data(self):
         """
         Plot the position of the robot and the shark
@@ -165,26 +217,31 @@ class RobotSim:
         # pause so the plot can be updated
         plt.pause(1)
 
+
     def get_shark_sensor_measurements(self, currSharkX, currSharkY, currAuvX, currAuvY):
         delta_x = currSharkX - currAuvX
         delta_y = currSharkY - currAuvY
         range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
         bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
 
-        Z_shark_range = math.sqrt(delta_x**2+delta_y**2) + range_random
+        Z_shark_range = math.sqrt(delta_x**2 + delta_y**2) + range_random
         Z_shark_bearing = math.atan2(delta_y, delta_x) + bearing_random
 
         return (Z_shark_range, Z_shark_bearing)
-    
-    def track_way_point(self):
+
+
+    def track_way_point(self, way_point):
         "calculates the v&w to get to the next point along the trajectory"
-        #K_P and v are stand in values
+        # K_P and v are stand in values
         K_P = 1.0  
-        v = 1.0 
-        angle_to_traj_point = atan2(way_point.y - self.y, way_point.x - self.x) 
-        w = K_P * angle_wrap(angle_to_traj_point - self.yaw) #proportional control
+        v = 1.0
+        # TODO: way_point is not defined? way_point should be passed in as a parameter? 
+        # angle_to_traj_point = math.atan2(way_point.y - self.y, way_point.x - self.x) 
+        # w = K_P * angle_wrap(angle_to_traj_point - self.yaw) #proportional control
+        w = 0.1
         return v, w
     
+
     def main_navigation_loop(self):
         """ 
         Wrapper function for the robot simulator
@@ -208,15 +265,17 @@ class RobotSim:
 
             # test trackTrajectory
             tracking_pt = self.track_trajectory(self.testing_trajectory)
-            print ("Currently tracking: ", tracking_pt)
+            print ("Currently tracking time_step: ", tracking_pt.time_stamp, " x: ", tracking_pt.x, " y: ", tracking_pt.y, " theta: ", tracking_pt.theta)
             print("==================")
             
-            #v&w to the next point along the trajectory
-            way_pt = self.track_way_point()
-            print ("Currently tracking: ", way_pt)
+            #v & w to the next point along the trajectory
+            (v, w) = self.track_way_point(tracking_pt)
+            print ("v and w: ", v, " ,", w)
             print("==================")
             
             (curr_shark_z_range, curr_shark_z_bearing) = self.get_shark_sensor_measurements(curr_shark_x, curr_shark_y, curr_auv_x, curr_auv_y)
+            print("Shark Sensosr Measurement - range: ", curr_shark_z_range, " - bearing: ", curr_shark_z_bearing)
+            print("==================")
 
             # update the auv position
             self.send_trajectory_to_actuators(v, w)
@@ -228,12 +287,15 @@ class RobotSim:
             # increment the current time by 0.1 second
             self.curr_time += 0.1
 
+
 def main():
     test_robot = RobotSim(10,10,-10,0.1)
     test_robot.main_navigation_loop()
 
+
 if __name__ == "__main__":
     main()
+  
     
 def angle_wrap(ang):
     "takes an angle in radians & sets it between the range of -pi to pi"
