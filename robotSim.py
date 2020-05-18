@@ -2,6 +2,8 @@ import math
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
+# for introducing random guassian noise 
+import random
 
 # import ObjectState class from ObjectState.py
 from ObjectState import ObjectState
@@ -104,18 +106,15 @@ class RobotSim:
         """
         Return an ObjectState object that represents the measurements
             of the auv's x,y,z,theta position with a time stamp
+        The measurement has random gaussian noise
         """
         # 0 is the mean of the normal distribution you are choosing from
         # 1 is the standard deviation of the normal distribution
-        # 100 is the number of elements you get in array noise
-        noise = np.random.normal(0,1,100)
+        # np.random.normal returns a single sample drawn from the parameterized normal distribution
+        # we actually omitted the third parameter which determines the number of samples that we would like to draw
+        Z_auv = ObjectState(self.x + np.random.normal(0,1), self.y + np.random.normal(0,1), self.z + np.random.normal(0,1),\
+            self.theta + np.random.normal(0,1), self.curr_time)
 
-        Z_auv = ObjectState()
-        Z_auv.x = self.x + noise
-        Z_auv.y = self.y + noise
-        Z_auv.z = self.z + noise
-        Z_auv.theta = self.theta + noise
-        Z_auv.timeStamp = self.curr_time
         return Z_auv
 
 
@@ -275,34 +274,35 @@ class RobotSim:
             v = 1  # m/s
             w = 0.5   # rad/s
             
-            (curr_auv_x, curr_auv_y, curr_auv_theta) = self.get_auv_state()
+            curr_auv_sensor_measurement = self.get_auv_sensor_measurements()
             print("==================")
-            print("Testing get_auv_state [x, y, theta]:  [", curr_auv_x, ", " , curr_auv_y, ", ", curr_auv_theta, "]")
+            print("Curr Auv Sensor Measurements [x, y, z, theta, time]: " +\
+                str(curr_auv_sensor_measurement))
             
-            (curr_shark_x, curr_shark_y, curr_shark_theta) = self.get_shark_state()
-            print("Testing get_shark_state [x, y, theta]:  [", curr_shark_x, ", " , curr_shark_y, ", ", curr_shark_theta, "]")
-            print("==================")
+            # (curr_shark_x, curr_shark_y, curr_shark_theta) = self.get_shark_state()
+            # print("Testing get_shark_state [x, y, theta]:  [", curr_shark_x, ", " , curr_shark_y, ", ", curr_shark_theta, "]")
+            # print("==================")
 
-            # test trackTrajectory
-            tracking_pt = self.track_trajectory(self.testing_trajectory)
-            print ("Currently tracking time_step: ", tracking_pt.time_stamp, " x: ", tracking_pt.x, " y: ", tracking_pt.y, " theta: ", tracking_pt.theta)
-            print("==================")
+            # # test trackTrajectory
+            # tracking_pt = self.track_trajectory(self.testing_trajectory)
+            # print ("Currently tracking time_step: ", tracking_pt.time_stamp, " x: ", tracking_pt.x, " y: ", tracking_pt.y, " theta: ", tracking_pt.theta)
+            # print("==================")
             
-            #v & w to the next point along the trajectory
-            (v, w) = self.track_way_point(tracking_pt)
-            print ("v and w: ", v, " ,", w)
-            print("==================")
+            # #v & w to the next point along the trajectory
+            # (v, w) = self.track_way_point(tracking_pt)
+            # print ("v and w: ", v, " ,", w)
+            # print("==================")
             
-            (curr_shark_z_range, curr_shark_z_bearing) = self.get_shark_sensor_measurements(curr_shark_x, curr_shark_y, curr_auv_x, curr_auv_y)
-            print("Shark Sensosr Measurement - range: ", curr_shark_z_range, " - bearing: ", curr_shark_z_bearing)
-            print("==================")
+            # (curr_shark_z_range, curr_shark_z_bearing) = self.get_shark_sensor_measurements(curr_shark_x, curr_shark_y, curr_auv_x, curr_auv_y)
+            # print("Shark Sensosr Measurement - range: ", curr_shark_z_range, " - bearing: ", curr_shark_z_bearing)
+            # print("==================")
 
             # update the auv position
             self.send_trajectory_to_actuators(v, w)
             
-            self.log_data()
+            # self.log_data()
 
-            self.plot_data()
+            # self.plot_data()
 
             # increment the current time by 0.1 second
             self.curr_time += 0.1
