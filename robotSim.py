@@ -1,8 +1,9 @@
 import math
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from numpy import arange
-import numpy as np 
+import numpy as np
+
+# import ObjectState class from ObjectState.py
 from ObjectState import ObjectState
 
 class RobotSim:
@@ -10,6 +11,7 @@ class RobotSim:
         # initialize auv's data
         self.x = init_x
         self.y = init_y
+        self.z = init_z
         self.theta = init_theta
 
         # need lists to keep track of all the points if we want to
@@ -42,36 +44,36 @@ class RobotSim:
 
         # the robot only moves in positive x direction
         # (moves to the right)
-        for x in arange(0.5, 5.5, 0.5):
+        for x in np.arange(0.5, 5.5, 0.5):
             # self.testing_trajectory += [[x, x, 0, 0] ]
-            self.testing_trajectory += [ ObjectState(x, 0, 0, x) ]
+            self.testing_trajectory += [ ObjectState(x, 0, init_z, 0, x) ]
         # turn the robot, so it heads north
         # self.testing_trajectory += [[5.5, 5, 0, math.pi/2.0]]
-        self.testing_trajectory += [ ObjectState(5, 0, math.pi/2.0, 5.5)]
+        self.testing_trajectory += [ ObjectState(5, 0, init_z, math.pi/2.0, 5.5)]
         # the robot only moves in the positive y direction
         # (moves up)
-        for y in arange(0.5, 5.5, 0.5):
+        for y in np.arange(0.5, 5.5, 0.5):
             # self.testing_trajectory += [[5.5+y, 5, y, math.pi/2.0]]
-            self.testing_trajectory += [ ObjectState(5, y, math.pi/2.0, 5.5+y)]
+            self.testing_trajectory += [ ObjectState(5, y, init_z, math.pi/2.0, 5.5+y)]
         # turn the robot, so it heads west
         # self.testing_trajectory += [[11, 5, 5, math.pi]]
-        self.testing_trajectory += [ ObjectState(5, 5, math.pi, 11) ]
+        self.testing_trajectory += [ ObjectState(5, 5, init_z, math.pi, 11) ]
         # the robot only moves in the negative x direction
         # (moves to the left)
-        for x in arange(0.5, 5.5, 0.5):
+        for x in np.arange(0.5, 5.5, 0.5):
             # self.testing_trajectory += [[11+x, 5-x, 5, math.pi]]
-            self.testing_trajectory += [ ObjectState(5-x, 5, math.pi, 11+x) ]
+            self.testing_trajectory += [ ObjectState(5-x, 5, init_z, math.pi, 11+x) ]
         # turn the robot, so it heads south
         # self.testing_trajectory += [[16.5, 0, 5, 3.0*math.pi/2.0]]
-        self.testing_trajectory += [ ObjectState(0, 5, 3.0*math.pi/2.0, 16.5) ]
+        self.testing_trajectory += [ ObjectState(0, 5, init_z, 3.0*math.pi/2.0, 16.5) ]
         # the robot only moves in the negative y direction
         # (moves down)
-        for y in arange(0.5, 5.5, 0.5):
+        for y in np.arange(0.5, 5.5, 0.5):
             # self.testing_trajectory += [[16.5+y, 5-y, 5, 3.0*math.pi/2.0]]
-            self.testing_trajectory += [ ObjectState(5-y, 5, 3.0*math.pi/2.0, 16.5+y) ]
+            self.testing_trajectory += [ ObjectState(5-y, 5, init_z, 3.0*math.pi/2.0, 16.5+y) ]
         # turn the robot, so it heads south
         # self.testing_trajectory += [[22, 0, 0, 0]]
-        self.testing_trajectory += [ ObjectState(0, 0, 0, 22) ]
+        self.testing_trajectory += [ ObjectState(0, 0, init_z,0, 22) ]
 
 
     def get_auv_state(self):
@@ -97,6 +99,24 @@ class RobotSim:
         self.shark_z_list += [shark_Z]
 
         return (shark_X, shark_Y, shark_Theta)
+
+    def get_auv_sensor_measurements(self):
+        """
+        Return an ObjectState object that represents the measurements
+            of the auv's x,y,z,theta position with a time stamp
+        """
+        # 0 is the mean of the normal distribution you are choosing from
+        # 1 is the standard deviation of the normal distribution
+        # 100 is the number of elements you get in array noise
+        noise = np.random.normal(0,1,100)
+
+        Z_auv = ObjectState()
+        Z_auv.x = self.x + noise
+        Z_auv.y = self.y + noise
+        Z_auv.z = self.z + noise
+        Z_auv.theta = self.theta + noise
+        Z_auv.timeStamp = self.curr_time
+        return Z_auv
 
 
     def get_auv_trajectory(self, v, delta_t):
