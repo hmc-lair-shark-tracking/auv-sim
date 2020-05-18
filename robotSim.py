@@ -2,11 +2,23 @@ import math
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-# for introducing random guassian noise 
-import random
 
-# import ObjectState class from ObjectState.py
-from ObjectState import ObjectState
+# import two data representation class
+from objectState import ObjectState
+from sharkState import SharkState
+
+def angle_wrap(ang):
+    "takes an angle in radians & sets it between the range of -pi to pi"
+    if -math.pi <= ang <= math.pi:
+        return ang
+    elif ang > math.pi: 
+        ang += (-2 * math.pi)
+        return angle_wrap(ang)
+    elif ang < -math.pi: 
+        ang += (2 * math.pi)
+        return angle_wrap(ang)
+
+
 
 class RobotSim:
     def __init__(self, init_x, init_y, init_z, init_theta):
@@ -38,44 +50,9 @@ class RobotSim:
         # keep track of
         self.curr_traj_pt_index = 0
 
-        # assume v = 1 m/s
-        # the testing trajectory will travel in a square path that has
-        # side length 1 meters. 
-        # the robot will start at time_stamp = 0, x = 0, y = 0, theta = 0
-        self.testing_trajectory = []
-
-        # the robot only moves in positive x direction
-        # (moves to the right)
-        for x in np.arange(0.5, 5.5, 0.5):
-            # self.testing_trajectory += [[x, x, 0, 0] ]
-            self.testing_trajectory += [ ObjectState(x, 0, init_z, 0, x) ]
-        # turn the robot, so it heads north
-        # self.testing_trajectory += [[5.5, 5, 0, math.pi/2.0]]
-        self.testing_trajectory += [ ObjectState(5, 0, init_z, math.pi/2.0, 5.5)]
-        # the robot only moves in the positive y direction
-        # (moves up)
-        for y in np.arange(0.5, 5.5, 0.5):
-            # self.testing_trajectory += [[5.5+y, 5, y, math.pi/2.0]]
-            self.testing_trajectory += [ ObjectState(5, y, init_z, math.pi/2.0, 5.5+y)]
-        # turn the robot, so it heads west
-        # self.testing_trajectory += [[11, 5, 5, math.pi]]
-        self.testing_trajectory += [ ObjectState(5, 5, init_z, math.pi, 11) ]
-        # the robot only moves in the negative x direction
-        # (moves to the left)
-        for x in np.arange(0.5, 5.5, 0.5):
-            # self.testing_trajectory += [[11+x, 5-x, 5, math.pi]]
-            self.testing_trajectory += [ ObjectState(5-x, 5, init_z, math.pi, 11+x) ]
-        # turn the robot, so it heads south
-        # self.testing_trajectory += [[16.5, 0, 5, 3.0*math.pi/2.0]]
-        self.testing_trajectory += [ ObjectState(0, 5, init_z, 3.0*math.pi/2.0, 16.5) ]
-        # the robot only moves in the negative y direction
-        # (moves down)
-        for y in np.arange(0.5, 5.5, 0.5):
-            # self.testing_trajectory += [[16.5+y, 5-y, 5, 3.0*math.pi/2.0]]
-            self.testing_trajectory += [ ObjectState(5-y, 5, init_z, 3.0*math.pi/2.0, 16.5+y) ]
-        # turn the robot, so it heads south
-        # self.testing_trajectory += [[22, 0, 0, 0]]
-        self.testing_trajectory += [ ObjectState(0, 0, init_z,0, 22) ]
+        # create a square trajectory (list of objectState)
+        # with parameter: v = 1.0 m/s and delta_t = 0.5 sec
+        self.testing_trajectory = self.get_auv_trajectory(1, 0.5)
 
 
     def get_auv_state(self):
@@ -102,6 +79,7 @@ class RobotSim:
 
         return (shark_X, shark_Y, shark_Theta)
 
+
     def get_auv_sensor_measurements(self):
         """
         Return an ObjectState object that represents the measurements
@@ -110,51 +88,24 @@ class RobotSim:
         """
         # 0 is the mean of the normal distribution you are choosing from
         # 1 is the standard deviation of the normal distribution
+
         # np.random.normal returns a single sample drawn from the parameterized normal distribution
         # we actually omitted the third parameter which determines the number of samples that we would like to draw
-        Z_auv = ObjectState(self.x + np.random.normal(0,1), self.y + np.random.normal(0,1), self.z + np.random.normal(0,1),\
-            self.theta + np.random.normal(0,1), self.curr_time)
 
-        return Z_auv
+        return ObjectState(self.x + np.random.normal(0,1), self.y + np.random.normal(0,1), self.z + np.random.normal(0,1),\
+            angle_wrap(self.theta + np.random.normal(0,1)), self.curr_time)
 
 
-    def get_auv_trajectory(self, v, delta_t):
-        traj_list = []
-        t = 0
-        x = 10
-        y = 10
-        for i in range(20):
-            t = t + delta_t
-            x = x + v*delta_t
-            y = y
-            theta = 0
+    def get_shark_sensor_measurements(self, currSharkX, currSharkY, currAuvX, currAuvY):
+        delta_x = currSharkX - currAuvX
+        delta_y = currSharkY - currAuvY
+        range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
+        bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
 
-            traj_list.insert(len(traj_list), [t,x,y,theta])
+        Z_shark_range = math.sqrt(delta_x**2 + delta_y**2) + range_random
+        Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) + bearing_random)
 
-        for i in range(20):
-            t = t + delta_t
-            x = x
-            y = y + v*delta_t
-            theta = math.pi/2
-
-            traj_list.insert(len(traj_list), [t,x,y,theta])     
-    
-        for i in range(20):
-            t = t + delta_t
-            x = x+ v*delta_t
-            y = y 
-            theta = math.pi
-
-            traj_list.insert(len(traj_list), [t,x,y,theta]) 
-
-        for i in range(20):
-            t = t + delta_t
-            x = x
-            y = y + v*delta_t 
-            theta = -(math.pi)/2
-
-            traj_list.insert(len(traj_list), [t,x,y,theta]) 
-        return traj_list
+        return SharkState(Z_shark_range, Z_shark_bearing)
 
 
     def track_trajectory(self, trajectory):
@@ -168,10 +119,10 @@ class RobotSim:
         """
         # determine how ahead should the trajectory point be compared to current time
         look_ahead_time = 0.5
-       
-        while (self.curr_time + look_ahead_time) > trajectory[self.curr_traj_pt_index].time_stamp:
-            # only increment the index if it hasn't reached the end of the trajectory list
-            if self.curr_traj_pt_index < len(trajectory):
+
+        # only increment the index if it hasn't reached the end of the trajectory list
+        while (self.curr_traj_pt_index < len(trajectory)-1) and\
+            (self.curr_time + look_ahead_time) > trajectory[self.curr_traj_pt_index].time_stamp: 
                 self.curr_traj_pt_index += 1
 
         return trajectory[self.curr_traj_pt_index]
@@ -182,23 +133,23 @@ class RobotSim:
         Calculate new x, y and theta
 
         Parameters: 
-            v - linear velocity of the robot
-            w - angular veloctiy of the robot
-            delta_t - time step
+            v - linear velocity of the robot (m/s)
+            w - angular veloctiy of the robot (rad/s)
+            delta_t - time step (sec)
         """
         self.x = self.x + v * math.cos(self.theta)*delta_t
         self.y = self.y + v * math.sin(self.theta)*delta_t
-        self.theta = self.theta + w * delta_t
+        self.theta = angle_wrap(self.theta + w * delta_t)
 
         self.x_list += [self.x]
         self.y_list += [self.y]
-        self.z_list += [self.z_list[0]]
+        self.z_list += [self.z]
 
 
     def send_trajectory_to_actuators(self, v, w):
         # TODO: For now this should just update AUV States?
 
-        # dummy value: set time step
+        # set time step to 0.1 sec 
         delta_t = 0.1
         self.calculate_new_auv_state(v, w, delta_t)
         
@@ -209,10 +160,10 @@ class RobotSim:
         data in a log file?)
         """
 
-        print("AUV [x postion, y position, theta]:  [", self.x, ", " , self.y, ", ", self.theta, "]")
+        print("AUV [x, y, z, theta]:  [", self.x, ", " , self.y, ", ", self.z, ", ", self.theta, "]")
 
         # get the latest position from the shark postion lists
-        print("Shark [x postion, y position, theta]:  [", self.shark_x_list[-1], ", " , self.shark_y_list[-1], ", ", self.shark_z_list[-1], "]")
+        print("Shark [x, y, theta]:  [", self.shark_x_list[-1], ", " , self.shark_y_list[-1], ", ", self.shark_z_list[-1], "]")
 
 
     def plot_data(self):
@@ -223,7 +174,6 @@ class RobotSim:
         self.ax.scatter(self.x, self.y, -10, marker = "o", color='red')
         # draw the lines between the points
         self.ax.plot(self.x_list, self.y_list, self.z_list, color='red')
-      
      
         # plot the new shark position as a blue "o"
         # get the latest position from the shark postion lists
@@ -234,19 +184,7 @@ class RobotSim:
         plt.draw()
 
         # pause so the plot can be updated
-        plt.pause(1)
-
-
-    def get_shark_sensor_measurements(self, currSharkX, currSharkY, currAuvX, currAuvY):
-        delta_x = currSharkX - currAuvX
-        delta_y = currSharkY - currAuvY
-        range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
-        bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
-
-        Z_shark_range = math.sqrt(delta_x**2 + delta_y**2) + range_random
-        Z_shark_bearing = math.atan2(delta_y, delta_x) + bearing_random
-
-        return (Z_shark_range, Z_shark_bearing)
+        plt.pause(0.5)
 
 
     def track_way_point(self, way_point):
@@ -254,12 +192,54 @@ class RobotSim:
         # K_P and v are stand in values
         K_P = 1.0  
         v = 1.0
-        # TODO: way_point is not defined? way_point should be passed in as a parameter? 
-        # angle_to_traj_point = math.atan2(way_point.y - self.y, way_point.x - self.x) 
-        # w = K_P * angle_wrap(angle_to_traj_point - self.yaw) #proportional control
-        w = 0.1
+       
+        angle_to_traj_point = math.atan2(way_point.y - self.y, way_point.x - self.x) 
+        w = K_P * angle_wrap(angle_to_traj_point - self.theta) #proportional control
+        
         return v, w
     
+
+    def get_auv_trajectory(self, v, delta_t):
+        traj_list = []
+        t = 0
+        x = 10
+        y = 10
+        z = -10
+
+        for i in range(5):
+            x = x + v * delta_t
+            y = y
+            theta = 0
+            t = t + delta_t
+
+            traj_list.append(ObjectState(x,y,z,theta,t))
+
+        for i in range(5):
+            x = x
+            y = y + v * delta_t
+            theta = math.pi/2
+            t = t + delta_t
+
+            traj_list.append(ObjectState(x,y,z,theta,t))
+    
+        for i in range(5):
+            x = x - v * delta_t
+            y = y 
+            theta = math.pi
+            t = t + delta_t
+
+            traj_list.append(ObjectState(x,y,z,theta,t))
+
+        for i in range(5):
+            x = x
+            y = y - v * delta_t 
+            theta = -(math.pi)/2
+            t = t + delta_t
+
+            traj_list.append(ObjectState(x,y,z,theta,t))
+
+        return traj_list
+
 
     def main_navigation_loop(self):
         """ 
@@ -270,39 +250,40 @@ class RobotSim:
         """
         
         while True:
-            # dummy values for linear and angular velocity
-            v = 1  # m/s
-            w = 0.5   # rad/s
             
-            curr_auv_sensor_measurement = self.get_auv_sensor_measurements()
+            auv_sensor_data = self.get_auv_sensor_measurements()
             print("==================")
             print("Curr Auv Sensor Measurements [x, y, z, theta, time]: " +\
-                str(curr_auv_sensor_measurement))
+                str(auv_sensor_data))
             
-            # (curr_shark_x, curr_shark_y, curr_shark_theta) = self.get_shark_state()
-            # print("Testing get_shark_state [x, y, theta]:  [", curr_shark_x, ", " , curr_shark_y, ", ", curr_shark_theta, "]")
-            # print("==================")
+            (curr_shark_x, curr_shark_y, curr_shark_theta) = self.get_shark_state()
+            print("==================")
+            print("Testing get_shark_state [x, y, theta]:  [", curr_shark_x, ", " , curr_shark_y, ", ", curr_shark_theta, "]")
 
-            # # test trackTrajectory
-            # tracking_pt = self.track_trajectory(self.testing_trajectory)
-            # print ("Currently tracking time_step: ", tracking_pt.time_stamp, " x: ", tracking_pt.x, " y: ", tracking_pt.y, " theta: ", tracking_pt.theta)
-            # print("==================")
+            curr_shark_sensor_measurements = self.get_shark_sensor_measurements(curr_shark_x, curr_shark_y,\
+                auv_sensor_data.x, auv_sensor_data.y)
+            print("==================")
+            print("Curr Shark Sensor Measurements [range, bearing]: " +\
+                str(curr_shark_sensor_measurements))
+
+            # test trackTrajectory
+            tracking_pt = self.track_trajectory(self.testing_trajectory)
+            print("==================")
+            print ("Currently tracking point: " + str(tracking_pt))
             
-            # #v & w to the next point along the trajectory
-            # (v, w) = self.track_way_point(tracking_pt)
-            # print ("v and w: ", v, " ,", w)
-            # print("==================")
-            
-            # (curr_shark_z_range, curr_shark_z_bearing) = self.get_shark_sensor_measurements(curr_shark_x, curr_shark_y, curr_auv_x, curr_auv_y)
-            # print("Shark Sensosr Measurement - range: ", curr_shark_z_range, " - bearing: ", curr_shark_z_bearing)
-            # print("==================")
+            #v & w to the next point along the trajectory
+            print("==================")
+            (v, w) = self.track_way_point(tracking_pt)
+            print ("v and w: ", v, ", ", w)
+            print("====================================")
+            print("====================================")
 
             # update the auv position
             self.send_trajectory_to_actuators(v, w)
             
             # self.log_data()
 
-            # self.plot_data()
+            self.plot_data()
 
             # increment the current time by 0.1 second
             self.curr_time += 0.1
@@ -316,14 +297,4 @@ def main():
 if __name__ == "__main__":
     main()
   
-    
-def angle_wrap(ang):
-    "takes an angle in radians & sets it between the range of -pi to pi"
-    if -math.pi <= ang <= math.pi:
-        return ang
-    elif ang > math.pi: 
-        ang += (-2 * math.pi)
-        return angle_wrap(ang)
-    elif ang < -math.pi: 
-        ang += (2 * math.pi)
-        return angle_wrap(ang)
+
