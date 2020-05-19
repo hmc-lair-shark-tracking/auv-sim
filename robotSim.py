@@ -2,13 +2,21 @@ import math
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-
-# import two data representation class
+# import pandas as pd
+import csv
+# import 3 data representation class
 from objectState import ObjectState
 from sharkState import SharkState
+from sharkTrajectory import SharkTrajectory
+
 
 def angle_wrap(ang):
-    "takes an angle in radians & sets it between the range of -pi to pi"
+    """
+    Takes an angle in radians & sets it between the range of -pi to pi
+
+    Parameter:
+        ang - floating point number, angle in radians
+    """
     if -math.pi <= ang <= math.pi:
         return ang
     elif ang > math.pi: 
@@ -53,6 +61,8 @@ class RobotSim:
         # create a square trajectory (list of objectState)
         # with parameter: v = 1.0 m/s and delta_t = 0.5 sec
         self.testing_trajectory = self.get_auv_trajectory(1, 0.5)
+
+        self.shark_testing_trajectories = []
 
 
     def get_auv_state(self):
@@ -113,7 +123,7 @@ class RobotSim:
         Return an ObjectState object representing the trajectory point 0.5 sec ahead
         of current time
 
-        Parameter: 
+        Parameters: 
             trajectory - a list of trajectory points, where each element is 
             a ObjectState object that consist of timeStamp x, y, theta
         """
@@ -188,7 +198,11 @@ class RobotSim:
 
 
     def track_way_point(self, way_point):
-        "calculates the v&w to get to the next point along the trajectory"
+        """
+        Calculates the v&w to get to the next point along the trajectory
+
+        way_point - a objectState object, represent the trajectory point that we are tracking
+        """
         # K_P and v are stand in values
         K_P = 1.0  
         v = 1.0
@@ -200,6 +214,13 @@ class RobotSim:
     
 
     def get_auv_trajectory(self, v, delta_t):
+        """
+        Create an array of trajectory points representing a square path
+
+        Parameters:
+            v - linear velocity of the robot (m/s)
+            delta_t - the time interval between each time stamp (sec)
+        """
         traj_list = []
         t = 0
         x = 10
@@ -239,6 +260,38 @@ class RobotSim:
             traj_list.append(ObjectState(x,y,z,theta,t))
 
         return traj_list
+
+
+    def load_shark_testing_trajectories(self, filepath):
+        """
+        Load shark tracking data from the csv file specified by the filepath
+        Store all the trajectories in an array of SharkTrajectory objects
+            SharkTrajectory contains an array of trajectory points with x and y position of the shark
+        
+        Parameter:
+            filepath - a string, the path to the csv file
+        """
+        with open(filepath, newline='') as csvfile:
+            data_reader = csv.reader(csvfile, delimiter=',') 
+            line_counter = 0
+            x_pos_array = []
+            y_pos_array = []
+
+            for row in data_reader:
+                # 4 rows are grouped together to represent the states of a shark
+                if line_counter % 4 == 0:
+                    # row 0 contains the x positions
+                    x_pos_array = row
+                elif line_counter % 4 == 2:         
+                    # row 2 row contains the y positions
+                    y_pos_array = row
+                    self.shark_testing_trajectories.append(\
+                        SharkTrajectory(line_counter//4, x_pos_array, y_pos_array))
+                
+                # row 1 contains the velocity in x direction
+                # row 3 contains the velocity in y direction
+                # velocity are not relevant in creating trajectories, so they are ignored
+                line_counter += 1
 
 
     def main_navigation_loop(self):
@@ -291,6 +344,7 @@ class RobotSim:
 
 def main():
     test_robot = RobotSim(10,10,-10,0.1)
+    test_robot.load_shark_testing_trajectories("./data/sharkTrackingData.csv")
     test_robot.main_navigation_loop()
 
 

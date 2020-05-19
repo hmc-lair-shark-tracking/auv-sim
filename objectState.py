@@ -12,14 +12,14 @@ class ObjectState:
 
     def __repr__(self):
         if self.z == 0 and self.theta == 0 and self.time_stamp == 0:
-            return "[" + self.x + ", "  + self.y + "]"
+            return "[" + str(self.x) + ", "  + str(self.y) + "]"
         else: 
-            return "[" + self.x + ", "  + self.y + ", " + self.z  + ", " +\
-                self.theta  + ", " +  self.time_stamp + "]"
+            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + ", " +\
+                str(self.theta)  + ", " +  str(self.time_stamp) + "]"
 
     def __str__(self):
         if self.z == 0 and self.theta == 0 and self.time_stamp == 0:
-            return "[" + self.x + ", "  + self.y + "]"
+            return "[" + str(self.x) + ", "  + str(self.y) + "]"
         else: 
-            return "[" + self.x + ", "  + self.y + ", " + self.z  + ", " +\
-                self.theta  + ", " +  self.time_stamp + "]"
+            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + ", " +\
+                str(self.theta)  + ", " +  str(self.time_stamp) + "]"
