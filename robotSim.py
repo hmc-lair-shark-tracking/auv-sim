@@ -175,17 +175,14 @@ class RobotSim:
 
     def update_live_graph(self):
         """
-        Plot the position of the robot and the shark
+        Plot the position of the robot and the sharks
         """
         # plot the new auv position as a red "o"
-        # self.live_graph.ax.scatter(self.x, self.y, -10, marker = "o", color='red')
-        # draw the lines between the points
         self.live_graph.ax.plot(self.x_list, self.y_list, self.z_list,\
             marker = 'o', linestyle = '-', color = 'red', label='auv')
         self.live_graph.ax.legend(["auv"])
 
-        # self.live_graph.ax.plot([self.x], [self.y], [self.z], marker = 'o', linestyle = '-', color = 'red')
-        
+        # plot the new positions for all the sharks that the robot is tracking
         self.live_graph.plot_sharks()
 
         plt.draw()
@@ -355,6 +352,8 @@ class RobotSim:
 
 def main():
     test_robot = RobotSim(740,280,-10,0.1)
+    # load shark trajectories from csv file
+    # select shark#1 and shark#2 to track
     test_robot.setup("./data/sharkTrackingData.csv", [1, 2])
     test_robot.main_navigation_loop()
 
