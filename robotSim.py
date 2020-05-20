@@ -2,7 +2,7 @@ import math
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-# import pandas as pd
+
 import csv
 # import 3 data representation class
 from objectState import ObjectState
@@ -46,10 +46,6 @@ class RobotSim:
         self.shark_y_list = []
         self.shark_z_list = []
 
-        # initialize the 3d scatter position plot for the auv and shark
-        self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(111, projection='3d')
-
         # keep track of the current time that we are in
         # each iteration in the while loop will be assumed as 0.1 sec
         self.curr_time = 0
@@ -63,6 +59,8 @@ class RobotSim:
         self.testing_trajectory = self.get_auv_trajectory(1, 0.5)
 
         self.shark_testing_trajectories = []
+
+        self.curr_track_sharks = []
 
 
     def get_auv_state(self):
@@ -293,6 +291,21 @@ class RobotSim:
                 # velocity are not relevant in creating trajectories, so they are ignored
                 line_counter += 1
 
+
+    def setup(self, data_filepath, shark_id_array):
+        # load the array of 32 shark trajectories for testing
+        self.load_shark_testing_trajectories(data_filepath)
+        
+        # based on the id of the shark, build an array of shark that we will track 
+        # for this simulation
+        
+        # pass the array of currently tracking shark into the plot class?
+        # plot class will have a plot shark function
+
+        # in the plot_data function in robotSim.py
+        #   1. update the auv graph as usual
+        #   2. call the plot class's plot shark function
+        #       The plot shark function should have a counter to advance in the array and plot new points
 
     def main_navigation_loop(self):
         """ 
