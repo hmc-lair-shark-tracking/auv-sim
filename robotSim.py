@@ -57,7 +57,7 @@ class RobotSim:
 
         # create a square trajectory (list of objectState)
         # with parameter: v = 1.0 m/s and delta_t = 0.5 sec
-        self.testing_trajectory = self.get_auv_trajectory(1, 0.5)
+        self.testing_trajectory = self.get_auv_trajectory(5, 0.5)
 
         self.live_graph = Live3DGraph()
 
@@ -180,18 +180,13 @@ class RobotSim:
         # plot the new auv position as a red "o"
         # self.live_graph.ax.scatter(self.x, self.y, -10, marker = "o", color='red')
         # draw the lines between the points
-        # self.live_graph.ax.plot(self.x_list, self.y_list, self.z_list,\
-        #     marker = 'o', linestyle = '-', color = 'red')
-     
+        self.live_graph.ax.plot(self.x_list, self.y_list, self.z_list,\
+            marker = 'o', linestyle = '-', color = 'red', label='auv')
+        self.live_graph.ax.legend(["auv"])
+
         # self.live_graph.ax.plot([self.x], [self.y], [self.z], marker = 'o', linestyle = '-', color = 'red')
-     
-        self.live_graph.plot_sharks()
         
-        # # plot the new shark position as a blue "o"
-        # # get the latest position from the shark postion lists
-        # self.ax.scatter(self.shark_x_list[-1], self.shark_y_list[-1], self.shark_z_list[-1], marker = "x", color="blue")
-        # # draw the lines between the points
-        # self.ax.plot(self.shark_x_list, self.shark_y_list, self.shark_z_list, color='red')
+        self.live_graph.plot_sharks()
 
         plt.draw()
 
@@ -225,11 +220,11 @@ class RobotSim:
         """
         traj_list = []
         t = 0
-        x = 10
-        y = 10
+        x = 760
+        y = 300
         z = -10
 
-        for i in range(5):
+        for i in range(20):
             x = x + v * delta_t
             y = y
             theta = 0
@@ -237,7 +232,7 @@ class RobotSim:
 
             traj_list.append(ObjectState(x,y,z,theta,t))
 
-        for i in range(5):
+        for i in range(20):
             x = x
             y = y + v * delta_t
             theta = math.pi/2
@@ -245,7 +240,7 @@ class RobotSim:
 
             traj_list.append(ObjectState(x,y,z,theta,t))
     
-        for i in range(5):
+        for i in range(20):
             x = x - v * delta_t
             y = y 
             theta = math.pi
@@ -253,7 +248,7 @@ class RobotSim:
 
             traj_list.append(ObjectState(x,y,z,theta,t))
 
-        for i in range(5):
+        for i in range(20):
             x = x
             y = y - v * delta_t 
             theta = -(math.pi)/2
@@ -300,7 +295,7 @@ class RobotSim:
         return shark_testing_trajectories
 
 
-    def setup(self, data_filepath, shark_id_array):
+    def setup(self, data_filepath, shark_id_array = []):
         # load the array of 32 shark trajectories for testing
         shark_testing_trajectories = self.load_shark_testing_trajectories(data_filepath)
         
@@ -308,13 +303,7 @@ class RobotSim:
         # for this simulation
         self.live_graph.shark_array = list(map(lambda i: shark_testing_trajectories[i],\
             shark_id_array))
-
-        self.live_graph.init_shark_plots()
-
-        # in the plot_data function in robotSim.py
-        #   1. update the auv graph as usual
-        #   2. call the plot class's plot shark function
-        #       The plot shark function should have a counter to advance in the array and plot new points
+       
 
     def main_navigation_loop(self):
         """ 
@@ -327,9 +316,9 @@ class RobotSim:
         while True:
             
             auv_sensor_data = self.get_auv_sensor_measurements()
-            # print("==================")
-            # print("Curr Auv Sensor Measurements [x, y, z, theta, time]: " +\
-            #     str(auv_sensor_data))
+            print("==================")
+            print("Curr Auv Sensor Measurements [x, y, z, theta, time]: " +\
+                str(auv_sensor_data))
             
             (curr_shark_x, curr_shark_y, curr_shark_theta) = self.get_shark_state()
             # print("==================")
@@ -343,15 +332,15 @@ class RobotSim:
 
             # test trackTrajectory
             tracking_pt = self.track_trajectory(self.testing_trajectory)
-            # print("==================")
-            # print ("Currently tracking point: " + str(tracking_pt))
+            print("==================")
+            print ("Currently tracking point: " + str(tracking_pt))
             
             #v & w to the next point along the trajectory
             (v, w) = self.track_way_point(tracking_pt)
-            # print("==================")
-            # print ("v and w: ", v, ", ", w)
-            # print("====================================")
-            # print("====================================")
+            print("==================")
+            print ("v and w: ", v, ", ", w)
+            print("====================================")
+            print("====================================")
 
             # update the auv position
             self.send_trajectory_to_actuators(v, w)
@@ -365,9 +354,8 @@ class RobotSim:
 
 
 def main():
-    test_robot = RobotSim(10,10,-10,0.1)
-   
-    test_robot.setup("./data/sharkTrackingData.csv", [1,2])
+    test_robot = RobotSim(740,280,-10,0.1)
+    test_robot.setup("./data/sharkTrackingData.csv", [1, 2])
     test_robot.main_navigation_loop()
 
 
