@@ -17,7 +17,7 @@ class Live3DGraph:
         self.colors = ['b', 'g', 'c', 'm', 'y', 'k']
 
         # initialize the 3d scatter position plot for the auv and shark
-        self.fig = plt.figure()
+        self.fig = plt.figure(figsize = [13, 10])
         self.ax = self.fig.add_subplot(111, projection='3d')
 
         self.ax.set_xlabel('X')
