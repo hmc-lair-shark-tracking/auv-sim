@@ -8,6 +8,7 @@ import csv
 from objectState import ObjectState
 from sharkState import SharkState
 from sharkTrajectory import SharkTrajectory
+from motion_plan_state import Motion_plan_state
 
 
 def angle_wrap(ang):
@@ -67,16 +68,16 @@ class RobotSim:
 
     def get_auv_state(self):
         """
-        Return a tuple representing the orientation
+        Return a Motion_plan_state representing the orientation and the time stamp
         of the robot
         """
-        return (self.x, self.y, self.theta)
+        return Motion_plan_state(self.x, self.y, theta = self.theta, time_stamp=self.curr_time)
 
 
     def get_shark_state(self):
         """
-        Return a tuple representing the orientation
-        of the shark
+        Return a Motion_plate_state representing the orientation
+        of the shark (goal)
         """
         shark_X = 10
         shark_Y = 10
@@ -87,7 +88,7 @@ class RobotSim:
         self.shark_y_list += [shark_Y]
         self.shark_z_list += [shark_Z]
 
-        return (shark_X, shark_Y, shark_Theta)
+        return Motion_plan_state(shark_X, shark_Y, theta = shark_Theta)
 
 
     def get_auv_sensor_measurements(self):
@@ -120,12 +121,12 @@ class RobotSim:
 
     def track_trajectory(self, trajectory):
         """
-        Return an ObjectState object representing the trajectory point 0.5 sec ahead
+        Return an Motion_plan_state object representing the trajectory point 0.5 sec ahead
         of current time
 
         Parameters: 
             trajectory - a list of trajectory points, where each element is 
-            a ObjectState object that consist of timeStamp x, y, theta
+            a Motion_plan_state object that consist of time stamp, x, y, z,theta
         """
         # determine how ahead should the trajectory point be compared to current time
         look_ahead_time = 0.5
@@ -233,7 +234,7 @@ class RobotSim:
             theta = 0
             t = t + delta_t
 
-            traj_list.append(ObjectState(x,y,z,theta,t))
+            traj_list.append(Motion_plan_state(x,y,z,theta,time_stamp=t))
 
         for i in range(5):
             x = x
@@ -241,7 +242,7 @@ class RobotSim:
             theta = math.pi/2
             t = t + delta_t
 
-            traj_list.append(ObjectState(x,y,z,theta,t))
+            traj_list.append(Motion_plan_state(x,y,z,theta,time_stamp=t))
     
         for i in range(5):
             x = x - v * delta_t
@@ -249,7 +250,7 @@ class RobotSim:
             theta = math.pi
             t = t + delta_t
 
-            traj_list.append(ObjectState(x,y,z,theta,t))
+            traj_list.append(Motion_plan_state(x,y,z,theta,time_stamp=t))
 
         for i in range(5):
             x = x
@@ -257,7 +258,7 @@ class RobotSim:
             theta = -(math.pi)/2
             t = t + delta_t
 
-            traj_list.append(ObjectState(x,y,z,theta,t))
+            traj_list.append(Motion_plan_state(x,y,z,theta,time_stamp=t))
 
         return traj_list
 
@@ -309,7 +310,8 @@ class RobotSim:
             print("Curr Auv Sensor Measurements [x, y, z, theta, time]: " +\
                 str(auv_sensor_data))
             
-            (curr_shark_x, curr_shark_y, curr_shark_theta) = self.get_shark_state()
+            curr_shark = self.get_shark_state()
+            curr_shark_x, curr_shark_y, curr_shark_theta = curr_shark.x, curr_shark.y, curr_shark.theta
             print("==================")
             print("Testing get_shark_state [x, y, theta]:  [", curr_shark_x, ", " , curr_shark_y, ", ", curr_shark_theta, "]")
 
