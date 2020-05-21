@@ -70,21 +70,19 @@ class RobotSim:
         return Motion_plan_state(self.x, self.y, theta = self.theta, time_stamp=self.curr_time)
 
 
-    def get_shark_state(self):
+    def get_all_sharks_state(self):
         """
-        Return a Motion_plate_state representing the orientation
-        of the shark (goal)
+        Return a dictionary representing state for all the sharks 
+            key = id of the shark & value = the shark's position (stored as a Motion_plan_state)
         """
-        shark_X = 10
-        shark_Y = 10
-        shark_Z = -15
-        shark_Theta = 0
 
-        self.shark_x_list += [shark_X]
-        self.shark_y_list += [shark_Y]
-        self.shark_z_list += [shark_Z]
+        # using dictionary so we can access the state of a shark based on its id quickly?
+        shark_state_dict = {}
 
-        return Motion_plan_state(shark_X, shark_Y, theta = shark_Theta)
+        for shark in self.live_graph.shark_array:
+            shark_state_dict[shark.id] = shark.get_curr_position()
+
+        return shark_state_dict
 
 
     def get_auv_sensor_measurements(self):
@@ -106,16 +104,27 @@ class RobotSim:
             time_stamp = self.curr_time)
 
 
-    def get_shark_sensor_measurements(self, currSharkX, currSharkY, currAuvX, currAuvY):
-        delta_x = currSharkX - currAuvX
-        delta_y = currSharkY - currAuvY
-        range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
-        bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
+    def get_all_sharks_sensor_measurements(self, shark_state_dict, auv_sensor_data):
+        """
+        Return a dictionary representing state for all the sharks 
+            key = id of the shark & value = the shark's range and bearing (stored as a sharkState object)
+        """
+        shark_sensor_data_dict = {}
 
-        Z_shark_range = math.sqrt(delta_x**2 + delta_y**2) + range_random
-        Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) + bearing_random)
+        for shark_id in shark_state_dict: 
+            shark_data = shark_state_dict[shark_id]
 
-        return SharkState(Z_shark_range, Z_shark_bearing, 0)
+            delta_x = shark_data.x - auv_sensor_data.x
+            delta_y = shark_data.y - auv_sensor_data.y
+            range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
+            bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
+
+            Z_shark_range = math.sqrt(delta_x**2 + delta_y**2) + range_random
+            Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) + bearing_random)
+
+            shark_sensor_data_dict[shark_id] = SharkState(Z_shark_range, Z_shark_bearing, 0)
+
+        return shark_sensor_data_dict
 
 
     def track_trajectory(self, trajectory):
@@ -335,16 +344,14 @@ class RobotSim:
             print("Curr Auv Sensor Measurements [x, y, z, theta, time]: " +\
                 str(auv_sensor_data))
             
-            curr_shark = self.get_shark_state()
-            curr_shark_x, curr_shark_y, curr_shark_theta = curr_shark.x, curr_shark.y, curr_shark.theta
+            shark_state_dict = self.get_all_sharks_state()
             print("==================")
-            print("Testing get_shark_state [x, y, theta]:  [", curr_shark_x, ", " , curr_shark_y, ", ", curr_shark_theta, "]")
+            print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
 
-            curr_shark_sensor_measurements = self.get_shark_sensor_measurements(curr_shark_x, curr_shark_y,\
-                auv_sensor_data.x, auv_sensor_data.y)
-            # print("==================")
-            # print("Curr Shark Sensor Measurements [range, bearing]: " +\
-            #     str(curr_shark_sensor_measurements))
+            shark_measurements_dict = self.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
+            print("==================")
+            print("All The Shark Sensor Measurements [range, bearing]: " +\
+                str(shark_measurements_dict))
 
             # test trackTrajectory
             tracking_pt = self.track_trajectory(self.testing_trajectory)

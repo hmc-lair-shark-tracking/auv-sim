@@ -39,6 +39,9 @@ class SharkTrajectory:
         self.y_pos_array.append(y)
         self.z_pos_array.append(z)
 
+    def get_curr_position(self):
+        return self.traj_pts_array[self.index]
+
     def __repr__(self):
         return "shark trajectory #" + str(self.id) + " with " + str(len(self.traj_pts_array)) + " trajectory pts"
 
