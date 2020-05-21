@@ -40,7 +40,6 @@ class particleFilter:
                 v_p = random.uniform(0,5)
                 theta_p = random.uniform(-math.pi, math.pi) 
                 coordinate_of_particle.append([x_p, y_p, v_p, theta_p, weight_p])
-
         print("particle list")
         print(coordinate_of_particle)
         for x in range(count):
@@ -59,7 +58,8 @@ class particleFilter:
             #change the v of particle and account for noise
             p[2] = int(p[2]) + random.uniform(0, sigma_v)
             p[3] = int(p[3]) + random.uniform(0, sigma_0)
-        #print(s_list)
+        print("this is the list of new v and theta")
+        print(s_list)
         return(s_list)
 
 
@@ -73,7 +73,7 @@ class particleFilter:
 
 def main():
         test_particle = particleFilter(10, 10 , 30, 20 ,20)
-        test_particle.createParticles()
+        #test_particle.createParticles()
         test_particle.predict()
 
 
