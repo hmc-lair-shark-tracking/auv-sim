@@ -311,7 +311,7 @@ class RobotSim:
             -> log and plot data
         """
         
-        while True:
+        while self.live_graph.run_sim:
             
             auv_sensor_data = self.get_auv_sensor_measurements()
             print("==================")
@@ -350,6 +350,8 @@ class RobotSim:
 
             # increment the current time by 0.1 second
             self.curr_time += 0.1
+
+        print("end this while loop now!")
 
 
 def main():

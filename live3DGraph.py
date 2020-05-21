@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.widgets import Button
 
 """
 Uses matplotlib to generate live 3D Graph while the simulator is running
@@ -23,6 +24,13 @@ class Live3DGraph:
         self.ax.set_xlabel('X')
         self.ax.set_ylabel('Y')
         self.ax.set_zlabel('Z')
+
+        axprev = plt.axes([0.7, 0.05, 0.1, 0.075])
+
+        self.run_sim = True
+
+        self.endSimButton = Button(axprev, 'End')
+        self.endSimButton.on_clicked(self.summary)
 
     
     def plot_sharks(self):
@@ -49,3 +57,10 @@ class Live3DGraph:
             self.ax.legend(["auv"] + list(map(lambda s: "shark #" + str(s.id), self.shark_array)))
             
             self.index += 1
+
+    
+    def summary(self, event):
+        self.run_sim = False
+        print("Show summary now")
+        print(event)
+
