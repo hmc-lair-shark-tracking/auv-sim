@@ -212,10 +212,11 @@ class RobotSim:
         # plot the new auv position as a red "o"
         self.live_graph.ax.plot(self.x_list, self.y_list, self.z_list,\
             marker = 'o', linestyle = '-', color = 'red', label='auv')
-        self.live_graph.ax.legend(["auv"])
 
         # plot the new positions for all the sharks that the robot is tracking
         self.live_graph.plot_sharks(self.curr_time)
+        
+        self.live_graph.ax.legend(self.live_graph.labels)
 
         plt.draw()
 
@@ -347,6 +348,8 @@ class RobotSim:
         # for this simulation
         self.live_graph.shark_array = list(map(lambda i: shark_testing_trajectories[i],\
             shark_id_array))
+        
+        self.live_graph.load_shark_labels()
        
 
     def main_navigation_loop(self):

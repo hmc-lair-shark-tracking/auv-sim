@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.widgets import CheckButtons
 
 """
 Uses matplotlib to generate live 3D Graph while the simulator is running
@@ -22,6 +23,18 @@ class Live3DGraph:
         self.ax.set_ylabel('Y')
         self.ax.set_zlabel('Z')
 
+        self.show_A_star_traj = False
+
+        ax_checkbox = plt.axes([0.7, 0.05, 0.1, 0.075])
+        self.traj_checkbox = CheckButtons(ax_checkbox, ["A* Trajectory"])
+        self.traj_checkbox.on_clicked(self.enable_A_star_traj)
+        
+        self.labels = ["auv"]
+
+    def load_shark_labels(self):
+        if len(self.shark_array) != 0:
+             # create legend with the auv and all the sharks
+            self.labels += list(map(lambda s: "shark #" + str(s.id), self.shark_array))
     
     def plot_sharks(self, sim_time):
         """
@@ -46,6 +59,17 @@ class Live3DGraph:
                     
                     self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ',', color = c, label = "shark #" + str(shark.id))
 
-            # create legend with the auv and all the sharks
-            self.ax.legend(["auv"] + list(map(lambda s: "shark #" + str(s.id), self.shark_array)))
             
+    def enable_A_star_traj(self, event):
+        self.show_A_star_traj = True
+        self.labels += ["A *"]
+
+    def plot_A_star_traj(self, trajectory_array):
+        if self.show_A_star_traj: 
+            traj_x_array = []
+            traj_y_array = []
+            for traj_pt in trajectory_array:
+                traj_x_array.append(traj_pt[0])
+                traj_y_array.append(traj_pt[1])
+            
+            self.ax.plot(x = traj_x_array, y = traj_y_array, marker = ',', color = '#9933ff', label = "A *")
