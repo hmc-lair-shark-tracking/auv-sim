@@ -7,3 +7,4 @@ class particleFilter:
         self.x = init_x
         self.y = init_y
         self.theta = init_theta
+        self.__setat klandflknalksnddf
