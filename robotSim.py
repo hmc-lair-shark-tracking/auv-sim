@@ -5,7 +5,6 @@ import numpy as np
 
 import csv
 # import 3 data representation class
-from objectState import ObjectState
 from sharkState import SharkState
 from sharkTrajectory import SharkTrajectory
 from live3DGraph import Live3DGraph
@@ -56,7 +55,7 @@ class RobotSim:
         # keep track of
         self.curr_traj_pt_index = 0
 
-        # create a square trajectory (list of objectState)
+        # create a square trajectory (list of motion_plan_state object)
         # with parameter: v = 1.0 m/s and delta_t = 0.5 sec
         self.testing_trajectory = self.get_auv_trajectory(5, 0.5)
 
@@ -90,7 +89,7 @@ class RobotSim:
 
     def get_auv_sensor_measurements(self):
         """
-        Return an ObjectState object that represents the measurements
+        Return an Motion_plan_state object that represents the measurements
             of the auv's x,y,z,theta position with a time stamp
         The measurement has random gaussian noise
         """
@@ -100,8 +99,11 @@ class RobotSim:
         # np.random.normal returns a single sample drawn from the parameterized normal distribution
         # we actually omitted the third parameter which determines the number of samples that we would like to draw
 
-        return ObjectState(self.x + np.random.normal(0,1), self.y + np.random.normal(0,1), self.z + np.random.normal(0,1),\
-            angle_wrap(self.theta + np.random.normal(0,1)), self.curr_time)
+        return Motion_plan_state(x = self.x + np.random.normal(0,1),\
+            y = self.y + np.random.normal(0,1),\
+            z = self.z + np.random.normal(0,1),\
+            theta = angle_wrap(self.theta + np.random.normal(0,1)),\
+            time_stamp = self.curr_time)
 
 
     def get_shark_sensor_measurements(self, currSharkX, currSharkY, currAuvX, currAuvY):
@@ -113,7 +115,7 @@ class RobotSim:
         Z_shark_range = math.sqrt(delta_x**2 + delta_y**2) + range_random
         Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) + bearing_random)
 
-        return SharkState(Z_shark_range, Z_shark_bearing)
+        return SharkState(Z_shark_range, Z_shark_bearing, 0)
 
 
     def track_trajectory(self, trajectory):
@@ -196,7 +198,7 @@ class RobotSim:
         """
         Calculates the v&w to get to the next point along the trajectory
 
-        way_point - a objectState object, represent the trajectory point that we are tracking
+        way_point - a motion_plan_state object, represent the trajectory point that we are tracking
         """
         # K_P and v are stand in values
         K_P = 1.0  
@@ -371,7 +373,7 @@ def main():
     test_robot = RobotSim(740,280,-10,0.1)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
-    # test_robot.setup("./data/sharkTrackingData.csv", [1, 2])
+    test_robot.setup("./data/sharkTrackingData.csv", [1, 2])
     test_robot.main_navigation_loop()
 
 

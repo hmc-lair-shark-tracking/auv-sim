@@ -9,8 +9,6 @@ Able to draw the auv as well as multiple sharks
 class Live3DGraph:
     def __init__(self):
         self.shark_array = []
-        # keeps track of the index into shark's trajectory array 
-        self.index = 0
 
         # array of pre-defined colors, 
         # so we can draw sharks with different colors
@@ -32,20 +30,20 @@ class Live3DGraph:
         """
         # check if there is any shark to draw
         # and if we have already looped through all the trajectory points
-        if len(self.shark_array) != 0 and \
-            self.index < len(self.shark_array[0].traj_pts_array):
-            
+        if len(self.shark_array) != 0:         
             for i in range(len(self.shark_array)):
-                # determine the color of this shark's trajectory
-                c = self.colors[i % len(self.colors)]
-                shark = self.shark_array[i]
-                
-                # update the shark's position arrays to help us update the graph
-                shark.store_positions(shark.traj_pts_array[self.index].x, shark.traj_pts_array[self.index].y, shark.traj_pts_array[self.index].z)
-                
-                self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = 'x', color = c, label = "shark #" + str(shark.id))
+                if self.shark_array[0].index < len(self.shark_array[0].traj_pts_array):
+                    # determine the color of this shark's trajectory
+                    c = self.colors[i % len(self.colors)]
+                    shark = self.shark_array[i]
+                    
+                    # update the shark's position arrays to help us update the graph
+                    shark.store_positions(shark.traj_pts_array[shark.index].x, shark.traj_pts_array[shark.index].y, shark.traj_pts_array[shark.index].z)
+                    
+                    self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = 'x', color = c, label = "shark #" + str(shark.id))
+
+                    shark.index += 1
 
             # create legend with the auv and all the sharks
             self.ax.legend(["auv"] + list(map(lambda s: "shark #" + str(s.id), self.shark_array)))
             
-            self.index += 1

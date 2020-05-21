@@ -12,6 +12,8 @@ class SharkTrajectory:
         """
         self.id = shark_id
         self.traj_pts_array = []
+        # keeps track of the index into shark's trajectory array 
+        self.index = 0
 
         # decided to update the position arrays as we draw the shark's position
         # use these arrays to draw the shark's trajectory & for summary plots at the
