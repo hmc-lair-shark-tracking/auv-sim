@@ -44,7 +44,7 @@ class Live3DGraph:
                     # update the shark's position arrays to help us update the graph
                     shark.store_positions(shark.traj_pts_array[shark.index].x, shark.traj_pts_array[shark.index].y, shark.traj_pts_array[shark.index].z)
                     
-                    self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = 'x', color = c, label = "shark #" + str(shark.id))
+                    self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ',', color = c, label = "shark #" + str(shark.id))
 
             # create legend with the auv and all the sharks
             self.ax.legend(["auv"] + list(map(lambda s: "shark #" + str(s.id), self.shark_array)))
