@@ -43,13 +43,15 @@ class RobotSim:
         self.y_list = [init_y]
         self.z_list = [init_z]
 
-        self.shark_x_list = []
-        self.shark_y_list = []
-        self.shark_z_list = []
+        self.shark_sensor_data_dict = {}
 
         # keep track of the current time that we are in
         # each iteration in the while loop will be assumed as 0.1 sec
         self.curr_time = 0
+        
+        # keep track when there will be new sensor data of sharks
+        # start out as 20, so particle filter will get some data in the beginning
+        self.sensor_time = 20
 
         # index for which trajectory point that we should
         # keep track of
@@ -106,25 +108,43 @@ class RobotSim:
 
     def get_all_sharks_sensor_measurements(self, shark_state_dict, auv_sensor_data):
         """
-        Return a dictionary representing state for all the sharks 
+        Modify the data member self.shark_state_dict if there is new sensor data
             key = id of the shark & value = the shark's range and bearing (stored as a sharkState object)
+
+        Parameter: 
+            shark_state_dict - a dictionary, containing the shark's states at a given time
+            auv_sensor_data - a motion_plan_state object, containting the auv's position
+
+        Return Value:
+            True - if it has been 2 sec and there are new shark sensor measurements
+            False - if it hasn't been 2 sec
         """
-        shark_sensor_data_dict = {}
+        # decide to sensor_time an integer because floating point addition is not as reliable
+        # each iteration through the main navigation loop is 0.1 sec, so 
+        #   we need 20 iterations to return a new set of sensor data
+        if self.sensor_time == 20:
+            # iterate through all the sharks that we are tracking
+            for shark_id in shark_state_dict: 
+                shark_data = shark_state_dict[shark_id]
 
-        for shark_id in shark_state_dict: 
-            shark_data = shark_state_dict[shark_id]
+                delta_x = shark_data.x - auv_sensor_data.x
+                delta_y = shark_data.y - auv_sensor_data.y
+                
+                range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
+                bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
 
-            delta_x = shark_data.x - auv_sensor_data.x
-            delta_y = shark_data.y - auv_sensor_data.y
-            range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
-            bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
+                Z_shark_range = math.sqrt(delta_x**2 + delta_y**2) + range_random
+                Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) + bearing_random)
 
-            Z_shark_range = math.sqrt(delta_x**2 + delta_y**2) + range_random
-            Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) + bearing_random)
-
-            shark_sensor_data_dict[shark_id] = SharkState(Z_shark_range, Z_shark_bearing, 0)
-
-        return shark_sensor_data_dict
+                self.shark_sensor_data_dict[shark_id] = SharkState(Z_shark_range, Z_shark_bearing, shark_id)
+            
+            # reset the 2 sec time counter
+            self.sensor_time = 0
+            
+            return True
+        else: 
+            self.sensor_time += 1
+            return False
 
 
     def track_trajectory(self, trajectory):
@@ -195,7 +215,7 @@ class RobotSim:
         self.live_graph.ax.legend(["auv"])
 
         # plot the new positions for all the sharks that the robot is tracking
-        self.live_graph.plot_sharks()
+        self.live_graph.plot_sharks(self.curr_time)
 
         plt.draw()
 
@@ -348,10 +368,12 @@ class RobotSim:
             print("==================")
             print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
 
-            shark_measurements_dict = self.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
-            print("==================")
-            print("All The Shark Sensor Measurements [range, bearing]: " +\
-                str(shark_measurements_dict))
+            has_new_data = self.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
+
+            if has_new_data == True:
+                print("======NEW DATA=======")
+                print("All The Shark Sensor Measurements [range, bearing]: " +\
+                    str(self.shark_sensor_data_dict))
 
             # test trackTrajectory
             tracking_pt = self.track_trajectory(self.testing_trajectory)

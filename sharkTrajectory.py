@@ -27,9 +27,10 @@ class SharkTrajectory:
         self.y_vel_array = list(map(lambda y: float(y), y_vel_array))
 
         for i in range(len(x_pos_array)):
-            # the time_stamp will be spaced as 2 sec based on what we discussed in the meeting
+            # the shark tracking video has frame rate 30 fps
+            # which means that the time interval will be 1/30, or about 0.03
             self.traj_pts_array.append(\
-                Motion_plan_state(x = float(x_pos_array[i]), y = float(y_pos_array[i]), time_stamp = i * 2))
+                Motion_plan_state(x = float(x_pos_array[i]), y = float(y_pos_array[i]), time_stamp = i * 0.03))
 
     def store_positions(self, x, y, z): 
         """

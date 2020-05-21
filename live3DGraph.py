@@ -23,7 +23,7 @@ class Live3DGraph:
         self.ax.set_zlabel('Z')
 
     
-    def plot_sharks(self):
+    def plot_sharks(self, sim_time):
         """
         Plot the trajectory of all the sharks that the robot is 
         tracking in this simulation
@@ -37,12 +37,14 @@ class Live3DGraph:
                     c = self.colors[i % len(self.colors)]
                     shark = self.shark_array[i]
                     
+                    while shark.index < len(shark.traj_pts_array) and\
+                        abs(shark.traj_pts_array[shark.index].time_stamp - sim_time) > 0.2:
+                        shark.index += 1
+
                     # update the shark's position arrays to help us update the graph
                     shark.store_positions(shark.traj_pts_array[shark.index].x, shark.traj_pts_array[shark.index].y, shark.traj_pts_array[shark.index].z)
                     
                     self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = 'x', color = c, label = "shark #" + str(shark.id))
-
-                    shark.index += 1
 
             # create legend with the auv and all the sharks
             self.ax.legend(["auv"] + list(map(lambda s: "shark #" + str(s.id), self.shark_array)))

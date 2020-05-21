@@ -7,7 +7,6 @@ class SharkState:
     def __init__(self, range_in, bearing_in, id):
         self.range = range_in
         self.bearing = bearing_in
-        self.newData = False
         self.id = id
 
     def __repr__(self):
