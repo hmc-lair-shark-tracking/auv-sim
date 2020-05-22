@@ -205,10 +205,11 @@ class RobotSim:
         print("Shark [x, y, theta]:  [", self.shark_x_list[-1], ", " , self.shark_y_list[-1], ", ", self.shark_z_list[-1], "]")
 
 
-    def update_live_graph(self):
+    def update_live_graph(self, planned_traj_list):
         """
         Plot the position of the robot and the sharks
         """
+        
         # plot the new auv position as a red "o"
         self.live_graph.ax.plot(self.x_list, self.y_list, self.z_list,\
             marker = 'o', linestyle = '-', color = 'red', label='auv')
@@ -216,12 +217,20 @@ class RobotSim:
         # plot the new positions for all the sharks that the robot is tracking
         self.live_graph.plot_sharks(self.curr_time)
         
-        self.live_graph.ax.legend(self.live_graph.labels)
+        
+        if planned_traj_list != []:
+            for planned_traj in planned_traj_list:
+                if planned_traj[0] == "A*":
+                    self.live_graph.plot_A_star_traj(planned_traj[1])
 
+        self.live_graph.ax.legend(self.live_graph.labels)
+        
         plt.draw()
 
         # pause so the plot can be updated
         plt.pause(0.5)
+
+        self.live_graph.ax.clear()
 
 
     def track_way_point(self, way_point):
@@ -394,9 +403,14 @@ class RobotSim:
             self.send_trajectory_to_actuators(v, w)
             
             # self.log_data()
+            A_star_traj = [(740, 280)]
+            A_star_traj += [(740+i*2, 280+i) for i in range(50)]
+            planned_traj_array = [["A*",A_star_traj]]
 
-            self.update_live_graph()
+            self.update_live_graph(planned_traj_array)
 
+            # self.live_graph.plot_A_star_traj(A_star_traj)
+            
             # increment the current time by 0.1 second
             self.curr_time += 0.1
 

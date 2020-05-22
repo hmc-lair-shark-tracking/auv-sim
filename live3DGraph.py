@@ -23,7 +23,7 @@ class Live3DGraph:
         self.ax.set_ylabel('Y')
         self.ax.set_zlabel('Z')
 
-        self.show_A_star_traj = False
+        self.added_A_star_label = False
 
         ax_checkbox = plt.axes([0.7, 0.05, 0.1, 0.075])
         self.traj_checkbox = CheckButtons(ax_checkbox, ["A* Trajectory"])
@@ -61,15 +61,21 @@ class Live3DGraph:
 
             
     def enable_A_star_traj(self, event):
-        self.show_A_star_traj = True
-        self.labels += ["A *"]
-
+        if not self.added_A_star_label:
+            self.labels += ["A *"]
+            self.added_A_star_label = True
+    
     def plot_A_star_traj(self, trajectory_array):
-        if self.show_A_star_traj: 
+        
+        if self.traj_checkbox.get_status()[0]: 
             traj_x_array = []
             traj_y_array = []
             for traj_pt in trajectory_array:
                 traj_x_array.append(traj_pt[0])
                 traj_y_array.append(traj_pt[1])
-            
-            self.ax.plot(x = traj_x_array, y = traj_y_array, marker = ',', color = '#9933ff', label = "A *")
+
+            self.ax.plot(traj_x_array,  traj_y_array, -10, marker = ',', color = '#9933ff', label = "A *")
+        else:
+            if self.added_A_star_label:
+                self.labels.remove("A *")
+                self.added_A_star_label = False
