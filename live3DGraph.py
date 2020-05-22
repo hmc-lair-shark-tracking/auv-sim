@@ -81,8 +81,9 @@ class Live3DGraph:
                     # update the shark's position arrays to help us update the graph
                     shark.store_positions(shark.traj_pts_array[shark.index].x, shark.traj_pts_array[shark.index].y, shark.traj_pts_array[shark.index].z)
 
-                    # update the shark's position arrays to help us update the graph
-                    shark.store_velocity(shark.x_pos_array[-1]-shark.x_pos_array[-2], shark.y_pos_array[-1]-shark.y_pos_array[-2], shark.traj_pts_array[shark.index].z)
+                    # store the orientation to help us plot the direction vectors
+                    # calculate orientation by: current coordinate - previous coordiate
+                    shark.store_orientation(shark.x_pos_array[-1]-shark.x_pos_array[-2], shark.y_pos_array[-1]-shark.y_pos_array[-2], shark.y_pos_array[-1]-shark.y_pos_array[-2])
                     
                     self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ',', color = c, label = "shark #" + str(shark.id))
 

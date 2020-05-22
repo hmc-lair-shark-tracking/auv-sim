@@ -46,10 +46,14 @@ class SharkTrajectory:
         self.y_pos_array.append(y)
         self.z_pos_array.append(z)
 
-    def store_velocity(self, x_v, y_v, z_v):
-        self.x_vel_array.append(x_v)
-        self.y_vel_array.append(y_v)
-        self.z_vel_array.append(z_v)
+    def store_orientation(self, x, y, z):
+        """
+        Helper function to store new orientation of the direction vector
+        into the array
+        """
+        self.x_orient_array.append(x)
+        self.y_orient_array.append(y)
+        self.z_orient_array.append(z)
 
     def get_curr_position(self):
         return self.traj_pts_array[self.index]
