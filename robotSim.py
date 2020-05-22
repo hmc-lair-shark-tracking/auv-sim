@@ -401,8 +401,11 @@ class RobotSim:
             self.send_trajectory_to_actuators(v, w)
             
             # self.log_data()
-            A_star_traj = [(740, 280)]
-            A_star_traj += [(740+i*2, 280+i) for i in range(50)]
+
+            # testing data for plotting A_star_traj
+            A_star_traj = [Motion_plan_state(740, 280)]
+            A_star_traj += [Motion_plan_state(740+i, 280+i) for i in range(50)]
+            
             planned_traj_array = [["A *", A_star_traj]]
 
             self.update_live_graph(planned_traj_array)

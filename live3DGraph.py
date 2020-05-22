@@ -34,11 +34,13 @@ class Live3DGraph:
         
         self.labels = ["auv"]
 
+
     def load_shark_labels(self):
         if len(self.shark_array) != 0:
              # create legend with the auv and all the sharks
             self.labels += list(map(lambda s: "shark #" + str(s.id), self.shark_array))
     
+
     def plot_sharks(self, sim_time):
         """
         Plot the trajectory of all the sharks that the robot is 
@@ -67,7 +69,7 @@ class Live3DGraph:
         if not self.added_A_star_label:
             self.labels += ["A *"]
             self.traj_checkbox_dict["A *"][0] = True
-            
+
 
     def plot_planned_traj(self, planner_name, trajectory_array):
         checkbox = self.traj_checkbox_dict[planner_name][1]
@@ -76,12 +78,12 @@ class Live3DGraph:
             traj_x_array = []
             traj_y_array = []
             for traj_pt in trajectory_array:
-                traj_x_array.append(traj_pt[0])
-                traj_y_array.append(traj_pt[1])
+                traj_x_array.append(traj_pt.x)
+                traj_y_array.append(traj_pt.y)
 
             self.ax.plot(traj_x_array,  traj_y_array, -10, marker = ',', color = '#9933ff', label = planner_name)
         else:
             label_added = self.traj_checkbox_dict[planner_name][0]
             if label_added:
-                self.labels.remove("A *")
+                self.labels.remove(planner_name)
                 label_added = False
