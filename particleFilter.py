@@ -21,6 +21,7 @@ class particleFilter:
         self.x_auv = init_x_auv
         self.y_auv = init_y_auv
     
+
     def createParticles(self):
         L = 150
         N = 2

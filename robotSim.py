@@ -347,7 +347,7 @@ class RobotSim:
         # for this simulation
         self.live_graph.shark_array = list(map(lambda i: shark_testing_trajectories[i],\
             shark_id_array))
-       
+        
 
     def main_navigation_loop(self):
         """ 
