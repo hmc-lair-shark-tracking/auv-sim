@@ -23,23 +23,37 @@ class Live3DGraph:
         self.ax.set_ylabel('Y')
         self.ax.set_zlabel('Z')
 
-        self.added_A_star_label = False
-        self.added_RRT_label = False
-        
+        # create a dictionary for checkbox for each type of planned trajectory
+        # key - the planner's name: "A *", "RRT"
+        # value - three-element array
+        #   1. boolean(represent wheter the label is added to the legend)
+        #   2. the CheckButtons object
+        #   3. color of the plot
         self.traj_checkbox_dict = {}
         
+        # initialize the A * button
         self.traj_checkbox_dict["A *"] = [False,\
             CheckButtons(plt.axes([0.7, 0.10, 0.1, 0.05]), ["A* Trajectory"]), '#9933ff']
-        self.traj_checkbox_dict["A *"][1].on_clicked(self.enable_traj_plot)
+        # when the A* checkbox is checked, it should call self.enable_traj_plot
+        # self.traj_checkbox_dict["A *"][1].on_clicked(self.enable_traj_plot)
         
+        # initialize the RRT button
         self.traj_checkbox_dict["RRT"] = [False,\
             CheckButtons(plt.axes([0.7, 0.05, 0.1, 0.05]),["RRT Trajectory"]), '#043d10']
-        self.traj_checkbox_dict["RRT"][1].on_clicked(self.enable_traj_plot)
+        # when the RRT checkbox is checked, it should call self.enable_traj_plot
+        # self.traj_checkbox_dict["RRT"][1].on_clicked(self.enable_traj_plot)
 
+        # an array of the labels that will appear in the legend
+        # TODO: labels and legends still have minor bugs
         self.labels = ["auv"]
 
 
     def load_shark_labels(self):
+        """
+        Add the sharks that we are tracking to the legend
+        
+        Should be called in setup() in robotSim after the shark tracking data is loaded
+        """
         if len(self.shark_array) != 0:
              # create legend with the auv and all the sharks
             self.labels += list(map(lambda s: "shark #" + str(s.id), self.shark_array))
@@ -70,7 +84,15 @@ class Live3DGraph:
 
             
     def enable_traj_plot(self, event):
+        """
+        Handles when a check box is hit
+
+        event - a string, matches with the name of the label when the checkButton is created
+        """
         if (event == "A* Trajectory"):
+            # self.traj_checkbox_dict["A *"][0] returns whether the label has been added to 
+            #   self.labels aka the legend
+            # we only want one copy of the label to be in self.labels
             if not self.traj_checkbox_dict["A *"][0]:
                 self.labels += ["A *"]
                 self.traj_checkbox_dict["A *"][0] = True
@@ -81,19 +103,42 @@ class Live3DGraph:
 
 
     def plot_planned_traj(self, planner_name, trajectory_array):
+        """
+        Plot the planned trajectory specified by the planner name
+
+        Parameters:
+            planner_name - string, either "A *" or "RRT"
+            trajectory_array - an array of Motion_plan_state objects
+        """
+        # get the checkbox object
         checkbox = self.traj_checkbox_dict[planner_name][1]
+        # boolean, true if the checkbox is checked
         checked = checkbox.get_status()[0]
+        # get the color of the trajectory plot (a string representing color in hex)
         color = self.traj_checkbox_dict[planner_name][2]
         
-        if checked: 
+        if checked:
+            # self.traj_checkbox_dict["A *"][0] returns whether the label has been added to 
+            #   self.labels aka the legend
+            # we only want one copy of the label to be in self.labels 
+            if not self.traj_checkbox_dict[planner_name][0]:
+                self.labels += [planner_name]
+                self.traj_checkbox_dict[planner_name][0] = True
+            
             traj_x_array = []
             traj_y_array = []
+            # create two array of x and y positions for plotting
             for traj_pt in trajectory_array:
                 traj_x_array.append(traj_pt.x)
                 traj_y_array.append(traj_pt.y)
 
+            # TODO: for now, we set the z position of the trajectory to be -10
             self.ax.plot(traj_x_array,  traj_y_array, -10, marker = ',', color = color, label = planner_name)
         else:
+            # if the checkbox if not checked
+            # self.traj_checkbox_dict[planner_name][0] represents whether the label is added to
+            #   self.label array
+            # we only want to remove the label once
             if self.traj_checkbox_dict[planner_name][0]:
                 self.labels.remove(planner_name)
                 self.traj_checkbox_dict[planner_name][0] = False
