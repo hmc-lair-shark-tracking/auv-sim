@@ -144,15 +144,31 @@ class Live3DGraph:
                 self.labels.remove(planner_name)
                 self.traj_checkbox_dict[planner_name][0] = False
     
+
     def particle_checkbox_clicked(self, event):
+        """
+        on_clicked handler function for particle checkbox
+
+        toggle the display_particles variable (bool)
+        """
         self.display_particles = not self.display_particles
     
+    
     def plot_particles(self, particle_array):
+        """
+        Plot the particles if the the particle checkbox is checked
+
+        Parameter:
+            particle_array - an array of arrays, where each element has the format:
+                [x_p, y_p, v_p, theta_p, weight_p]
+        """
         if self.display_particles:
             particle_x_array = []
             particle_y_array = []
+            # create two arrays for plotting x and y positions
             for particle in particle_array:
                 particle_x_array.append(particle[0])
                 particle_y_array.append(particle[1])
             
+            # TODO: for now, we set the z position of the trajectory to be -10
             self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = '#069ecc')

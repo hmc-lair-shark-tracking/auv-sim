@@ -207,10 +207,13 @@ class RobotSim:
         Plot the position of the robot, the sharks, and any planned trajectories
 
         Parameter: 
-            planned_traj_array - an array of trajectories that we want to plot
+            planned_traj_array - (optional) an array of trajectories that we want to plot
                 each element is an array on its own, where
                     1st element: the planner's name (either "A *" or "RRT")
                     2nd element: the list of Motion_plan_state returned by the planner
+            particle_array - (optional) an array of particles
+                each element has this format:
+                    [x_p, y_p, v_p, theta_p, weight_p]
         """
         
         # plot the new auv position as a red "o"
@@ -226,6 +229,7 @@ class RobotSim:
                 # pass in the planner name and the trajectory array
                 self.live_graph.plot_planned_traj(planned_traj[0], planned_traj[1])
 
+        # if there's particles to plot, plot them
         if particle_array != []:
             self.live_graph.plot_particles(particle_array)
 
