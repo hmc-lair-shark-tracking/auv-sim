@@ -83,12 +83,12 @@ class Live3DGraph:
 
                     # store the orientation to help us plot the direction vectors
                     # calculate orientation by: current coordinate - previous coordiate
-                    shark.store_orientation(shark.x_pos_array[-1]-shark.x_pos_array[-2], shark.y_pos_array[-1]-shark.y_pos_array[-2], shark.y_pos_array[-1]-shark.y_pos_array[-2])
+                    shark.store_orientation(shark.x_pos_array[-1]-shark.x_pos_array[-2], shark.y_pos_array[-1]-shark.y_pos_array[-2], shark.z_pos_array[-1]-shark.z_pos_array[-2])
                     
                     self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ',', color = c, label = "shark #" + str(shark.id))
 
                     # plot the direction vectors for the shark
-                    self.ax.quiver3D(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, shark.x_vel_array, shark.y_vel_array, shark.z_vel_array, color = c, pivot="tip", arrow_length_ratio = 0.8, length = 0.5, normalize = True)
+                    self.ax.quiver3D(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, shark.x_orient_array, shark.y_orient_array, shark.z_orient_array, color = c, pivot="tip", arrow_length_ratio = 0.8, length = 0.5, normalize = True)
 
             
     def enable_traj_plot(self, event):
