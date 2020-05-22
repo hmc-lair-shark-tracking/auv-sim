@@ -202,15 +202,18 @@ class RobotSim:
         print("AUV [x, y, z, theta]:  [", self.x, ", " , self.y, ", ", self.z, ", ", self.theta, "]")
 
 
-    def update_live_graph(self, planned_traj_array):
+    def update_live_graph(self, planned_traj_array = [], particle_array = []):
         """
         Plot the position of the robot, the sharks, and any planned trajectories
 
         Parameter: 
-            planned_traj_array - an array of trajectories that we want to plot
+            planned_traj_array - (optional) an array of trajectories that we want to plot
                 each element is an array on its own, where
                     1st element: the planner's name (either "A *" or "RRT")
                     2nd element: the list of Motion_plan_state returned by the planner
+            particle_array - (optional) an array of particles
+                each element has this format:
+                    [x_p, y_p, v_p, theta_p, weight_p]
         """
         
         # plot the new auv position as a red "o"
@@ -225,6 +228,10 @@ class RobotSim:
             for planned_traj in planned_traj_array:
                 # pass in the planner name and the trajectory array
                 self.live_graph.plot_planned_traj(planned_traj[0], planned_traj[1])
+
+        # if there's particles to plot, plot them
+        if particle_array != []:
+            self.live_graph.plot_particles(particle_array)
 
         self.live_graph.ax.legend(self.live_graph.labels)
         
@@ -411,16 +418,23 @@ class RobotSim:
             A_star_traj = [Motion_plan_state(740, 280)]
             A_star_traj += [Motion_plan_state(740+i, 280+i) for i in range(50)]
 
+            # testing data for plotting RRT_traj
             RRT_traj = [Motion_plan_state(760, 230)]
             RRT_traj += [Motion_plan_state(760+i, 230+i) for i in range(50)]
             
+            # example of first parameter to update_live_graph function
             planned_traj_array = [["A *", A_star_traj], ["RRT", RRT_traj]]
 
+            # testing data for displaying particle array
+            particle_array = [[740, 280, 0, 0, 0]]
+            
+            particle_array += [[740 + np.random.randint(-20, 20, dtype='int'), 280 + np.random.randint(-20, 20, dtype='int'), 0, 0, 0] for i in range(50)]
+            
             # In order to plot your planned trajectory, you have to wrap your trajectory in another array, where
             #   1st element: the planner's name (either "A *" or "RRT")
             #   2nd element: the list of Motion_plan_state returned by your planner
             # Use the "planned_traj_array" as an example
-            self.update_live_graph(planned_traj_array)
+            self.update_live_graph(planned_traj_array, particle_array)
             
             # increment the current time by 0.1 second
             self.curr_time += 0.1

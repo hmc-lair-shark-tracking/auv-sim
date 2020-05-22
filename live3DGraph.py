@@ -33,16 +33,17 @@ class Live3DGraph:
         
         # initialize the A * button
         self.traj_checkbox_dict["A *"] = [False,\
-            CheckButtons(plt.axes([0.7, 0.10, 0.1, 0.05]), ["A* Trajectory"]), '#9933ff']
+            CheckButtons(plt.axes([0.7, 0.10, 0.15, 0.05]), ["A* Trajectory"]), '#9933ff']
         # when the A* checkbox is checked, it should call self.enable_traj_plot
-        # self.traj_checkbox_dict["A *"][1].on_clicked(self.enable_traj_plot)
         
         # initialize the RRT button
         self.traj_checkbox_dict["RRT"] = [False,\
-            CheckButtons(plt.axes([0.7, 0.05, 0.1, 0.05]),["RRT Trajectory"]), '#043d10']
+            CheckButtons(plt.axes([0.7, 0.05, 0.15, 0.05]),["RRT Trajectory"]), '#043d10']
         # when the RRT checkbox is checked, it should call self.enable_traj_plot
-        # self.traj_checkbox_dict["RRT"][1].on_clicked(self.enable_traj_plot)
 
+        self.particle_checkbox = CheckButtons(plt.axes([0.1, 0.10, 0.15, 0.05]),["Display Particles"])
+        self.display_particles = False
+        self.particle_checkbox.on_clicked(self.particle_checkbox_clicked)
         # an array of the labels that will appear in the legend
         # TODO: labels and legends still have minor bugs
         self.labels = ["auv"]
@@ -142,3 +143,32 @@ class Live3DGraph:
             if self.traj_checkbox_dict[planner_name][0]:
                 self.labels.remove(planner_name)
                 self.traj_checkbox_dict[planner_name][0] = False
+    
+
+    def particle_checkbox_clicked(self, event):
+        """
+        on_clicked handler function for particle checkbox
+
+        toggle the display_particles variable (bool)
+        """
+        self.display_particles = not self.display_particles
+    
+    
+    def plot_particles(self, particle_array):
+        """
+        Plot the particles if the the particle checkbox is checked
+
+        Parameter:
+            particle_array - an array of arrays, where each element has the format:
+                [x_p, y_p, v_p, theta_p, weight_p]
+        """
+        if self.display_particles:
+            particle_x_array = []
+            particle_y_array = []
+            # create two arrays for plotting x and y positions
+            for particle in particle_array:
+                particle_x_array.append(particle[0])
+                particle_y_array.append(particle[1])
+            
+            # TODO: for now, we set the z position of the trajectory to be -10
+            self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = '#069ecc')
