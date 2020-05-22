@@ -18,18 +18,19 @@ class SharkTrajectory:
         # decided to update the position arrays as we draw the shark's position
         # use these arrays to draw the shark's trajectory & for summary plots at the
         # end of the simulation
+        # initialize the array with the first point, so we can do the orientation calculation
+        #   for the direction vector
         self.x_pos_array = [float(x_pos_array[0])]
         self.y_pos_array = [float(y_pos_array[0])]
         self.z_pos_array = [0]
 
-        self.x_vel_array = [0]
-        self.y_vel_array = [0]
-        self.z_vel_array = [0]
+        self.x_orient_array = [0]
+        self.y_orient_array = [0]
+        self.z_orient_array = [0]
 
         # use map to convert the array of strings to array of float
-        self.x_vel_array_raw = list(map(lambda x: float(x), x_vel_array))
-        self.y_vel_array_raw = list(map(lambda y: float(y), y_vel_array))
-        self.z_vel_array_raw = [0 for x in self.x_vel_array_raw]
+        self.x_vel_array = list(map(lambda x: float(x), x_vel_array))
+        self.y_vel_array = list(map(lambda y: float(y), y_vel_array))
 
         for i in range(len(x_pos_array)):
             # the shark tracking video has frame rate 30 fps

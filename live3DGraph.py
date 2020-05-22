@@ -82,13 +82,12 @@ class Live3DGraph:
                     shark.store_positions(shark.traj_pts_array[shark.index].x, shark.traj_pts_array[shark.index].y, shark.traj_pts_array[shark.index].z)
 
                     # update the shark's position arrays to help us update the graph
-                    shark.store_velocity(shark.x_pos_array[-1]-shark.x_pos_array[-2], shark.y_pos_array[-1]-shark.y_pos_array[-2], shark.z_vel_array_raw[shark.index])
+                    shark.store_velocity(shark.x_pos_array[-1]-shark.x_pos_array[-2], shark.y_pos_array[-1]-shark.y_pos_array[-2], shark.traj_pts_array[shark.index].z)
                     
-                    # self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ',', color = c, label = "shark #" + str(shark.id))
+                    self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ',', color = c, label = "shark #" + str(shark.id))
 
-                    print("x: ", len(shark.x_pos_array))
-                    print("v: ", len(shark.x_vel_array))
-                    self.ax.quiver(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, shark.x_vel_array, shark.y_vel_array, shark.z_vel_array, length=1, color = c, pivot="tip")
+                    # plot the direction vectors for the shark
+                    self.ax.quiver3D(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, shark.x_vel_array, shark.y_vel_array, shark.z_vel_array, color = c, pivot="tip", arrow_length_ratio = 0.8, length = 0.5, normalize = True)
 
             
     def enable_traj_plot(self, event):

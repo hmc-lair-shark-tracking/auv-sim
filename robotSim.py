@@ -444,7 +444,7 @@ def main():
     test_robot = RobotSim(740,280,-10,0.1)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
-    test_robot.setup("./data/sharkTrackingData.csv", [1])
+    test_robot.setup("./data/sharkTrackingData.csv", [1,2])
     test_robot.main_navigation_loop()
 
 
