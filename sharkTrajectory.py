@@ -18,13 +18,18 @@ class SharkTrajectory:
         # decided to update the position arrays as we draw the shark's position
         # use these arrays to draw the shark's trajectory & for summary plots at the
         # end of the simulation
-        self.x_pos_array = []
-        self.y_pos_array = []
-        self.z_pos_array = []
-        
+        self.x_pos_array = [float(x_pos_array[0])]
+        self.y_pos_array = [float(y_pos_array[0])]
+        self.z_pos_array = [0]
+
+        self.x_vel_array = [0]
+        self.y_vel_array = [0]
+        self.z_vel_array = [0]
+
         # use map to convert the array of strings to array of float
-        self.x_vel_array = list(map(lambda x: float(x), x_vel_array))
-        self.y_vel_array = list(map(lambda y: float(y), y_vel_array))
+        self.x_vel_array_raw = list(map(lambda x: float(x), x_vel_array))
+        self.y_vel_array_raw = list(map(lambda y: float(y), y_vel_array))
+        self.z_vel_array_raw = [0 for x in self.x_vel_array_raw]
 
         for i in range(len(x_pos_array)):
             # the shark tracking video has frame rate 30 fps
@@ -39,6 +44,11 @@ class SharkTrajectory:
         self.x_pos_array.append(x)
         self.y_pos_array.append(y)
         self.z_pos_array.append(z)
+
+    def store_velocity(self, x_v, y_v, z_v):
+        self.x_vel_array.append(x_v)
+        self.y_vel_array.append(y_v)
+        self.z_vel_array.append(z_v)
 
     def get_curr_position(self):
         return self.traj_pts_array[self.index]
