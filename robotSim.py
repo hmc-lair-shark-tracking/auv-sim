@@ -405,8 +405,11 @@ class RobotSim:
             # testing data for plotting A_star_traj
             A_star_traj = [Motion_plan_state(740, 280)]
             A_star_traj += [Motion_plan_state(740+i, 280+i) for i in range(50)]
+
+            RRT_traj = [Motion_plan_state(760, 230)]
+            RRT_traj += [Motion_plan_state(760+i, 230+i) for i in range(50)]
             
-            planned_traj_array = [["A *", A_star_traj]]
+            planned_traj_array = [["A *", A_star_traj], ["RRT", RRT_traj]]
 
             self.update_live_graph(planned_traj_array)
 

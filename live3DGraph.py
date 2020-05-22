@@ -27,11 +27,15 @@ class Live3DGraph:
         self.added_RRT_label = False
         
         self.traj_checkbox_dict = {}
-        ax_checkbox = plt.axes([0.7, 0.05, 0.1, 0.075])
         
-        self.traj_checkbox_dict["A *"] = (False, CheckButtons(ax_checkbox, ["A* Trajectory"]))
-        self.traj_checkbox_dict["A *"][1].on_clicked(self.enable_A_star_traj)
+        self.traj_checkbox_dict["A *"] = [False,\
+            CheckButtons(plt.axes([0.7, 0.10, 0.1, 0.05]), ["A* Trajectory"]), '#9933ff']
+        self.traj_checkbox_dict["A *"][1].on_clicked(self.enable_traj_plot)
         
+        self.traj_checkbox_dict["RRT"] = [False,\
+            CheckButtons(plt.axes([0.7, 0.05, 0.1, 0.05]),["RRT Trajectory"]), '#043d10']
+        self.traj_checkbox_dict["RRT"][1].on_clicked(self.enable_traj_plot)
+
         self.labels = ["auv"]
 
 
@@ -65,15 +69,22 @@ class Live3DGraph:
                     self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ',', color = c, label = "shark #" + str(shark.id))
 
             
-    def enable_A_star_traj(self, event):
-        if not self.added_A_star_label:
-            self.labels += ["A *"]
-            self.traj_checkbox_dict["A *"][0] = True
+    def enable_traj_plot(self, event):
+        if (event == "A* Trajectory"):
+            if not self.traj_checkbox_dict["A *"][0]:
+                self.labels += ["A *"]
+                self.traj_checkbox_dict["A *"][0] = True
+        elif (event == "RRT Trajectory"):
+            if not self.traj_checkbox_dict["RRT"][0]:
+                self.labels += ["RRT"]
+                self.traj_checkbox_dict["RRT"][0] = True        
 
 
     def plot_planned_traj(self, planner_name, trajectory_array):
         checkbox = self.traj_checkbox_dict[planner_name][1]
         checked = checkbox.get_status()[0]
+        color = self.traj_checkbox_dict[planner_name][2]
+        
         if checked: 
             traj_x_array = []
             traj_y_array = []
@@ -81,9 +92,8 @@ class Live3DGraph:
                 traj_x_array.append(traj_pt.x)
                 traj_y_array.append(traj_pt.y)
 
-            self.ax.plot(traj_x_array,  traj_y_array, -10, marker = ',', color = '#9933ff', label = planner_name)
+            self.ax.plot(traj_x_array,  traj_y_array, -10, marker = ',', color = color, label = planner_name)
         else:
-            label_added = self.traj_checkbox_dict[planner_name][0]
-            if label_added:
+            if self.traj_checkbox_dict[planner_name][0]:
                 self.labels.remove(planner_name)
-                label_added = False
+                self.traj_checkbox_dict[planner_name][0] = False
