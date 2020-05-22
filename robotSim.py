@@ -204,10 +204,13 @@ class RobotSim:
 
     def update_live_graph(self, planned_traj_array):
         """
-        Plot the position of the robot, the sharks, and any planned trajectory list
+        Plot the position of the robot, the sharks, and any planned trajectories
 
         Parameter: 
-            planned_traj_array - 
+            planned_traj_array - an array of trajectories that we want to plot
+                each element is an array on its own, where
+                    1st element: the planner's name (either "A *" or "RRT")
+                    2nd element: the list of Motion_plan_state returned by the planner
         """
         
         # plot the new auv position as a red "o"
@@ -216,9 +219,11 @@ class RobotSim:
 
         # plot the new positions for all the sharks that the robot is tracking
         self.live_graph.plot_sharks(self.curr_time)
-          
+        
+        # if there's any planned trajectory to plot, plot each one
         if planned_traj_array != []:
             for planned_traj in planned_traj_array:
+                # pass in the planner name and the trajectory array
                 self.live_graph.plot_planned_traj(planned_traj[0], planned_traj[1])
 
         self.live_graph.ax.legend(self.live_graph.labels)
