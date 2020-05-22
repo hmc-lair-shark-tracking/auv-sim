@@ -1,5 +1,6 @@
 # add all the stuff we gotta import
 import math
+import decimal
 import time
 import numpy as np
 import random
@@ -97,13 +98,11 @@ class particleFilter:
             alpha = math.atan2((int(self.y_auv) - p[1]), (int(self.x_auv) - p[0])) - self.theta
             k = ["range",range_of_particles,"alpha ", alpha]
             list_alpha.append(k)
-        #print("list of p", s_list, "alpha here", list_alpha)
-        print(list_alpha)
+        return list_alpha
+        #prints range and alpha of particles    
+        #print(list_alpha)
+        #print(len(list_alpha))
     
-    def caluclating_range(self):
-        """creates the range of each particles position from the auv """
-
-
 
     def auv_to_alpha(self):
         # for one shark position and multiple auv positions, we are calculating "real" alpha
@@ -122,46 +121,63 @@ class particleFilter:
                 real_alpha = angle_wrap(real_alpha)
                 list_of_real_alpha1 = [real_alpha, -real_alpha]
                 list_of_real_alpha.append(list_of_real_alpha1)
+        #print("list of real alpha [0]")
+        #print(list_of_real_alpha[0][0])
+        #print("list of alpha")
+        #print(list_of_real_alpha)
         return list_of_real_alpha
     
     def lotek_Angle(self):
-       # converts a list of alpha from radians to Lotek angle units
-        # we wrote this function such that the 'real' alpha values change to Lotek angle units 
-        list1 = self.auv_to_alpha()
+       # converts a list of alpha from particles from radians to Lotek angle units
+        list1 = self.predict()
         #list1 = [[-1, 1], [-2, 2]]
-        print(list1)
+        #print("list1")
+        #print(list1)
         list_of_lotek = []
         for k in list1:
             #assumes that real_alpha is positive
-            r = (-(10 ** -6) * (int(k[1]) **3)) + 2 * (10**-5 * (int(k[1])) **2) + 0.0947 * int(k[1]) - 0.2757
+            r = (-(10 ** -6) * (float(k[3]) **3)) + 2 * (10**-5 * (float(k[3])) **2) + 0.0947 * int(k[3]) - 0.2757
             list_of_lotek.append(r)
-        print(list_of_lotek)
+        #print(list_of_lotek)
         return(list_of_lotek)
-    """
+
     def weight(self):
-        lotek_angle = self.lotek_Angle()
-        particles_alpha = self.predict()
-        new_weight = []
-
+        lotek_angle = self.auv_to_alpha()
+        #print(lotek_angle)
+        particles_range_alpha = self.lotek_Angle()
         sigma_alpha = 1 
-
+        weights_list = []
+        #print("beg of particles list")
+        #print(particles_range_alpha)
+        #print("end of particles list")
+        #count_loop = 0 
+        #print("beg of particles")
+        #print(particles_range_alpha)
+        #print("end of particles")
+        for a in particles_range_alpha:
+            for k in lotek_angle:
+            #print("beg of a")
+            #print(a)
+            #print("end of a ")
+            #count_loop += 1
+            #print("particle number", count_loop)
+            #print(count_loop)
+            #print(type(abs(a[3])))
+                function = .001 + ((1/math.sqrt(2*3.1415*abs(a)))*(2.71828**(((-abs(a-k[0]))**2)))/(2*(sigma_alpha)))
+                weights_list.append(function)
+        print("list of weights")
+        print(weights_list)
+        #return weights_list
         # there will be a lot of random alpha values... 
         # so now we gotta compare the alpha of the lotex so the real_alpha w the alphas of the particles to change the alphas of the particles
         #insert crazy equation
-"""
 
-
-
-
-
-    
-
+ 
 def main():
     test_particle = particleFilter(10, 10 , 30, 20 ,20)
     while True:
         time.sleep(2.0)
-        test_particle.predict()
-    #test_particle.lotek_Angle()
+        test_particle.weight()
 
 
 
