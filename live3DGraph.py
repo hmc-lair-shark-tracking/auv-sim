@@ -24,10 +24,13 @@ class Live3DGraph:
         self.ax.set_zlabel('Z')
 
         self.added_A_star_label = False
-
+        self.added_RRT_label = False
+        
+        self.traj_checkbox_dict = {}
         ax_checkbox = plt.axes([0.7, 0.05, 0.1, 0.075])
-        self.traj_checkbox = CheckButtons(ax_checkbox, ["A* Trajectory"])
-        self.traj_checkbox.on_clicked(self.enable_A_star_traj)
+        
+        self.traj_checkbox_dict["A *"] = (False, CheckButtons(ax_checkbox, ["A* Trajectory"]))
+        self.traj_checkbox_dict["A *"][1].on_clicked(self.enable_A_star_traj)
         
         self.labels = ["auv"]
 
@@ -63,19 +66,22 @@ class Live3DGraph:
     def enable_A_star_traj(self, event):
         if not self.added_A_star_label:
             self.labels += ["A *"]
-            self.added_A_star_label = True
-    
-    def plot_A_star_traj(self, trajectory_array):
-        
-        if self.traj_checkbox.get_status()[0]: 
+            self.traj_checkbox_dict["A *"][0] = True
+            
+
+    def plot_planned_traj(self, planner_name, trajectory_array):
+        checkbox = self.traj_checkbox_dict[planner_name][1]
+        checked = checkbox.get_status()[0]
+        if checked: 
             traj_x_array = []
             traj_y_array = []
             for traj_pt in trajectory_array:
                 traj_x_array.append(traj_pt[0])
                 traj_y_array.append(traj_pt[1])
 
-            self.ax.plot(traj_x_array,  traj_y_array, -10, marker = ',', color = '#9933ff', label = "A *")
+            self.ax.plot(traj_x_array,  traj_y_array, -10, marker = ',', color = '#9933ff', label = planner_name)
         else:
-            if self.added_A_star_label:
+            label_added = self.traj_checkbox_dict[planner_name][0]
+            if label_added:
                 self.labels.remove("A *")
-                self.added_A_star_label = False
+                label_added = False

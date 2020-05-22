@@ -216,12 +216,10 @@ class RobotSim:
 
         # plot the new positions for all the sharks that the robot is tracking
         self.live_graph.plot_sharks(self.curr_time)
-        
-        
+          
         if planned_traj_list != []:
             for planned_traj in planned_traj_list:
-                if planned_traj[0] == "A*":
-                    self.live_graph.plot_A_star_traj(planned_traj[1])
+                self.live_graph.plot_planned_traj(planned_traj[0], planned_traj[1])
 
         self.live_graph.ax.legend(self.live_graph.labels)
         
@@ -405,7 +403,7 @@ class RobotSim:
             # self.log_data()
             A_star_traj = [(740, 280)]
             A_star_traj += [(740+i*2, 280+i) for i in range(50)]
-            planned_traj_array = [["A*",A_star_traj]]
+            planned_traj_array = [["A *", A_star_traj]]
 
             self.update_live_graph(planned_traj_array)
 
