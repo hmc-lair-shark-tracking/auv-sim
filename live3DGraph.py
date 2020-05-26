@@ -23,6 +23,10 @@ class Live3DGraph:
         self.ax.set_ylabel('Y')
         self.ax.set_zlabel('Z')
 
+        self.auv_x_orient_array=[0]
+        self.auv_y_orient_array=[0]
+        self.auv_z_orient_array=[0]
+
         # create a dictionary for checkbox for each type of planned trajectory
         # key - the planner's name: "A *", "RRT"
         # value - three-element array
@@ -48,6 +52,18 @@ class Live3DGraph:
         # TODO: labels and legends still have minor bugs
         self.labels = ["auv"]
 
+
+    def plot_auv(self, x_pos_array, y_pos_array, z_pos_array):
+        self.ax.plot(x_pos_array, y_pos_array, z_pos_array,\
+            marker = ',', linestyle = '-', color = 'red', label='auv')
+
+        self.auv_x_orient_array.append(x_pos_array[-1]-x_pos_array[-2])
+        self.auv_y_orient_array.append(y_pos_array[-1]-y_pos_array[-2])
+        self.auv_z_orient_array.append(z_pos_array[-1]-z_pos_array[-2])
+
+        self.ax.quiver3D(x_pos_array, y_pos_array, z_pos_array,\
+            self.auv_x_orient_array, self.auv_y_orient_array, self.auv_z_orient_array,\
+            color = 'red', pivot="tip", normalize=True)
 
     def load_shark_labels(self):
         """
@@ -85,10 +101,10 @@ class Live3DGraph:
                     # calculate orientation by: current coordinate - previous coordiate
                     shark.store_orientation(shark.x_pos_array[-1]-shark.x_pos_array[-2], shark.y_pos_array[-1]-shark.y_pos_array[-2], shark.z_pos_array[-1]-shark.z_pos_array[-2])
                     
-                    self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ',', color = c, label = "shark #" + str(shark.id))
+                    self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ",", color = c, label = "shark #" + str(shark.id))
 
                     # plot the direction vectors for the shark
-                    self.ax.quiver3D(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, shark.x_orient_array, shark.y_orient_array, shark.z_orient_array, color = c, pivot="tip", arrow_length_ratio = 0.8, length = 0.5, normalize = True)
+                    self.ax.quiver3D(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, shark.x_orient_array, shark.y_orient_array, shark.z_orient_array, color = c, pivot="tip", normalize = True)
 
             
     def enable_traj_plot(self, event):
@@ -141,7 +157,7 @@ class Live3DGraph:
                 traj_y_array.append(traj_pt.y)
 
             # TODO: for now, we set the z position of the trajectory to be -10
-            self.ax.plot(traj_x_array,  traj_y_array, -10, marker = ',', color = color, label = planner_name)
+            self.ax.plot(traj_x_array,  traj_y_array, 0, marker = ',', color = color, label = planner_name)
         else:
             # if the checkbox if not checked
             # self.traj_checkbox_dict[planner_name][0] represents whether the label is added to

@@ -215,10 +215,7 @@ class RobotSim:
                 each element has this format:
                     [x_p, y_p, v_p, theta_p, weight_p]
         """
-        
-        # plot the new auv position as a red "o"
-        self.live_graph.ax.plot(self.x_list, self.y_list, self.z_list,\
-            marker = 'o', linestyle = '-', color = 'red', label='auv')
+        self.live_graph.plot_auv(self.x_list, self.y_list, self.z_list)
 
         # plot the new positions for all the sharks that the robot is tracking
         self.live_graph.plot_sharks(self.curr_time)
@@ -441,10 +438,10 @@ class RobotSim:
 
 
 def main():
-    test_robot = RobotSim(740,280,-10,0.1)
+    test_robot = RobotSim(740,280,-5,0.1)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
-    test_robot.setup("./data/sharkTrackingData.csv", [1,2])
+    test_robot.setup("./data/sharkTrackingData.csv", [1, 2])
     test_robot.main_navigation_loop()
 
 
