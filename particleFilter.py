@@ -105,15 +105,6 @@ class particleFilter:
     
 
     def auv_to_alpha(self):
-        # for one shark position and multiple auv positions, we are calculating "real" alpha
-        #hannah's a bitch 
-        # olivia knows how to think like a for loop, but not type one
-        # might need to change later when we assume that the robot is not at a single position and when AUV is not in a single position like now
-        list_of_auv_x = []
-        list_of_auv_y = []
-        k = self.x_auv
-        list_of_auv_y.append(self.y_auv)
-        list_of_auv_x.append(k)
         list_of_real_alpha = []
         for l in list_of_auv_y:
             for k in list_of_auv_x:
@@ -122,20 +113,20 @@ class particleFilter:
                 list_of_real_alpha1 = [real_alpha, -real_alpha]
                 list_of_real_alpha.append(list_of_real_alpha1)
         #print("list of real alpha [0]")
+        #print(list_of_real_alpha[0])
         #print(list_of_real_alpha[0][0])
         #print("list of alpha")
         #print(list_of_real_alpha)
         return list_of_real_alpha
     
     def lotek_Angle(self):
-       # converts a list of alpha from particles from radians to Lotek angle units
-        list1 = self.predict()
+       # converts a list of alpha from particles from radians to Lotek angle units for random particles
+        list1 = self.predict() 
         #list1 = [[-1, 1], [-2, 2]]
         #print("list1")
         #print(list1)
         list_of_lotek = []
         for k in list1:
-            #assumes that real_alpha is positive
             r = (-(10 ** -6) * (float(k[3]) **3)) + 2 * (10**-5 * (float(k[3])) **2) + 0.0947 * int(k[3]) - 0.2757
             list_of_lotek.append(r)
         #print(list_of_lotek)
@@ -156,14 +147,13 @@ class particleFilter:
         #print("end of particles")
         for a in particles_range_alpha:
             for k in lotek_angle:
-            #print("beg of a")
-            #print(a)
-            #print("end of a ")
-            #count_loop += 1
-            #print("particle number", count_loop)
+                #print("k")
+                #print(k)
+                #print("k[0] ")
+                #print(k[0])
             #print(count_loop)
             #print(type(abs(a[3])))
-                function = .001 + ((1/math.sqrt(2*3.1415*abs(a)))*(2.71828**(((-abs(a-k[0]))**2)))/(2*(sigma_alpha)))
+                function = .001 + ((1/math.sqrt(2*3.1415*sigma_alpha))*(2.71828**(((-abs(a-k[0]))**2)))/(2*(sigma_alpha)**2))
                 weights_list.append(function)
         print("list of weights")
         print(weights_list)
@@ -172,12 +162,15 @@ class particleFilter:
         # so now we gotta compare the alpha of the lotex so the real_alpha w the alphas of the particles to change the alphas of the particles
         #insert crazy equation
 
+
  
 def main():
     test_particle = particleFilter(10, 10 , 30, 20 ,20)
     while True:
         time.sleep(2.0)
-        test_particle.weight()
+        test_particle.predict()
+    #test_particle.auv_to_alpha()
+
 
 
 
