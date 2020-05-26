@@ -11,7 +11,7 @@ from numpy.random import randn
 from apscheduler.scheduler import Scheduler
 import threading
 from robotSim import RobotSim
-
+from live3DGraph import Live3DGraph
 
 def angle_wrap(ang):
     """
@@ -63,8 +63,8 @@ class particleFilter:
                 v_p = random.uniform(0,5)
                 theta_p = random.uniform(-math.pi, math.pi) 
                 coordinate_of_particle.append([x_p, y_p, v_p, theta_p, weight_p])
-        #print("particle list")
-        #print(coordinate_of_particle)
+        print("create particles")
+        print(coordinate_of_particle)
         for x in range(count):
             for y in coordinate_of_particle:
                 dict[x] = y
@@ -73,8 +73,7 @@ class particleFilter:
         return coordinate_of_particle
         #returns a dictionary w count and the particle coordinates and its weight
 
-    def updateParticles(self, dt = 1):
-        s_list = self.createParticles()
+    def updateParticles(self, s_list, dt):
         sigma_v = 0.3 
         sigma_0 = math.pi/2
         for p in s_list:
@@ -88,19 +87,16 @@ class particleFilter:
             p[0] += p[2] * math.cos(p[3]) * dt 
                 #print(p[0])
             p[1] += p[2] * math.sin(p[3]) * dt
-        #print("s_list, so hopefully the x, y")
-        #print(s_list)
+        print("update")
+        print(s_list)
         return s_list
 
 
-    def predict(self, dt = 1):
-
-        s_list = self.updateParticles(dt = 1)
-        
+    def predict(self, n_list, dt):
         list_alpha = []
         # can consider ignoring this
         #print(s_list)
-        for p in s_list:
+        for p in n_list:
             range_of_particles = math.sqrt((int(self.y_auv)- p[1])**2 + (int(self.x_auv)-p[0])**2)
             alpha = math.atan2((int(self.y_auv) - p[1]), (int(self.x_auv) - p[0])) - self.theta
             k = ["range",range_of_particles,"alpha ", alpha]
@@ -124,9 +120,9 @@ class particleFilter:
         #print(list_of_real_alpha)
         return list_of_real_alpha
     
-    def lotek_Angle(self):
+    def lotek_Angle(self, list1):
        # converts a list of alpha from particles from radians to Lotek angle units for random particles
-        list1 = self.predict() 
+        
         #list1 = [[-1, 1], [-2, 2]]
         #print("list1")
         #print(list1)
@@ -135,12 +131,10 @@ class particleFilter:
             r = (-(10 ** -6) * (float(k[3]) **3)) + 2 * (10**-5 * (float(k[3])) **2) + 0.0947 * int(k[3]) - 0.2757
             list_of_lotek.append(r)
         #print(list_of_lotek)
-        return(list_of_lotek)
+        return list_of_lotek
 
-    def weight(self):
-        lotek_angle = self.auv_to_alpha()
+    def weight(self, lotek_angle, particles_range_alpha):
         #print(lotek_angle)
-        particles_range_alpha = self.lotek_Angle()
         sigma_alpha = 1 
         weights_list = []
         #print("beg of particles list")
@@ -171,8 +165,7 @@ class particleFilter:
         # so now we gotta compare the alpha of the lotex so the real_alpha w the alphas of the particles to change the alphas of the particles
         #insert crazy equation
 
-    def normalize(self):
-        weights_list = self.weight()
+    def normalize(self, weights_list):
         newlist = []
         denominator= sum(weights_list)
         for weight in weights_list:
@@ -182,57 +175,86 @@ class particleFilter:
         #print(newlist)
         return newlist
 
-    def correct(self):
-        normalize_list = self.normalize()
-        old_coordinates = self.updateParticles()
+    def correct(self, normalize_list, old_coordinates):
         list_of_coordinates = []
         list_of_new_particles = []
+        new_particles = []
         count = -1
         for k in normalize_list:
             if k < 0.25:
                 count += 1
-                copy = old_coordinates[count][:2]
-                new = [copy, copy]
-                list_of_new_particles.append(new) 
+                copy = old_coordinates[count][:4]
+                list_of_new_particles.append(copy)
+                list_of_new_particles.append(copy)
                 #print("count, ", count, "x, y", old_coordinates[count][:2] )
                 #print(list_of_new_particles)
             elif k < 0.50:
                 count += 1 
-                copy = old_coordinates[count][:2]
+                copy = old_coordinates[count][:4]
                 #print("count,", count, "x, y ", old_coordinates[count][:2])
-                new = [copy, copy, copy]
-                list_of_new_particles.append(new)
+                list_of_new_particles.append(copy)
+                list_of_new_particles.append(copy)
+                list_of_new_particles.append(copy)
                 #print(list_of_new_particles)
             elif k < 0.75:
                 count += 1
                 #print("count,", count, "x, y ", old_coordinates[count][:2])
-                copy = old_coordinates[count][:2]
-                new = [copy, copy, copy, copy]
-                list_of_new_particles.append(new)
+                copy = old_coordinates[count][:4]
+                list_of_new_particles.append(copy)
+                list_of_new_particles.append(copy)
+                list_of_new_particles.append(copy)
+                list_of_new_particles.append(copy)
+
                 #print(list_of_new_particles)
             elif k < 1.0:
                 count += 1
                 #print("count,", count, "x, y ", old_coordinates[count][:2])
-                copy = old_coordinates[count][:2]
-                new = [copy, copy, copy, copy, copy]
-                list_of_new_particles.append(new)
+                copy = old_coordinates[count][:4]
+                list_of_new_particles.append(copy)
+                list_of_new_particles.append(copy)
+                list_of_new_particles.append(copy)
+                list_of_new_particles.append(copy)
+                list_of_new_particles.append(copy)
                 #print(list_of_new_particles)
             else:
                 print("something is not right with the weights")
-        # this returns something like  new coordinates w a list of list returns 
-        #[
-        #   [[x, y],[copy_x, copy_y]],
-        #     [[other_x, other_y], [copy_x, copy_y]]
-        #]
-        print(list_of_new_particles)
-        return list_of_new_particles
-        
+        #print(list_of_new_particles)
+
+        for n in range(len(normalize_list)): 
+            x = random.choice(len(list_of_new_particles))
+            new_particles.append(list_of_new_particles[x])
+        print("new particles")
+        print(new_particles)
+        return new_particles
+
  
 def main():
     test_particle = particleFilter(10, 10 , 30, 20 ,20)
+    test_grapher = Live3DGraph()
+    coordinate_of_particle = test_particle.createParticles()
+    s_list = test_particle.updateParticles(coordinate_of_particle, 1)
+    list_alpha = test_particle.predict(coordinate_of_particle, 1)
+    list_of_real_alpha = test_particle.auv_to_alpha()
+    list_of_lotek = test_particle.lotek_Angle(list_alpha)
+    weights_list = test_particle.weight(list_of_real_alpha, list_of_lotek)
+    newlist = test_particle.normalize(weights_list)
+    new_particles = test_particle.correct(newlist, s_list)
+
     while True:
         time.sleep(2.0)
-        test_particle.correct()
+        s_list = test_particle.updateParticles(new_particles, 1)
+        list_alpha= test_particle.predict(new_particles, 1)
+        list_of_lotek = test_particle.lotek_Angle(list_alpha)
+        test_particle.weight(list_of_real_alpha, list_of_lotek)
+        newlist= test_particle.normalize(weights_list)
+        new_particles = test_particle.correct(newlist, s_list)
+        particle_array = test_particle.correct()
+        test_grapher.plot_particles(particle_array)
+        plt.draw()
+        plt.pause(0.5)
+        test_grapher.ax.clear()
+    
+
 
 
 
