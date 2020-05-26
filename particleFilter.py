@@ -232,10 +232,9 @@ class particleFilter:
         print(new_particles)
         return new_particles
 
- 
 def main():
     test_particle = particleFilter(10, 10 , 30, 20 ,20)
-    #test_grapher = Live3DGraph()
+    test_grapher = Live3DGraph()
     coordinate_of_particle = test_particle.createParticles()
     s_list = test_particle.updateParticles(coordinate_of_particle, 1)
     list_alpha = test_particle.predict(coordinate_of_particle, 1)
@@ -253,14 +252,15 @@ def main():
         test_particle.weight(list_of_real_alpha, list_of_lotek)
         newlist= test_particle.normalize(weights_list)
         new_particles = test_particle.correct(newlist, s_list)
-        #particle_array = test_particle.correct(newlist, s_list)
-        """test_grapher.plot_particles(particle_array)
+        particle_array = test_particle.correct(newlist, s_list)
+        test_grapher.plot_particles(particle_array)
         
         plt.draw()
         plt.pause(0.5)
-        test_grapher.ax.clear()"""
+        test_grapher.ax.clear()
     
-
+if __name__ == "__main__":
+    main()
 
 
 
