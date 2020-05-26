@@ -1,9 +1,7 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.widgets import CheckButtons
-
-
-ARROW_LENGTH_RATIO_DEFAULT = 0.01
+import constants as const
 
 """
 Uses matplotlib to generate live 3D Graph while the simulator is running
@@ -25,10 +23,6 @@ class Live3DGraph:
         self.ax.set_xlabel('X')
         self.ax.set_ylabel('Y')
         self.ax.set_zlabel('Z')
-
-        self.auv_x_orient_array=[0]
-        self.auv_y_orient_array=[0]
-        self.auv_z_orient_array=[0]
 
         self.arrow_length_ratio = 0.1
 
@@ -64,27 +58,44 @@ class Live3DGraph:
 
         Manually alter the arrow_length_ratio which affects the arrow size partially
         """
+        # The current theory is that the arrow size is weird because the z axis is being autoscaled
+        # A work-around is to adjust the arrow size based on the z axis range
         z_interval = self.ax.get_zaxis().get_data_interval()
         range = abs(z_interval[0] - z_interval[1])
 
         if range == 0:
+            # if the distance between the auv and sharks is 0 m in the z direction
             self.arrow_length_ratio = 0.01
         elif range > 50:
+            # if the distance between the auv and sharks is greater than 50 m in the z direction
             self.arrow_length_ratio = range * 0.02
         else:
             self.arrow_length_ratio = range * 0.1
 
+
     def plot_auv(self, x_pos_array, y_pos_array, z_pos_array):
+        """
+        Plot the auv trajectory as well as its direction
+
+        Parameters:
+            x_pos_array - an array of floats indicating the auv's past x-position
+            y_pos_array - an array of floats indicating the auv's past y-position
+            z_pos_array - an array of floats indicating the auv's past z-position
+        """
+        # plot the trajectory line
         self.ax.plot(x_pos_array, y_pos_array, z_pos_array,\
             marker = ',', linestyle = '-', color = 'red', label='auv')
 
-        self.auv_x_orient_array.append(x_pos_array[-1]-x_pos_array[-2])
-        self.auv_y_orient_array.append(y_pos_array[-1]-y_pos_array[-2])
-        self.auv_z_orient_array.append(z_pos_array[-1]-z_pos_array[-2])
+        # calculate the orientation of 
+        x_orient = x_pos_array[-1]-x_pos_array[-2]
+        y_orient = y_pos_array[-1]-y_pos_array[-2]
+        z_orient = z_pos_array[-1]-z_pos_array[-2]
 
-        self.ax.quiver3D(x_pos_array[-1], y_pos_array[-1], z_pos_array[-1],\
-            self.auv_x_orient_array[-1], self.auv_y_orient_array[-1], self.auv_z_orient_array[-1],\
+        # use quiver plot to draw an arrow indicating the auv's direction
+        self.ax.quiver(x_pos_array[-1], y_pos_array[-1], z_pos_array[-1],\
+            x_orient, y_orient, z_orient,\
             color = 'red', pivot="tip", normalize=True, arrow_length_ratio = self.arrow_length_ratio)
+
 
     def load_shark_labels(self):
         """
@@ -111,21 +122,29 @@ class Live3DGraph:
                     c = self.colors[i % len(self.colors)]
                     shark = self.shark_array[i]
                     
+                    # increment index variable so we get new position from the shark
+                    # The shark trajectories have time interval of 0.03s between each trajectory,
+                    #   but the simulator time interval might be diffent.
+                    # So we need to increment the index properly so that the newest shark trajectory point is close
+                    #   to the simulator's current time
                     while shark.index < len(shark.traj_pts_array) and\
-                        abs(shark.traj_pts_array[shark.index].time_stamp - sim_time) > 0.2:
+                        abs(shark.traj_pts_array[shark.index].time_stamp - sim_time) > (const.SIM_TIME_INTERVAL + 0.1):
                         shark.index += 1
 
                     # update the shark's position arrays to help us update the graph
                     shark.store_positions(shark.traj_pts_array[shark.index].x, shark.traj_pts_array[shark.index].y, shark.traj_pts_array[shark.index].z)
 
-                    # store the orientation to help us plot the direction vectors
-                    # calculate orientation by: current coordinate - previous coordiate
-                    shark.store_orientation(shark.x_pos_array[-1]-shark.x_pos_array[-2], shark.y_pos_array[-1]-shark.y_pos_array[-2], shark.z_pos_array[-1]-shark.z_pos_array[-2])
+                    # calculate orientation by: current coordinate - previous coordinate
+                    # these 3 variables will help us indicate the direction of the trajectory
+                    x_orient = shark.x_pos_array[-1]-shark.x_pos_array[-2]
+                    y_orient = shark.y_pos_array[-1]-shark.y_pos_array[-2]
+                    z_orient = shark.z_pos_array[-1]-shark.z_pos_array[-2]
                     
+                    # plot the trajectory of the shark
                     self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ",", color = c, label = "shark #" + str(shark.id))
 
                     # plot the direction vectors for the shark
-                    self.ax.quiver3D(shark.x_pos_array[-1], shark.y_pos_array[-1], shark.z_pos_array[-1], shark.x_orient_array[-1], shark.y_orient_array[-1], shark.z_orient_array[-1], color = c, pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
+                    self.ax.quiver3D(shark.x_pos_array[-1], shark.y_pos_array[-1], shark.z_pos_array[-1], x_orient, y_orient, z_orient, color = c, pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
 
             
     def enable_traj_plot(self, event):

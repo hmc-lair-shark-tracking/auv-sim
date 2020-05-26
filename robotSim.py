@@ -10,6 +10,10 @@ from sharkTrajectory import SharkTrajectory
 from live3DGraph import Live3DGraph
 from motion_plan_state import Motion_plan_state
 
+# keep all the constants in the constants.py file
+# to get access to a constant, eg:
+#   const.SIM_TIME_INTERVAL
+import constants as const
 
 def angle_wrap(ang):
     """
@@ -436,11 +440,11 @@ class RobotSim:
             self.update_live_graph(planned_traj_array, particle_array)
             
             # increment the current time by 0.1 second
-            self.curr_time += 0.1
+            self.curr_time += const.SIM_TIME_INTERVAL
 
 
 def main():
-    test_robot = RobotSim(740,280,0,0.1)
+    test_robot = RobotSim(740,280,-10,0.1)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
     test_robot.setup("./data/sharkTrackingData.csv", [1, 2])
