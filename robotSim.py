@@ -215,6 +215,8 @@ class RobotSim:
                 each element has this format:
                     [x_p, y_p, v_p, theta_p, weight_p]
         """
+        self.live_graph.scale_quiver_arrow()
+
         self.live_graph.plot_auv(self.x_list, self.y_list, self.z_list)
 
         # plot the new positions for all the sharks that the robot is tracking

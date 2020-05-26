@@ -2,6 +2,9 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.widgets import CheckButtons
 
+
+ARROW_LENGTH_RATIO_DEFAULT = 0.01
+
 """
 Uses matplotlib to generate live 3D Graph while the simulator is running
 
@@ -26,6 +29,8 @@ class Live3DGraph:
         self.auv_x_orient_array=[0]
         self.auv_y_orient_array=[0]
         self.auv_z_orient_array=[0]
+
+        self.arrow_length_ratio = 0.1
 
         # create a dictionary for checkbox for each type of planned trajectory
         # key - the planner's name: "A *", "RRT"
@@ -53,10 +58,23 @@ class Live3DGraph:
         self.labels = ["auv"]
 
 
+    def scale_quiver_arrow(self):
+        """
+        A hack to work around the bug with quiver plot arrow size
+
+        Manually alter the arrow_length_ratio which affects the arrow size partially
+        """
+        z_interval = self.ax.get_zaxis().get_data_interval()
+        range = abs(z_interval[0] - z_interval[1])
+
+        if range == 0:
+            self.arrow_length_ratio = 0.01
+        elif range > 50:
+            self.arrow_length_ratio = range * 0.02
+        else:
+            self.arrow_length_ratio = range * 0.1
+
     def plot_auv(self, x_pos_array, y_pos_array, z_pos_array):
-        print("size: ")
-        print(self.ax.get_zaxis().axes)
-        print(type(self.ax.get_zaxis()))
         self.ax.plot(x_pos_array, y_pos_array, z_pos_array,\
             marker = ',', linestyle = '-', color = 'red', label='auv')
 
@@ -66,7 +84,7 @@ class Live3DGraph:
 
         self.ax.quiver3D(x_pos_array[-1], y_pos_array[-1], z_pos_array[-1],\
             self.auv_x_orient_array[-1], self.auv_y_orient_array[-1], self.auv_z_orient_array[-1],\
-            color = 'red', pivot="tip", normalize=True)
+            color = 'red', pivot="tip", normalize=True, arrow_length_ratio = self.arrow_length_ratio)
 
     def load_shark_labels(self):
         """
@@ -107,7 +125,7 @@ class Live3DGraph:
                     self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ",", color = c, label = "shark #" + str(shark.id))
 
                     # plot the direction vectors for the shark
-                    self.ax.quiver3D(shark.x_pos_array[-1], shark.y_pos_array[-1], shark.z_pos_array[-1], shark.x_orient_array[-1], shark.y_orient_array[-1], shark.z_orient_array[-1], color = c, pivot="tip", normalize = True)
+                    self.ax.quiver3D(shark.x_pos_array[-1], shark.y_pos_array[-1], shark.z_pos_array[-1], shark.x_orient_array[-1], shark.y_orient_array[-1], shark.z_orient_array[-1], color = c, pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
 
             
     def enable_traj_plot(self, event):
