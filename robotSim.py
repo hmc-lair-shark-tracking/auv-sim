@@ -4,11 +4,12 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 import csv
-# import 3 data representation class
+
 from sharkState import SharkState
 from sharkTrajectory import SharkTrajectory
 from live3DGraph import Live3DGraph
 from motion_plan_state import Motion_plan_state
+from astar import astar
 
 
 def angle_wrap(ang):
@@ -269,8 +270,8 @@ class RobotSim:
         """
         traj_list = []
         t = 0
-        x = 760
-        y = 300
+        x = 0
+        y = 0
         z = -10
 
         for i in range(20):
@@ -415,8 +416,19 @@ class RobotSim:
             # self.log_data()
 
             # testing data for plotting A_star_traj
-            A_star_traj = [Motion_plan_state(740, 280)]
-            A_star_traj += [Motion_plan_state(740+i, 280+i) for i in range(50)]
+            start = (0,0)
+            goal = (7,6)
+
+            boundary = [Motion_plan_state(0,0), Motion_plan_state(10,10)]
+
+            obstacle_list = [Motion_plan_state(5,3,size=1),Motion_plan_state(3,6,size=2)]
+            
+            astar_solver = astar(start, goal, obstacle_list, boundary)
+
+            A_star_traj = astar_solver.astar(obstacle_list, start, goal)
+
+            # A_star_traj = [Motion_plan_state(740, 280)]
+            # A_star_traj += [Motion_plan_state(740+i, 280+i) for i in range(50)]
 
             # testing data for plotting RRT_traj
             RRT_traj = [Motion_plan_state(760, 230)]
@@ -441,10 +453,10 @@ class RobotSim:
 
 
 def main():
-    test_robot = RobotSim(740,280,-10,0.1)
+    test_robot = RobotSim(0,0,-10,0.1)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
-    test_robot.setup("./data/sharkTrackingData.csv", [1, 2])
+    test_robot.setup("./data/sharkTrackingData.csv", [])
     test_robot.main_navigation_loop()
 
 
