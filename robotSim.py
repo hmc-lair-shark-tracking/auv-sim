@@ -48,6 +48,7 @@ class RobotSim:
         # keep track of the current time that we are in
         # each iteration in the while loop will be assumed as 0.1 sec
         self.curr_time = 0
+        self.time_array = []
         
         # keep track when there will be new sensor data of sharks
         # start out as 20, so particle filter will get some data in the beginning
@@ -243,6 +244,27 @@ class RobotSim:
         self.live_graph.ax.clear()
 
 
+    def summary_graphs(self):
+        auv_all_sharks_dist_array = []
+
+        for shark in self.live_graph.shark_array:
+            dist_array = []
+            for i in range(len(self.x_list)-2):
+                delta_x = shark.x_pos_array[i] - self.x_list[i]
+                delta_y = shark.y_pos_array[i] - self.y_list[i]
+
+                dist_array.append(math.sqrt(delta_x**2 + delta_y**2))
+            
+            auv_all_sharks_dist_array.append([shark.id, dist_array])
+
+        time_array = [0]
+        for i in range(len(self.x_list)-3):
+            time_array.append(time_array[-1] + 0.1)
+
+        plt.close()
+
+        self.live_graph.plot_distance(auv_all_sharks_dist_array, time_array)
+
     def track_way_point(self, way_point):
         """
         Calculates the v&w to get to the next point along the trajectory
@@ -436,10 +458,13 @@ class RobotSim:
             # Use the "planned_traj_array" as an example
             self.update_live_graph(planned_traj_array, particle_array)
             
+            self.time_array.append(self.curr_time)
             # increment the current time by 0.1 second
             self.curr_time += 0.1
 
         print("end this while loop now!")
+
+        self.summary_graphs()
 
 
 def main():

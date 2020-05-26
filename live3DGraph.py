@@ -1,10 +1,7 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-<<<<<<< HEAD
 from matplotlib.widgets import Button
-=======
 from matplotlib.widgets import CheckButtons
->>>>>>> origin/master
 
 """
 Uses matplotlib to generate live 3D Graph while the simulator is running
@@ -48,6 +45,12 @@ class Live3DGraph:
         self.particle_checkbox = CheckButtons(plt.axes([0.1, 0.10, 0.15, 0.05]),["Display Particles"])
         self.display_particles = False
         self.particle_checkbox.on_clicked(self.particle_checkbox_clicked)
+
+        self.run_sim = True
+
+        self.end_sim_btn = Button(plt.axes([0.1, 0.8, 0.15, 0.05]), "End Simulation")
+        self.end_sim_btn.on_clicked(self.end_simulation)
+
         # an array of the labels that will appear in the legend
         # TODO: labels and legends still have minor bugs
         self.labels = ["auv"]
@@ -176,3 +179,23 @@ class Live3DGraph:
             
             # TODO: for now, we set the z position of the trajectory to be -10
             self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = '#069ecc')
+
+    
+    def end_simulation(self, events):
+        """
+        End the live simulation (terminate the main navigation while loop in robotSim)
+        """
+        self.run_sim = False
+
+    def plot_distance(self, all_dist_array, time_array):
+       
+        for dist_array in all_dist_array:
+            label = "shark #" + str(dist_array[0])
+            plt.plot(time_array, dist_array[1], label=label)
+
+        plt.xlabel('x - time (sec)')
+        plt.ylabel('y - distance between auv and shark (m)')
+        plt.title('distance between auv and all the sharks during simulation')
+
+        plt.legend()
+        plt.show()
