@@ -41,7 +41,6 @@ class particleFilter:
         self.x_auv = init_x_auv
         self.y_auv = init_y_auv
     
-
     def createParticles(self):
         L = 150
         N = 3
@@ -73,15 +72,11 @@ class particleFilter:
         #print(dict)
         return coordinate_of_particle
         #returns a dictionary w count and the particle coordinates and its weight
-    
-    def predict(self, dt = 1):
 
+    def updateParticles(self, dt = 1):
         s_list = self.createParticles()
         sigma_v = 0.3 
         sigma_0 = math.pi/2
-        list_alpha = []
-        # can consider ignoring this
-        #print(s_list)
         for p in s_list:
             #change the v of particle and account for noise
             p[2] = int(p[2]) + random.uniform(0, sigma_v)
@@ -93,16 +88,29 @@ class particleFilter:
             p[0] += p[2] * math.cos(p[3]) * dt 
                 #print(p[0])
             p[1] += p[2] * math.sin(p[3]) * dt
-            #attempt to try to calc range
+        #print("s_list, so hopefully the x, y")
+        #print(s_list)
+        return s_list
+
+
+    def predict(self, dt = 1):
+
+        s_list = self.updateParticles(dt = 1)
+        
+        list_alpha = []
+        # can consider ignoring this
+        #print(s_list)
+        for p in s_list:
             range_of_particles = math.sqrt((int(self.y_auv)- p[1])**2 + (int(self.x_auv)-p[0])**2)
             alpha = math.atan2((int(self.y_auv) - p[1]), (int(self.x_auv) - p[0])) - self.theta
             k = ["range",range_of_particles,"alpha ", alpha]
             list_alpha.append(k)
+        #print(" list of alphas")
+        #print(list_alpha)
         return list_alpha
         #prints range and alpha of particles    
-        #print(list_alpha)
         #print(len(list_alpha))
-    
+
     def auv_to_alpha(self):
         list_of_real_alpha = []
         real_alpha = math.atan2((int(self.y_auv)) - (int(self.y_shark)), (int(self.x_auv)) - (int(self.x_shark))) - self.theta
@@ -173,25 +181,58 @@ class particleFilter:
         #print("new weight hopefully")
         #print(newlist)
         return newlist
-    """
+
     def correct(self):
         normalize_list = self.normalize()
+        old_coordinates = self.updateParticles()
+        list_of_coordinates = []
+        list_of_new_particles = []
+        count = -1
         for k in normalize_list:
-
-"""
-    
-
-
-
-
-
-
+            if k < 0.25:
+                count += 1
+                copy = old_coordinates[count][:2]
+                new = [copy, copy]
+                list_of_new_particles.append(new) 
+                #print("count, ", count, "x, y", old_coordinates[count][:2] )
+                #print(list_of_new_particles)
+            elif k < 0.50:
+                count += 1 
+                copy = old_coordinates[count][:2]
+                #print("count,", count, "x, y ", old_coordinates[count][:2])
+                new = [copy, copy, copy]
+                list_of_new_particles.append(new)
+                #print(list_of_new_particles)
+            elif k < 0.75:
+                count += 1
+                #print("count,", count, "x, y ", old_coordinates[count][:2])
+                copy = old_coordinates[count][:2]
+                new = [copy, copy, copy, copy]
+                list_of_new_particles.append(new)
+                #print(list_of_new_particles)
+            elif k < 1.0:
+                count += 1
+                #print("count,", count, "x, y ", old_coordinates[count][:2])
+                copy = old_coordinates[count][:2]
+                new = [copy, copy, copy, copy, copy]
+                list_of_new_particles.append(new)
+                #print(list_of_new_particles)
+            else:
+                print("something is not right with the weights")
+        # this returns something like  new coordinates w a list of list returns 
+        #[
+        #   [[x, y],[copy_x, copy_y]],
+        #     [[other_x, other_y], [copy_x, copy_y]]
+        #]
+        print(list_of_new_particles)
+        return list_of_new_particles
+        
  
 def main():
     test_particle = particleFilter(10, 10 , 30, 20 ,20)
     while True:
         time.sleep(2.0)
-        test_particle.normalize()
+        test_particle.correct()
 
 
 
