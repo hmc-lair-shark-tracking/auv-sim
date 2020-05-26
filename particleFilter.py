@@ -8,7 +8,7 @@ from numpy import random
 import matplotlib.pyplot as plt
 from numpy.random import uniform 
 from numpy.random import randn
-from apscheduler.scheduler import Scheduler
+#from apscheduler.scheduler import Scheduler
 import threading
 from robotSim import RobotSim
 from live3DGraph import Live3DGraph
@@ -179,11 +179,13 @@ class particleFilter:
         list_of_coordinates = []
         list_of_new_particles = []
         new_particles = []
+        copy = []
         count = -1
         for k in normalize_list:
             if k < 0.25:
                 count += 1
                 copy = old_coordinates[count][:4]
+                copy.append(k)
                 list_of_new_particles.append(copy)
                 list_of_new_particles.append(copy)
                 #print("count, ", count, "x, y", old_coordinates[count][:2] )
@@ -191,6 +193,7 @@ class particleFilter:
             elif k < 0.50:
                 count += 1 
                 copy = old_coordinates[count][:4]
+                copy.append(k)
                 #print("count,", count, "x, y ", old_coordinates[count][:2])
                 list_of_new_particles.append(copy)
                 list_of_new_particles.append(copy)
@@ -200,6 +203,7 @@ class particleFilter:
                 count += 1
                 #print("count,", count, "x, y ", old_coordinates[count][:2])
                 copy = old_coordinates[count][:4]
+                copy.append(k)
                 list_of_new_particles.append(copy)
                 list_of_new_particles.append(copy)
                 list_of_new_particles.append(copy)
@@ -210,6 +214,7 @@ class particleFilter:
                 count += 1
                 #print("count,", count, "x, y ", old_coordinates[count][:2])
                 copy = old_coordinates[count][:4]
+                copy.append(k)
                 list_of_new_particles.append(copy)
                 list_of_new_particles.append(copy)
                 list_of_new_particles.append(copy)
@@ -230,7 +235,7 @@ class particleFilter:
  
 def main():
     test_particle = particleFilter(10, 10 , 30, 20 ,20)
-    test_grapher = Live3DGraph()
+    #test_grapher = Live3DGraph()
     coordinate_of_particle = test_particle.createParticles()
     s_list = test_particle.updateParticles(coordinate_of_particle, 1)
     list_alpha = test_particle.predict(coordinate_of_particle, 1)
@@ -248,11 +253,12 @@ def main():
         test_particle.weight(list_of_real_alpha, list_of_lotek)
         newlist= test_particle.normalize(weights_list)
         new_particles = test_particle.correct(newlist, s_list)
-        particle_array = test_particle.correct()
-        test_grapher.plot_particles(particle_array)
+        #particle_array = test_particle.correct(newlist, s_list)
+        """test_grapher.plot_particles(particle_array)
+        
         plt.draw()
         plt.pause(0.5)
-        test_grapher.ax.clear()
+        test_grapher.ax.clear()"""
     
 
 
