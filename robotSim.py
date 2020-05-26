@@ -369,7 +369,7 @@ class RobotSim:
             shark_id_array))
         
         self.live_graph.load_shark_labels()
-        
+
 
     def main_navigation_loop(self):
         """ 
@@ -428,7 +428,7 @@ class RobotSim:
             # testing data for displaying particle array
             particle_array = [[740, 280, 0, 0, 0]]
             
-            particle_array += [[740 + np.random.randint(-20, 20, dtype='int'), 280 + np.random.randint(-20, 20, dtype='int'), 0, 0, 0] for i in range(50)]
+            particle_array += [[740 + i, 280 + np.random.randint(-20, 20, dtype='int'), 0, 0, float(i)/50.0] for i in range(50)]
             
             # In order to plot your planned trajectory, you have to wrap your trajectory in another array, where
             #   1st element: the planner's name (either "A *" or "RRT")
@@ -444,7 +444,7 @@ def main():
     test_robot = RobotSim(740,280,-10,0.1)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
-    test_robot.setup("./data/sharkTrackingData.csv", [1, 2])
+    test_robot.setup("./data/sharkTrackingData.csv", [1])
     test_robot.main_navigation_loop()
 
 

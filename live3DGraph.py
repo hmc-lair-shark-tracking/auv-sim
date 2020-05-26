@@ -165,10 +165,27 @@ class Live3DGraph:
         if self.display_particles:
             particle_x_array = []
             particle_y_array = []
+            particle_color_array = []
             # create two arrays for plotting x and y positions
             for particle in particle_array:
                 particle_x_array.append(particle[0])
                 particle_y_array.append(particle[1])
+                # particle[4] specify the weight of the points
+                # the color of particles based on high weight to low weight:
+                #   red -> orange -> purple -> blue
+                if particle[4] > 0.75 and particle[4] <= 1.0:
+                    # red
+                    particle_color_array.append('r')
+                elif particle[4] > 0.5 and particle[4] <= 0.75:
+                    # orange
+                    particle_color_array.append('#ff974d')
+                elif particle[4] > 0.25 and particle[4] <= 0.5:
+                    # purple
+                    particle_color_array.append('#b24dff')
+                else:
+                    # blue
+                    particle_color_array.append('b')
+
             
             # TODO: for now, we set the z position of the trajectory to be -10
-            self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = '#069ecc')
+            self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = particle_color_array)
