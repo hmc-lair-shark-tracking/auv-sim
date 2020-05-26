@@ -103,15 +103,12 @@ class particleFilter:
         #print(list_alpha)
         #print(len(list_alpha))
     
-
     def auv_to_alpha(self):
         list_of_real_alpha = []
-        for l in list_of_auv_y:
-            for k in list_of_auv_x:
-                real_alpha = math.atan2((int(l)) - (int(self.y_shark)), (int(k)) - (int(self.x_shark))) - self.theta
-                real_alpha = angle_wrap(real_alpha)
-                list_of_real_alpha1 = [real_alpha, -real_alpha]
-                list_of_real_alpha.append(list_of_real_alpha1)
+        real_alpha = math.atan2((int(self.y_auv)) - (int(self.y_shark)), (int(self.x_auv)) - (int(self.x_shark))) - self.theta
+        real_alpha = angle_wrap(real_alpha)
+        list_of_real_alpha1 = [real_alpha, -real_alpha]
+        list_of_real_alpha.append(list_of_real_alpha1)
         #print("list of real alpha [0]")
         #print(list_of_real_alpha[0])
         #print(list_of_real_alpha[0][0])
@@ -153,14 +150,40 @@ class particleFilter:
                 #print(k[0])
             #print(count_loop)
             #print(type(abs(a[3])))
-                function = .001 + ((1/math.sqrt(2*3.1415*sigma_alpha))*(2.71828**(((-abs(a-k[0]))**2)))/(2*(sigma_alpha)**2))
-                weights_list.append(function)
-        print("list of weights")
-        print(weights_list)
-        #return weights_list
+                if a >= 0:
+                    function = .001 + ((1/math.sqrt(2*math.pi*sigma_alpha))*(math.e**(((-abs(a-k[0]))**2)))/(2*(sigma_alpha)**2))
+                    weights_list.append(function)
+                elif a < 0: 
+                    function = .001 + ((1/math.sqrt(2*math.pi*sigma_alpha))*(math.e**(((-abs(a-k[1]))**2)))/(2*(sigma_alpha)**2))
+                    weights_list.append(function)
+        # @print("list of weights")
+        #print(weights_list)
+        return weights_list
         # there will be a lot of random alpha values... 
         # so now we gotta compare the alpha of the lotex so the real_alpha w the alphas of the particles to change the alphas of the particles
         #insert crazy equation
+
+    def normalize(self):
+        weights_list = self.weight()
+        newlist = []
+        denominator= sum(weights_list)
+        for weight in weights_list:
+            weight1 = (1/ denominator) * weight
+            newlist.append(weight1)
+        #print("new weight hopefully")
+        #print(newlist)
+        return newlist
+    """
+    def correct(self):
+        normalize_list = self.normalize()
+        for k in normalize_list:
+
+"""
+    
+
+
+
+
 
 
  
@@ -168,9 +191,7 @@ def main():
     test_particle = particleFilter(10, 10 , 30, 20 ,20)
     while True:
         time.sleep(2.0)
-        test_particle.predict()
-    #test_particle.auv_to_alpha()
-
+        test_particle.normalize()
 
 
 
