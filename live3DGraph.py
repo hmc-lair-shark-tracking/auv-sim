@@ -261,6 +261,9 @@ class Live3DGraph:
                 key: shark id & value: an array storing the distance
             time_array - an array for all the time stamps
         """  
+        # allow us to have multiple subplots (differnt summary graphs) in the future
+        plt.subplots()
+
         for shark_id in all_dist_dict:
             label = "shark #" + str(shark_id)
             plt.plot(time_array, all_dist_dict[shark_id], label=label)
@@ -270,4 +273,3 @@ class Live3DGraph:
         plt.title('distance between auv and all the sharks during simulation')
 
         plt.legend()
-        plt.show()

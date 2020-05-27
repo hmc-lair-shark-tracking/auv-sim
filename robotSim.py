@@ -265,13 +265,15 @@ class RobotSim:
         # create an array of time-stamp where time interval is defined as "const.SIM_TIME_INTERVAL"
         time_array = [0]
         for i in range(len(self.x_list)-3):
-            time_array.append(time_array[-1] + 0.1)
+            time_array.append(time_array[-1] + const.SIM_TIME_INTERVAL)
         
         # close the 3D simulation plot
         plt.close()
 
         # plot the distance between auv and sharks over time graph
         self.live_graph.plot_distance(auv_all_sharks_dist_dict, time_array)
+
+        plt.show()
 
 
     def track_way_point(self, way_point):
@@ -475,12 +477,14 @@ class RobotSim:
         self.summary_graphs()
 
 
+
 def main():
     test_robot = RobotSim(740,280,-10,0.1)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
     test_robot.setup("./data/sharkTrackingData.csv", [1,2])
     test_robot.main_navigation_loop()
+
 
 
 if __name__ == "__main__":
