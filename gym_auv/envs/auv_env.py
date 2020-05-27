@@ -20,6 +20,9 @@ class AuvEnv(gym.Env):
         self.auv_init_pos = None
         self.shark_init_pos = None
 
+        # the current state that the env is in
+        self.state = None
+
 
     def init_env(self, auv_init_pos, shark_init_pos):
         # action: 
@@ -46,7 +49,12 @@ class AuvEnv(gym.Env):
         ...
 
     def reset(self):
-        ...
+        """
+        Reset the environment
+        """
+        self.state = (np.array([self.auv_init_pos.x, self.auv_init_pos.y, self.auv_init_pos.z]),\
+            np.array([self.shark_init_pos.x, self.shark_init_pos.y, self.shark_init_pos.z]))
+        return self.state
 
     def render(self, mode='human'):
         ...

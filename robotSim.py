@@ -496,7 +496,13 @@ def main():
 
     env = gym.make('gym_auv:auv-v0')
     env.init_env(Motion_plan_state(740.0, 280.0, -5.0), Motion_plan_state(300.0, 200.0, 0.0))
-
+    a = env.observation_space.sample()
+    env.state = a
+    print(env.state)
+    print("reset")
+    b = env.reset()
+    print(env.state)
+    print(b)
 
 
 if __name__ == "__main__":
