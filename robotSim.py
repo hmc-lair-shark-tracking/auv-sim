@@ -493,12 +493,14 @@ def main():
     # # the second parameter specify the ids of sharks that we want to track
     # test_robot.setup("./data/sharkTrackingData.csv", [1,2])
     # test_robot.main_navigation_loop()
+    obstacle_array = [Motion_plan_state(765.0, 300.0, -5.0, size=2.0),Motion_plan_state(747.0, 278.5, -5.0, size=1.0)]
 
     env = gym.make('gym_auv:auv-v0')
-    env.init_env(Motion_plan_state(x = 740.0, y = 280.0, z = -5.0, theta = 0), Motion_plan_state(x = 750.0, y = 280, z = 0.0, theta = 0))
+    env.init_env(Motion_plan_state(x = 740.0, y = 280.0, z = -5.0, theta = 0), Motion_plan_state(x = 750.0, y = 280, z = 0.0, theta = 0), obstacle_array)
+
     done = False
     while not done: 
-        state, reward, done, info = env.step(np.array([5,0]))
+        state, reward, done, info = env.step(np.array([10,0]))
         print("state: ", state)
         print("reward: ", reward)
 

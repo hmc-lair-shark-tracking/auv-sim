@@ -12,8 +12,8 @@ END_GAME_RADIUS = 1.0
 # constants for reward
 R_COLLIDE = -10.0
 R_ARRIVE = 10.0
-R_NEG = -0.5
-R_RANGE = 2.0
+R_NEG = -0.1
+R_RANGE = 1.0
 
 def angle_wrap(ang):
     """
@@ -52,8 +52,10 @@ class AuvEnv(gym.Env):
         # the current state that the env is in
         self.state = None
 
+        self.obstacle_array = []
 
-    def init_env(self, auv_init_pos, shark_init_pos):
+
+    def init_env(self, auv_init_pos, shark_init_pos, obstacle_array = []):
         # action: 
         #   a tuple of (v, w), linear velocity and angular velocity
         # range for v (unit: m/s): [-2, 2]
@@ -72,6 +74,9 @@ class AuvEnv(gym.Env):
 
         self.auv_init_pos = auv_init_pos
         self.shark_init_pos = shark_init_pos
+
+        for obs in obstacle_array:
+            self.obstacle_array.append([obs.x, obs.y, obs.z, obs.size])
 
         self.reset()
 
@@ -94,7 +99,8 @@ class AuvEnv(gym.Env):
 
         self.state = (np.array([new_x, new_y, z, new_theta]), new_shark_pos)
 
-        done = self.check_end_eps(self.state[0], self.state[1])
+        done = self.check_reached_target(self.state[0], self.state[1]) or\
+            self.check_collision(self.state[0])
 
         reward = self.get_reward(old_range, self.state[0], self.state[1])
 
@@ -113,15 +119,18 @@ class AuvEnv(gym.Env):
         return np.sqrt(delta_x**2 + delta_y**2)
 
 
-    def check_end_eps(self, auv_pos, shark_pos):
+    def check_reached_target(self, auv_pos, shark_pos):
         """
         Return:
             True, if the auv is within the end game region specified by the END_GAME_RADIUS
             False, if not
         """
         auv_shark_range = self.calculate_range(auv_pos, shark_pos)
-
-        return  auv_shark_range <= END_GAME_RADIUS or self.check_collision(auv_pos)
+        if auv_shark_range <= END_GAME_RADIUS:
+            print("Reached the Goal")
+            return True
+        else:
+            return False
 
 
     def get_reward(self, old_range, auv_pos, shark_pos):
@@ -129,14 +138,14 @@ class AuvEnv(gym.Env):
         Return the reward that the auv gets at this state
         Specifically,
             if auv reaches the shark, R_ARRIVE
-            if auv hits any obstacle, R_COLLISION
+            if auv hits any obstacle, R_COLLIDE
             else,
                 R_NEG + (immediate reward if auv gets closer to the shark)
         """
-        if self.check_end_eps(auv_pos, shark_pos):
+        if self.check_reached_target(auv_pos, shark_pos):
             return R_ARRIVE
         elif self.check_collision(auv_pos):
-            return R_NEG
+            return R_COLLIDE
         else:
             reward = R_NEG
             new_range = self.calculate_range(auv_pos, shark_pos)
@@ -147,6 +156,18 @@ class AuvEnv(gym.Env):
     
 
     def check_collision(self, auv_pos):
+        """
+        Check if the auv at the current state is hitting any obstacles
+
+        Parameter:
+            auv_pos - a np array [x, y, z, theta]
+        """
+        for obs in self.obstacle_array:
+            distance = self.calculate_range(auv_pos, obs)
+            # obs[3] indicates the size of the obstacle
+            if distance <= obs[3]:
+                print("Hit an obstacle")
+                return True
         return False
 
 
