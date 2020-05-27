@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.widgets import Button
 from matplotlib.widgets import CheckButtons
+import numpy as np
 
 import constants as const
 
@@ -243,6 +244,29 @@ class Live3DGraph:
             
             # TODO: for now, we set the z position of the trajectory to be -10
             self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = '#069ecc')
+
+    
+    def plot_obstacles(self, obstacle_array):
+        """
+        Plot obstacles as sphere based on location and size indicated by the "obstacle_array"
+
+        Parameter - obstacle_array
+            an array of motion_plan_states that represent the obstacles's
+                position and size
+        """
+        for obs in obstacle_array:
+            # number of points used to plot the sphere
+            # the higher N is, the more refined will the obstacles look
+            #   (but at the expense of taking longer time)
+            N = 50
+            
+            u = np.linspace(0, 2 * np.pi, N)
+            v = np.linspace(0, np.pi, N)
+            x = obs.size * np.outer(np.cos(u), np.sin(v)) + obs.x
+            y = obs.size * np.outer(np.sin(u), np.sin(v)) + obs.y
+            z = obs.size * np.outer(np.ones(np.size(u)), np.cos(v)) + obs.z
+
+            self.ax.plot_surface(x, y, z, linewidth=0.0, cstride = 1, rstride = 1, color = '#000000', alpha = 0.2)  
 
     
     def end_simulation(self, events):
