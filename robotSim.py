@@ -55,7 +55,7 @@ class RobotSim:
         
         # keep track when there will be new sensor data of sharks
         # start out as 20, so particle filter will get some data in the beginning
-        self.sensor_time = 20
+        self.sensor_time = const.NUM_ITER_FOR_NEW_SENSOR_DATA
 
         # index for which trajectory point that we should
         # keep track of
@@ -126,7 +126,7 @@ class RobotSim:
         # decide to sensor_time an integer because floating point addition is not as reliable
         # each iteration through the main navigation loop is 0.1 sec, so 
         #   we need 20 iterations to return a new set of sensor data
-        if self.sensor_time == 20:
+        if self.sensor_time == const.NUM_ITER_FOR_NEW_SENSOR_DATA:
             # iterate through all the sharks that we are tracking
             for shark_id in shark_state_dict: 
                 shark_data = shark_state_dict[shark_id]
@@ -148,30 +148,28 @@ class RobotSim:
             return True
         else: 
             self.sensor_time += 1
+
             return False
 
 
     def track_trajectory(self, trajectory):
         """
-        Return an Motion_plan_state object representing the trajectory point 0.5 sec ahead
+        Return an Motion_plan_state object representing the trajectory point TRAJ_LOOK_AHEAD_TIME sec ahead
         of current time
 
         Parameters: 
             trajectory - a list of trajectory points, where each element is 
             a Motion_plan_state object that consist of time stamp, x, y, z,theta
         """
-        # determine how ahead should the trajectory point be compared to current time
-        look_ahead_time = 0.5
-
         # only increment the index if it hasn't reached the end of the trajectory list
         while (self.curr_traj_pt_index < len(trajectory)-1) and\
-            (self.curr_time + look_ahead_time) > trajectory[self.curr_traj_pt_index].time_stamp: 
+            (self.curr_time + const.TRAJ_LOOK_AHEAD_TIME) > trajectory[self.curr_traj_pt_index].time_stamp: 
                 self.curr_traj_pt_index += 1
 
         return trajectory[self.curr_traj_pt_index]
 
 
-    def calculate_new_auv_state (self, v, w, delta_t):
+    def calculate_new_auv_state(self, v, w, delta_t):
         """ 
         Calculate new x, y and theta
 
@@ -192,9 +190,7 @@ class RobotSim:
     def send_trajectory_to_actuators(self, v, w):
         # TODO: For now this should just update AUV States?
 
-        # set time step to 0.1 sec 
-        delta_t = 0.1
-        self.calculate_new_auv_state(v, w, delta_t)
+        self.calculate_new_auv_state(v, w, const.SIM_TIME_INTERVAL)
         
 
     def log_data(self):
@@ -219,6 +215,7 @@ class RobotSim:
                 each element has this format:
                     [x_p, y_p, v_p, theta_p, weight_p]
         """
+        # scale the arrow for the auv and the sharks properly for graph
         self.live_graph.scale_quiver_arrow()
 
         self.live_graph.plot_auv(self.x_list, self.y_list, self.z_list)
@@ -453,5 +450,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-  
-
