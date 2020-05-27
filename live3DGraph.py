@@ -187,11 +187,19 @@ class Live3DGraph:
         """
         self.run_sim = False
 
-    def plot_distance(self, all_dist_array, time_array):
-       
-        for dist_array in all_dist_array:
-            label = "shark #" + str(dist_array[0])
-            plt.plot(time_array, dist_array[1], label=label)
+
+    def plot_distance(self, all_dist_dict, time_array):
+        """
+        Use to generate one of the summary plots
+        
+        Parameters:
+            all_dist_dict - a dictionary storing the distance between the auv and sharks
+                key: shark id & value: an array storing the distance
+            time_array - an array for all the time stamps
+        """  
+        for shark_id in all_dist_dict:
+            label = "shark #" + str(shark_id)
+            plt.plot(time_array, all_dist_dict[shark_id], label=label)
 
         plt.xlabel('x - time (sec)')
         plt.ylabel('y - distance between auv and shark (m)')

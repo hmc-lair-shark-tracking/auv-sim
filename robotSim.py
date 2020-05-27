@@ -245,9 +245,14 @@ class RobotSim:
 
 
     def summary_graphs(self):
-        auv_all_sharks_dist_array = []
+        """
+        Generate summary plot(s) after the "End Simulation" button is clicked
+        """
+        # diction where each value stores an array represanting the distance between the auv and a shark
+        auv_all_sharks_dist_dict = {}
 
         for shark in self.live_graph.shark_array:
+            # store a list of distances between the auv and the shark at each time-stamp
             dist_array = []
             for i in range(len(self.x_list)-2):
                 delta_x = shark.x_pos_array[i] - self.x_list[i]
@@ -255,15 +260,19 @@ class RobotSim:
 
                 dist_array.append(math.sqrt(delta_x**2 + delta_y**2))
             
-            auv_all_sharks_dist_array.append([shark.id, dist_array])
+            auv_all_sharks_dist_dict[shark.id] = dist_array
 
+        # create an array of time-stamp where time interval is defined as "const.SIM_TIME_INTERVAL"
         time_array = [0]
         for i in range(len(self.x_list)-3):
             time_array.append(time_array[-1] + 0.1)
-
+        
+        # close the 3D simulation plot
         plt.close()
 
-        self.live_graph.plot_distance(auv_all_sharks_dist_array, time_array)
+        # plot the distance between auv and sharks over time graph
+        self.live_graph.plot_distance(auv_all_sharks_dist_dict, time_array)
+
 
     def track_way_point(self, way_point):
         """
@@ -462,8 +471,7 @@ class RobotSim:
             # increment the current time by 0.1 second
             self.curr_time += 0.1
 
-        print("end this while loop now!")
-
+        # "End Simulation" button is pressed, generate summary graphs for this simulation
         self.summary_graphs()
 
 
