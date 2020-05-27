@@ -9,6 +9,12 @@ DELTA_T = 0.1
 # the maximum range between the auv and shark to be considered that the auv has reached the shark
 END_GAME_RADIUS = 1.0
 
+# constants for reward
+R_COLLIDE = -10.0
+R_ARRIVE = 10.0
+R_NEG = -0.5
+R_RANGE = 2.0
+
 def angle_wrap(ang):
     """
     Takes an angle in radians & sets it between the range of -pi to pi
@@ -75,6 +81,8 @@ class AuvEnv(gym.Env):
         
         x, y, z, theta = self.state[0]
 
+        old_range = self.calculate_range(self.state[0], self.state[1])
+
         new_x = x + v * np.cos(theta) * DELTA_T
         new_y = y + v * np.sin(theta) * DELTA_T
         new_theta = angle_wrap(theta + w * DELTA_T)
@@ -86,41 +94,61 @@ class AuvEnv(gym.Env):
 
         self.state = (np.array([new_x, new_y, z, new_theta]), new_shark_pos)
 
-        range = self.calculate_range(self.state[0], self.state[1])
+        done = self.check_end_eps(self.state[0], self.state[1])
 
-        done = self.check_end_eps(range)
-
-        reward = self.get_reward()
+        reward = self.get_reward(old_range, self.state[0], self.state[1])
 
         return self.state, reward, done, {}
 
     
-    def calculate_range(self, auv_pos, shark_pos):
-        auv_x = auv_pos[0]
-        auv_y = auv_pos[1]
-        shark_x = shark_pos[0]
-        shark_y = shark_pos[1]
+    def calculate_range(self, a_pos, b_pos):
+        a_x = a_pos[0]
+        a_y = a_pos[1]
+        b_x = b_pos[0]
+        b_y = b_pos[1]
 
-        delta_x = shark_x - auv_x
-        delta_y = shark_y - auv_y
+        delta_x = b_x - a_x
+        delta_y = b_y - a_y
 
         return np.sqrt(delta_x**2 + delta_y**2)
 
 
-    def check_end_eps(self, range):
+    def check_end_eps(self, auv_pos, shark_pos):
         """
         Return:
             True, if the auv is within the end game region specified by the END_GAME_RADIUS
             False, if not
         """
-        return  range <= END_GAME_RADIUS
+        auv_shark_range = self.calculate_range(auv_pos, shark_pos)
+
+        return  auv_shark_range <= END_GAME_RADIUS or self.check_collision(auv_pos)
 
 
-    def get_reward(self):
+    def get_reward(self, old_range, auv_pos, shark_pos):
         """
-        Return the reward that the auv gets at this time step
+        Return the reward that the auv gets at this state
+        Specifically,
+            if auv reaches the shark, R_ARRIVE
+            if auv hits any obstacle, R_COLLISION
+            else,
+                R_NEG + (immediate reward if auv gets closer to the shark)
         """
-        return 0.0
+        if self.check_end_eps(auv_pos, shark_pos):
+            return R_ARRIVE
+        elif self.check_collision(auv_pos):
+            return R_NEG
+        else:
+            reward = R_NEG
+            new_range = self.calculate_range(auv_pos, shark_pos)
+            # if auv has gotten closer to the shark
+            if old_range > new_range:
+                reward += R_RANGE * (old_range - new_range)
+            return reward
+    
+
+    def check_collision(self, auv_pos):
+        return False
+
 
     def reset(self):
         """
