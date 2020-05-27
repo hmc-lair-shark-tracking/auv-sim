@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.widgets import CheckButtons
+
 import constants as const
 
 """
@@ -82,19 +83,19 @@ class Live3DGraph:
             y_pos_array - an array of floats indicating the auv's past y-position
             z_pos_array - an array of floats indicating the auv's past z-position
         """
-        # plot the trajectory line
-        self.ax.plot(x_pos_array, y_pos_array, z_pos_array,\
-            marker = ',', linestyle = '-', color = 'red', label='auv')
-
-        # calculate the orientation of 
+        # calculate the orientation of directino vector
         x_orient = x_pos_array[-1]-x_pos_array[-2]
         y_orient = y_pos_array[-1]-y_pos_array[-2]
         z_orient = z_pos_array[-1]-z_pos_array[-2]
 
+        # plot the trajectory line
+        self.ax.plot(x_pos_array, y_pos_array, z_pos_array,\
+            marker = ',', linestyle = '-', color = 'red', label='auv')
+        
         # use quiver plot to draw an arrow indicating the auv's direction
         self.ax.quiver(x_pos_array[-1], y_pos_array[-1], z_pos_array[-1],\
             x_orient, y_orient, z_orient,\
-            color = 'red', pivot="tip", normalize=True, arrow_length_ratio = self.arrow_length_ratio)
+            color = 'red', pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
 
 
     def load_shark_labels(self):
