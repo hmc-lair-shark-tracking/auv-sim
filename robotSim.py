@@ -5,7 +5,6 @@ import numpy as np
 import csv
 import gym
 
-# import 3 data representation class
 from sharkState import SharkState
 from sharkTrajectory import SharkTrajectory
 from live3DGraph import Live3DGraph
@@ -15,6 +14,7 @@ from motion_plan_state import Motion_plan_state
 # to get access to a constant, eg:
 #   const.SIM_TIME_INTERVAL
 import constants as const
+
 
 def angle_wrap(ang):
     """
@@ -495,15 +495,12 @@ def main():
     # test_robot.main_navigation_loop()
 
     env = gym.make('gym_auv:auv-v0')
-    env.init_env(Motion_plan_state(740.0, 280.0, -5.0), Motion_plan_state(300.0, 200.0, 0.0))
-    a = env.observation_space.sample()
-    env.state = a
-    print(env.state)
-    print("reset")
-    b = env.reset()
-    print(env.state)
-    print(b)
-
+    env.init_env(Motion_plan_state(x = 740.0, y = 280.0, z = -5.0, theta = 0), Motion_plan_state(x = 750.0, y = 280, z = 0.0, theta = 0))
+    done = False
+    while not done: 
+        state, reward, done, info = env.step(np.array([5,0]))
+        print("state: ", state)
+        print("reward: ", reward)
 
 if __name__ == "__main__":
     main()
