@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.widgets import Button
 from matplotlib.widgets import CheckButtons
 
 import constants as const
@@ -48,6 +49,12 @@ class Live3DGraph:
         self.particle_checkbox = CheckButtons(plt.axes([0.1, 0.10, 0.15, 0.05]),["Display Particles"])
         self.display_particles = False
         self.particle_checkbox.on_clicked(self.particle_checkbox_clicked)
+
+        self.run_sim = True
+
+        self.end_sim_btn = Button(plt.axes([0.1, 0.8, 0.15, 0.05]), "End Simulation")
+        self.end_sim_btn.on_clicked(self.end_simulation)
+
         # an array of the labels that will appear in the legend
         # TODO: labels and legends still have minor bugs
         self.labels = ["auv"]
@@ -236,3 +243,33 @@ class Live3DGraph:
             
             # TODO: for now, we set the z position of the trajectory to be -10
             self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = '#069ecc')
+
+    
+    def end_simulation(self, events):
+        """
+        End the live simulation (terminate the main navigation while loop in robotSim)
+        """
+        self.run_sim = False
+
+
+    def plot_distance(self, all_dist_dict, time_array):
+        """
+        Use to generate one of the summary plots
+        
+        Parameters:
+            all_dist_dict - a dictionary storing the distance between the auv and sharks
+                key: shark id & value: an array storing the distance
+            time_array - an array for all the time stamps
+        """  
+        # allow us to have multiple subplots (differnt summary graphs) in the future
+        plt.subplots()
+
+        for shark_id in all_dist_dict:
+            label = "shark #" + str(shark_id)
+            plt.plot(time_array, all_dist_dict[shark_id], label=label)
+
+        plt.xlabel('x - time (sec)')
+        plt.ylabel('y - distance between auv and shark (m)')
+        plt.title('distance between auv and all the sharks during simulation')
+
+        plt.legend()

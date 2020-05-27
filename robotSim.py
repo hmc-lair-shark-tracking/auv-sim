@@ -2,8 +2,8 @@ import math
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-
 import csv
+
 # import 3 data representation class
 from sharkState import SharkState
 from sharkTrajectory import SharkTrajectory
@@ -52,6 +52,7 @@ class RobotSim:
         # keep track of the current time that we are in
         # each iteration in the while loop will be assumed as 0.1 sec
         self.curr_time = 0
+        self.time_array = []
         
         # keep track when there will be new sensor data of sharks
         # start out as 20, so particle filter will get some data in the beginning
@@ -243,6 +244,38 @@ class RobotSim:
         self.live_graph.ax.clear()
 
 
+    def summary_graphs(self):
+        """
+        Generate summary plot(s) after the "End Simulation" button is clicked
+        """
+        # diction where each value stores an array represanting the distance between the auv and a shark
+        auv_all_sharks_dist_dict = {}
+
+        for shark in self.live_graph.shark_array:
+            # store a list of distances between the auv and the shark at each time-stamp
+            dist_array = []
+            for i in range(len(self.x_list)-2):
+                delta_x = shark.x_pos_array[i] - self.x_list[i]
+                delta_y = shark.y_pos_array[i] - self.y_list[i]
+
+                dist_array.append(math.sqrt(delta_x**2 + delta_y**2))
+            
+            auv_all_sharks_dist_dict[shark.id] = dist_array
+
+        # create an array of time-stamp where time interval is defined as "const.SIM_TIME_INTERVAL"
+        time_array = [0]
+        for i in range(len(self.x_list)-3):
+            time_array.append(time_array[-1] + const.SIM_TIME_INTERVAL)
+        
+        # close the 3D simulation plot
+        plt.close()
+
+        # plot the distance between auv and sharks over time graph
+        self.live_graph.plot_distance(auv_all_sharks_dist_dict, time_array)
+
+        plt.show()
+
+
     def track_way_point(self, way_point):
         """
         Calculates the v&w to get to the next point along the trajectory
@@ -379,13 +412,13 @@ class RobotSim:
             -> log and plot data
         """
         
-        while True:
+        while self.live_graph.run_sim:
             
             auv_sensor_data = self.get_auv_sensor_measurements()
             print("==================")
             print("Curr Auv Sensor Measurements [x, y, z, theta, time]: " +\
                 str(auv_sensor_data))
-            
+  
             shark_state_dict = self.get_all_sharks_state()
             print("==================")
             print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
@@ -436,8 +469,13 @@ class RobotSim:
             # Use the "planned_traj_array" as an example
             self.update_live_graph(planned_traj_array, particle_array)
             
+            self.time_array.append(self.curr_time)
             # increment the current time by 0.1 second
             self.curr_time += const.SIM_TIME_INTERVAL
+
+        # "End Simulation" button is pressed, generate summary graphs for this simulation
+        self.summary_graphs()
+
 
 
 def main():
@@ -446,6 +484,7 @@ def main():
     # the second parameter specify the ids of sharks that we want to track
     test_robot.setup("./data/sharkTrackingData.csv", [1,2])
     test_robot.main_navigation_loop()
+
 
 
 if __name__ == "__main__":
