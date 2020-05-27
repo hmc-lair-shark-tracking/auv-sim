@@ -18,10 +18,16 @@ class SharkTrajectory:
         # decided to update the position arrays as we draw the shark's position
         # use these arrays to draw the shark's trajectory & for summary plots at the
         # end of the simulation
-        self.x_pos_array = []
-        self.y_pos_array = []
-        self.z_pos_array = []
-        
+        # initialize the array with the first point, so we can do the orientation calculation
+        #   for the direction vector
+        self.x_pos_array = [float(x_pos_array[0])]
+        self.y_pos_array = [float(y_pos_array[0])]
+        self.z_pos_array = [0]
+
+        self.x_orient_array = [0]
+        self.y_orient_array = [0]
+        self.z_orient_array = [0]
+
         # use map to convert the array of strings to array of float
         self.x_vel_array = list(map(lambda x: float(x), x_vel_array))
         self.y_vel_array = list(map(lambda y: float(y), y_vel_array))
@@ -39,6 +45,15 @@ class SharkTrajectory:
         self.x_pos_array.append(x)
         self.y_pos_array.append(y)
         self.z_pos_array.append(z)
+
+    def store_orientation(self, x, y, z):
+        """
+        Helper function to store new orientation of the direction vector
+        into the array
+        """
+        self.x_orient_array.append(x)
+        self.y_orient_array.append(y)
+        self.z_orient_array.append(z)
 
     def get_curr_position(self):
         return self.traj_pts_array[self.index]
