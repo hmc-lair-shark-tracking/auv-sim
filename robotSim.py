@@ -203,7 +203,7 @@ class RobotSim:
         print("AUV [x, y, z, theta]:  [", self.x, ", " , self.y, ", ", self.z, ", ", self.theta, "]")
 
 
-    def update_live_graph(self, planned_traj_array = [], particle_array = []):
+    def update_live_graph(self, planned_traj_array = [], particle_array = [], obstacle_array = []):
         """
         Plot the position of the robot, the sharks, and any planned trajectories
 
@@ -215,6 +215,8 @@ class RobotSim:
             particle_array - (optional) an array of particles
                 each element has this format:
                     [x_p, y_p, v_p, theta_p, weight_p]
+            obstacle_array - (optional) an array of motion_plan_states that represent the obstacles's
+                position and size
         """
         # scale the arrow for the auv and the sharks properly for graph
         self.live_graph.scale_quiver_arrow()
@@ -233,6 +235,9 @@ class RobotSim:
         # if there's particles to plot, plot them
         if particle_array != []:
             self.live_graph.plot_particles(particle_array)
+
+        if obstacle_array != []:
+            self.live_graph.plot_obstacles(obstacle_array)
 
         self.live_graph.ax.legend(self.live_graph.labels)
         
@@ -463,11 +468,14 @@ class RobotSim:
             
             particle_array += [[740 + np.random.randint(-20, 20, dtype='int'), 280 + np.random.randint(-20, 20, dtype='int'), 0, 0, 0] for i in range(50)]
             
+            # example of how to indicate the obstacles and plot them
+            obstacle_array = [Motion_plan_state(765,300, -5, size=2),Motion_plan_state(743,260, -5, size=5)]
+
             # In order to plot your planned trajectory, you have to wrap your trajectory in another array, where
             #   1st element: the planner's name (either "A *" or "RRT")
             #   2nd element: the list of Motion_plan_state returned by your planner
             # Use the "planned_traj_array" as an example
-            self.update_live_graph(planned_traj_array, particle_array)
+            self.update_live_graph(planned_traj_array, particle_array, obstacle_array)
             
             self.time_array.append(self.curr_time)
             # increment the current time by 0.1 second
@@ -479,7 +487,7 @@ class RobotSim:
 
 
 def main():
-    test_robot = RobotSim(740,280,-10,0.1)
+    test_robot = RobotSim(740,280,-5,0.1)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
     test_robot.setup("./data/sharkTrackingData.csv", [1,2])
