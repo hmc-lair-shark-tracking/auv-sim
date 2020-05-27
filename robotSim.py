@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import csv
+import gym
 
 # import 3 data representation class
 from sharkState import SharkState
@@ -487,11 +488,14 @@ class RobotSim:
 
 
 def main():
-    test_robot = RobotSim(740,280,-5,0.1)
-    # load shark trajectories from csv file
-    # the second parameter specify the ids of sharks that we want to track
-    test_robot.setup("./data/sharkTrackingData.csv", [1,2])
-    test_robot.main_navigation_loop()
+    # test_robot = RobotSim(740,280,-5,0.1)
+    # # load shark trajectories from csv file
+    # # the second parameter specify the ids of sharks that we want to track
+    # test_robot.setup("./data/sharkTrackingData.csv", [1,2])
+    # test_robot.main_navigation_loop()
+
+    env = gym.make('gym_auv:auv-v0')
+    env.init_env(Motion_plan_state(740.0, 280.0, -5.0), Motion_plan_state(300.0, 200.0, 0.0))
 
 
 
