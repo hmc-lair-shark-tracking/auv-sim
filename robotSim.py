@@ -541,11 +541,19 @@ def main():
 
     done = False
 
-    while not done: 
-        state, reward, done, info = env.step(np.array([10,0]))
+    N = 0
+
+    while (not done) and N < 25: 
+        # v = np.random.randint(-2, 2, dtype='int')
+        # w = np.random.uniform(-np.pi, np.pi, dtype=np.float32)
+        v = 10
+        w = 0
+        state, reward, done, info = env.step(np.array([v,w]))
         auv_pos, shark_pos = env.render()
         test_robot.render_for_rl_env(auv_pos, shark_pos)
         print("reward: ", reward)
+        print("v: ", v)
+        N += 1
         
 
 if __name__ == "__main__":

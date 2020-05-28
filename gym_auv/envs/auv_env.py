@@ -12,7 +12,6 @@ END_GAME_RADIUS = 1.0
 # constants for reward
 R_COLLIDE = -10.0
 R_ARRIVE = 10.0
-R_NEG = -0.1
 R_RANGE = 1.0
 
 def angle_wrap(ang):
@@ -147,11 +146,10 @@ class AuvEnv(gym.Env):
         elif self.check_collision(auv_pos):
             return R_COLLIDE
         else:
-            reward = R_NEG
             new_range = self.calculate_range(auv_pos, shark_pos)
-            # if auv has gotten closer to the shark
-            if old_range > new_range:
-                reward += R_RANGE * (old_range - new_range)
+            # if auv has gotten closer to the shark, will receive positive reward
+            #   else, receive negative reward
+            reward = R_RANGE * (old_range - new_range)
             return reward
     
 
