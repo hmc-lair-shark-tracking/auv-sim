@@ -82,7 +82,7 @@ class Live3DGraph:
             self.arrow_length_ratio = range * 0.1
 
 
-    def plot_auv(self, x_pos_array, y_pos_array, z_pos_array):
+    def plot_entity(self, x_pos_array, y_pos_array, z_pos_array, label = 'auv', color = 'red', marker = ','):
         """
         Plot the auv trajectory as well as its direction
 
@@ -98,12 +98,12 @@ class Live3DGraph:
 
         # plot the trajectory line
         self.ax.plot(x_pos_array, y_pos_array, z_pos_array,\
-            marker = ',', linestyle = '-', color = 'red', label='auv')
+            marker = marker, linestyle = '-', color = color, label = label)
         
         # use quiver plot to draw an arrow indicating the auv's direction
         self.ax.quiver(x_pos_array[-1], y_pos_array[-1], z_pos_array[-1],\
             x_orient, y_orient, z_orient,\
-            color = 'red', pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
+            color = color, pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
 
 
     def load_shark_labels(self):

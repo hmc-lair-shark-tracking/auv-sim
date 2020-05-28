@@ -189,6 +189,7 @@ class AuvEnv(gym.Env):
         print("shark position: ")
         print("x = ", shark_pos[0], " y = ", shark_pos[1], " z = ", shark_pos[2], " theta = ", shark_pos[3])
         print("==========================")
+        return self.state
 
 
     

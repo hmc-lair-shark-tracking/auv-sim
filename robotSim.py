@@ -69,6 +69,14 @@ class RobotSim:
 
         self.live_graph = Live3DGraph()
 
+        self.auv_x_array_rl = []
+        self.auv_y_array_rl = []
+        self.auv_z_array_rl = []
+
+        self.shark_x_array_rl = []
+        self.shark_y_array_rl = []
+        self.shark_z_array_rl = []
+
 
     def get_auv_state(self):
         """
@@ -222,7 +230,8 @@ class RobotSim:
         # scale the arrow for the auv and the sharks properly for graph
         self.live_graph.scale_quiver_arrow()
 
-        self.live_graph.plot_auv(self.x_list, self.y_list, self.z_list)
+        # plot the auv
+        self.live_graph.plot_entity(self.x_list, self.y_list, self.z_list)
 
         # plot the new positions for all the sharks that the robot is tracking
         self.live_graph.plot_sharks(self.curr_time)
@@ -280,6 +289,29 @@ class RobotSim:
         self.live_graph.plot_distance(auv_all_sharks_dist_dict, time_array)
 
         plt.show()
+
+
+    def render_for_rl_env(self, auv_pos, shark_pos):
+        self.auv_x_array_rl.append(auv_pos[0])
+        self.auv_y_array_rl.append(auv_pos[1])
+        self.auv_z_array_rl.append(auv_pos[2])
+
+        self.shark_x_array_rl.append(shark_pos[0])
+        self.shark_y_array_rl.append(shark_pos[1])
+        self.shark_z_array_rl.append(shark_pos[2])
+
+        self.live_graph.plot_entity(self.auv_x_array_rl, self.auv_y_array_rl, self.auv_z_array_rl, label = 'auv', color = 'r', marker = ',')
+
+        self.live_graph.plot_entity(self.shark_x_array_rl, self.shark_y_array_rl, self.shark_z_array_rl, label = 'shark', color = 'b', marker = 'o')
+
+        self.live_graph.ax.legend()
+        
+        plt.draw()
+
+        # pause so the plot can be updated
+        plt.pause(0.5)
+
+        self.live_graph.ax.clear()
 
 
     def track_way_point(self, way_point):
@@ -488,7 +520,7 @@ class RobotSim:
 
 
 def main():
-    # test_robot = RobotSim(740,280,-5,0.1)
+    test_robot = RobotSim(740,280,-5,0.1)
     # # load shark trajectories from csv file
     # # the second parameter specify the ids of sharks that we want to track
     # test_robot.setup("./data/sharkTrackingData.csv", [1,2])
@@ -498,11 +530,23 @@ def main():
     env = gym.make('gym_auv:auv-v0')
     env.init_env(Motion_plan_state(x = 740.0, y = 280.0, z = -5.0, theta = 0), Motion_plan_state(x = 750.0, y = 280, z = 0.0, theta = 0), obstacle_array)
 
+    auv_init_pos, shark_init_pos = env.state
+    test_robot.auv_x_array_rl.append(auv_init_pos[0])
+    test_robot.auv_y_array_rl.append(auv_init_pos[1])
+    test_robot.auv_z_array_rl.append(auv_init_pos[2])
+
+    test_robot.shark_x_array_rl.append(shark_init_pos[0])
+    test_robot.shark_y_array_rl.append(shark_init_pos[1])
+    test_robot.shark_z_array_rl.append(shark_init_pos[2])
+
     done = False
+
     while not done: 
         state, reward, done, info = env.step(np.array([10,0]))
-        env.render()
+        auv_pos, shark_pos = env.render()
+        test_robot.render_for_rl_env(auv_pos, shark_pos)
         print("reward: ", reward)
+        
 
 if __name__ == "__main__":
     main()
