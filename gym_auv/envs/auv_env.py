@@ -3,6 +3,19 @@ from gym import error, spaces, utils
 from gym.utils import seeding
 import numpy as np
 
+# size of the observation space
+# the coordinates of the observation space will be based on 
+#   the ENV_SIZE and the inital position of auv and the shark
+# (unit: m)
+ENV_SIZE = 200.0
+
+# auv's max speed (unit: m/s)
+AUV_MAX_V = 2.0
+# auv's max angular velocity (unit: rad/s)
+#   TODO: Currently, the track_way_point function has K_P == 1, so this is the range for w. Might change in the future?
+AUV_MAX_W = np.pi
+
+
 # time step (unit: sec)
 DELTA_T = 0.1
 
@@ -10,9 +23,9 @@ DELTA_T = 0.1
 END_GAME_RADIUS = 1.0
 
 # constants for reward
-R_COLLIDE = -10.0
-R_ARRIVE = 10.0
-R_RANGE = 1.0
+R_COLLIDE = -10.0       # when the auv collides with an obstacle
+R_ARRIVE = 10.0         # when the auv arrives at the target
+R_RANGE = 1.0           # this is a scaler to help determine immediate reward at a time step
 
 def angle_wrap(ang):
     """
@@ -20,6 +33,9 @@ def angle_wrap(ang):
 
     Parameter:
         ang - floating point number, angle in radians
+
+    Note: 
+        Because Python does not encourage importing files from the parent module, we have to place this angle wrap here. If we don't want to do this, we can possibly organize this so auv_env is in the parent folder?
     """
     if -np.pi <= ang <= np.pi:
         return ang
@@ -37,7 +53,8 @@ class AuvEnv(gym.Env):
 
     def __init__(self):
         """
-        Initialize the data members
+        Declare the data members without initialize them
+            automatically called when we build an environment with gym.make('gym_auv:auv-v0')
 
         Warning: 
             Need to immediately call init_env function to actually initialize the environment
@@ -55,21 +72,27 @@ class AuvEnv(gym.Env):
 
 
     def init_env(self, auv_init_pos, shark_init_pos, obstacle_array = []):
+        """
+        Initialize the environment based on the auv and shark's initial position
+
+        Parameters:
+            auv_init_pos - an motion plan state object
+            shark_init_pos - an motion plan state object
+        """
         # action: 
         #   a tuple of (v, w), linear velocity and angular velocity
-        # range for v (unit: m/s): [-2, 2]
-        # range for w (unit: radians): [-pi, pi]
-        #   TODO: Currently, the track_way_point function has K_P == 1, so this is the range for w. Might change in the future?
-        self.action_space = spaces.Box(low = np.array([-2.0, -np.pi]), high = np.array([2.0, np.pi]), dtype = np.float64)
+        # range for v (unit: m/s): [-AUV_MAX_V, AUV_MAX_V]
+        # range for w (unit: radians): [-AUV_MAX_W, AUV_MAX_W]
+        self.action_space = spaces.Box(low = np.array([-AUV_MAX_V, -AUV_MAX_W]), high = np.array([AUV_MAX_V, AUV_MAX_W]), dtype = np.float64)
 
-        # observation:
-        #   the x, y, z position of the auv
-        #   the x, y, z position of the shark (TODO: one shark for now?)
-        #       range for x, y (unit: m): [-200, 200]
-        #       range for z (unit: m): [-200, 0]
+        # observation: a tuple of 2 elements
+        #   1. np array representing the auv's 
+        #      [x_pos, y_pos, z_pos, theta]
+        #   2. np array represent the shark's (TODO: one shark for now?)
+        #      [x_pos, y_pos, z_pos, theta]
         self.observation_space = spaces.Tuple((\
-            spaces.Box(low = np.array([auv_init_pos.x - 200.0, auv_init_pos.y - 200.0, -200.0, 0.0]), high = np.array([auv_init_pos.x + 200.0, auv_init_pos.y + 200.0, 0.0, 0.0]), dtype = np.float64),\
-            spaces.Box(low = np.array([shark_init_pos.x - 200.0, shark_init_pos.y - 200.0, -200.0, 0.0]), high = np.array([shark_init_pos.x + 200.0, shark_init_pos.y + 200.0, 0.0, 0.0]), dtype = np.float64)))
+            spaces.Box(low = np.array([auv_init_pos.x - ENV_SIZE, auv_init_pos.y - ENV_SIZE, -ENV_SIZE, 0.0]), high = np.array([auv_init_pos.x + ENV_SIZE, auv_init_pos.y + ENV_SIZE, 0.0, 0.0]), dtype = np.float64),\
+            spaces.Box(low = np.array([shark_init_pos.x - ENV_SIZE, shark_init_pos.y - ENV_SIZE, -ENV_SIZE, 0.0]), high = np.array([shark_init_pos.x + ENV_SIZE, shark_init_pos.y + ENV_SIZE, 0.0, 0.0]), dtype = np.float64)))
 
         self.auv_init_pos = auv_init_pos
         self.shark_init_pos = shark_init_pos
@@ -81,12 +104,27 @@ class AuvEnv(gym.Env):
 
 
     def step(self, action):
+        """
+        Run one time step (defined as DELTA_T) of the dynamics in the environment
+
+        Parameter:
+            action - a tuple, representing the linear velocity and angular velocity of the auv
+
+        Return:
+            observation - a tuple of 2 np array, representing the auv and shark's new position
+                each array has the format: [x_pos, y_pos, z_pos, theta]
+            reward - float, amount of reward returned after previous action
+            done - float, whether the episode has ended
+            info - dictionary, can provide debugging info (TODO: right now, it's just an empty one)
+        """
         v, w = action
         
+        # get the old position and orientation data for the auv
         x, y, z, theta = self.state[0]
 
         old_range = self.calculate_range(self.state[0], self.state[1])
 
+        # calculate the new position and orientation of the auv
         new_x = x + v * np.cos(theta) * DELTA_T
         new_y = y + v * np.sin(theta) * DELTA_T
         new_theta = angle_wrap(theta + w * DELTA_T)
@@ -94,10 +132,12 @@ class AuvEnv(gym.Env):
         # TODO: For now, the shark's position does not change. Might get updated in the future 
         new_shark_pos = self.state[1]
         
-        self.calculate_range(self.state[0], self.state[1])
-
+        # update the current state to the new state
         self.state = (np.array([new_x, new_y, z, new_theta]), new_shark_pos)
 
+        # the episode will only end (done = True) if
+        #   - the auv has reached the target, or
+        #   - the auv has hit an obstacle
         done = self.check_reached_target(self.state[0], self.state[1]) or\
             self.check_collision(self.state[0])
 
@@ -107,6 +147,16 @@ class AuvEnv(gym.Env):
 
     
     def calculate_range(self, a_pos, b_pos):
+        """
+        Calculate the range (distance) between point a and b, specified by their coordinates
+
+        Parameters:
+            a_pos - an array / a numpy array
+            b_pos - an array / a numpy array
+                both have the format: [x_pos, y_pos, z_pos, theta]
+
+        TODO: include z pos in future range calculation?
+        """
         a_x = a_pos[0]
         a_y = a_pos[1]
         b_x = b_pos[0]
@@ -172,6 +222,7 @@ class AuvEnv(gym.Env):
     def reset(self):
         """
         Reset the environment
+            Set the observation to the initial auv and shark position
         """
         self.state = (np.array([self.auv_init_pos.x, self.auv_init_pos.y, self.auv_init_pos.z, self.auv_init_pos.theta]),\
             np.array([self.shark_init_pos.x, self.shark_init_pos.y, self.shark_init_pos.z, self.shark_init_pos.theta]))
@@ -179,14 +230,24 @@ class AuvEnv(gym.Env):
 
 
     def render(self, mode='human'):
+        """
+        Render the environment by
+            - printing out auv and shark's current position
+            - returning self.state , so that another helper function can use live3DGraph.py class to plot the environment
+
+        Return:
+            a tuple of 2 np.array representing the auv and shark's current position
+        """
         auv_pos = self.state[0]
         shark_pos = self.state[1]
+        
         print("==========================")
         print("auv position: ")
         print("x = ", auv_pos[0], " y = ", auv_pos[1], " z = ", auv_pos[2], " theta = ", auv_pos[3])
         print("shark position: ")
         print("x = ", shark_pos[0], " y = ", shark_pos[1], " z = ", shark_pos[2], " theta = ", shark_pos[3])
         print("==========================")
+
         return self.state
 
 
