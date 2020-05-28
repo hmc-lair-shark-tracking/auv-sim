@@ -137,8 +137,9 @@ class Agent():
             print("-----")
             print("randomly chosen action: ")
             print(torch.tensor([v_action, w_action]))
-            
-            return torch.tensor([v_action, w_action]).to(self.device) # explore  
+            self.ra = torch.tensor([v_action, w_action]).to(self.device) # explore  
+
+            return self.ra # explore  
         else:
             # turn off gradient tracking bc we are using the model for inference instead of training
             # we don't need to keep track the gradient because we are not doing backpropagation to figure out the weight 
@@ -148,7 +149,14 @@ class Agent():
                 #   with the highest Q-Value output from the policy net
                 print("-----")
                 print("exploiting")
-                return policy_net(state).argmax(dim=0).to(self.device) # exploit
+                self.ea = policy_net(state).argmax(dim=0).to(self.device)
+                return  self.ra# exploit
+
+        print(self.ra)
+        print(type(self.ra))
+        print(self.ea)
+        print(type(self.ea))
+        print(self.ra == self.ea)
 
 
 class AuvEnvManager():
