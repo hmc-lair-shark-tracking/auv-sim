@@ -24,7 +24,7 @@ obstacle_array = []
 
 env = gym.make('gym_auv:auv-v0')
 
-env.init_env(Motion_plan_state(x = 740.0, y = 280.0, z = -5.0, theta = 0), Motion_plan_state(x = 760.0, y = 280, z = 0.0, theta = 0), obstacle_array)
+env.init_env(Motion_plan_state(x = 740.0, y = 280.0, z = -5.0, theta = 0), Motion_plan_state(x = 745.0, y = 280, z = 0.0, theta = 0), obstacle_array)
 
 # size of each action
 action_size = env.action_space.shape[0]
@@ -161,7 +161,8 @@ WEIGHT_DECAY = 0        # L2 weight decay
 EPSILON_MAX = 1.0
 EPSILON_MIN = 0.1
 EPSILON_DECAY = 1e-6
-LEARN_START = 20000
+# LEARN_START = 20000
+LEARN_START = 10000
 UPDATE_EVERY = 1
 UPDATES_PER_STEP = 1
 
@@ -207,7 +208,14 @@ class Agent():
 
     def step(self, state, action, reward, next_state, done, timestep):
         """Save experience in replay memory, and use random sample from buffer to learn."""
-        # Save experience / reward        
+        # Save experience / reward
+        state = self.process_state_for_nn(state)
+        next_state = self.process_state_for_nn(next_state)
+        # print("storing state: ")
+        # print(state)
+        # print(next_state)
+        # print("--------------------")
+
         self.memory.add(state, action, reward, next_state, done)
 
         if len(self.memory) > LEARN_START:
@@ -223,12 +231,13 @@ class Agent():
     def act(self, state, add_noise=True):
         """Returns actions for given state as per current policy."""
         
-        auv_tensor = torch.from_numpy(state[0])
+        # auv_tensor = torch.from_numpy(state[0])
         
-        shark_tensor = torch.from_numpy(state[1])
-        # join 2 tensor together
-        state = torch.cat((auv_tensor, shark_tensor)).float()
-        
+        # shark_tensor = torch.from_numpy(state[1])
+        # # join 2 tensor together
+        # state = torch.cat((auv_tensor, shark_tensor)).float()
+        state = self.process_state_for_nn(state)
+
         # set network in ealuation mode instead of training mode
         self.actor_local.eval()
 
@@ -263,6 +272,8 @@ class Agent():
 
         # ---------------------------- update critic ---------------------------- #
         # Get predicted next-state actions and Q values from target models
+        # print("++++++++++++++++")
+        # print(next_states)
         actions_next = self.actor_target(next_states)
         Q_targets_next = self.critic_target(next_states, actions_next)
 
@@ -317,6 +328,13 @@ class Agent():
         for target_param, param in zip(target.parameters(), source.parameters()):
             target_param.data.copy_(param.data)
 
+    def process_state_for_nn(self, state):
+        auv_tensor = torch.from_numpy(state[0])
+        
+        shark_tensor = torch.from_numpy(state[1])
+        # join 2 tensor together
+        return torch.cat((auv_tensor, shark_tensor)).float()
+
 class ReplayBuffer:
     """Fixed-size buffer to store experience tuples."""
 
@@ -361,8 +379,13 @@ class ReplayBuffer:
 
 agent = Agent(state_size=state_size, action_size=action_size, random_seed=random_seed)
 
+def save_model():
+    print("Model Save...")
+    torch.save(agent.actor_local.state_dict(), 'checkpoint_actor.pth')
+    torch.save(agent.critic_local.state_dict(), 'checkpoint_critic.pth')
 
-def ddpg(n_episodes=100000, max_t=1500, print_every=1, save_every=20):
+
+def ddpg(n_episodes=10000, max_t=1500, print_every=1, save_every=20):
     scores_deque = deque(maxlen=print_every)
     scores = []
     
@@ -373,26 +396,35 @@ def ddpg(n_episodes=100000, max_t=1500, print_every=1, save_every=20):
         timestep = time.time()
         for t in range(max_t):
             action = agent.act(state)
-            # next_state, reward, done, _ = env.step(action)
-            # agent.step(state, action, reward, next_state, done, t)
-            # score += reward
-            # state = next_state            
-            # if done:
-            #     break 
+            next_state, reward, done, _ = env.step(action)
+            # print("determined action: ")
+            # print(action)
+            # print("next_state: ")
+            # print(next_state)
+            # print("reward: ")
+            # print(reward)
+            # print("done: ")
+            # print(done)
+            # print("=====================")
+            agent.step(state, action, reward, next_state, done, t)
+            score += reward
+            state = next_state            
+            if done:
+                break 
                 
         scores_deque.append(score)
         scores.append(score)
         score_average = np.mean(scores_deque)
         
-        # if i_episode % save_every == 0:
-        #     save_model()
+        if i_episode % save_every == 0:
+            save_model()
         
         if i_episode % print_every == 0:
             print('\rEpisode {}, Average Score: {:.2f}, Max: {:.2f}, Min: {:.2f}, Time: {:.2f}'\
                   .format(i_episode, score_average, np.max(scores), np.min(scores), time.time() - timestep), end="\n")
                     
-        if np.mean(scores_deque) >= 90.0:            
-            # save_model()
+        if np.mean(scores_deque) >= 20.0:            
+            save_model()
             print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i_episode, score_average))            
             break            
             
@@ -402,3 +434,21 @@ def ddpg(n_episodes=100000, max_t=1500, print_every=1, save_every=20):
 scores = ddpg()
 print("this is confusing... final score?: ")
 print(scores)
+
+agent.actor_local.load_state_dict(torch.load('checkpoint_actor.pth'))
+agent.critic_local.load_state_dict(torch.load('checkpoint_critic.pth'))
+
+for _ in range(5):
+    state = env.reset()
+    for t in range(1200):
+        action = agent.act(state, add_noise=False)
+        print("action: ")
+        print(action)
+        env.render()
+        state, reward, done, _ = env.step(action)
+        print("done?")
+        print(done)
+        if done:
+            break 
+
+env.close()
