@@ -501,7 +501,7 @@ def main():
     done = False
     while not done: 
         state, reward, done, info = env.step(np.array([10,0]))
-        print("state: ", state)
+        env.render()
         print("reward: ", reward)
 
 if __name__ == "__main__":

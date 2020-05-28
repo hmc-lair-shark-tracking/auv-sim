@@ -179,9 +179,16 @@ class AuvEnv(gym.Env):
             np.array([self.shark_init_pos.x, self.shark_init_pos.y, self.shark_init_pos.z, self.shark_init_pos.theta]))
         return self.state
 
-    def render(self, mode='human'):
-        ...
 
-    def close(self):
-        ...
+    def render(self, mode='human'):
+        auv_pos = self.state[0]
+        shark_pos = self.state[1]
+        print("==========================")
+        print("auv position: ")
+        print("x = ", auv_pos[0], " y = ", auv_pos[1], " z = ", auv_pos[2], " theta = ", auv_pos[3])
+        print("shark position: ")
+        print("x = ", shark_pos[0], " y = ", shark_pos[1], " z = ", shark_pos[2], " theta = ", shark_pos[3])
+        print("==========================")
+
+
     
