@@ -102,6 +102,10 @@ class AuvEnv(gym.Env):
 
         self.reset()
 
+    
+    def actions_range(self):
+        return (np.array([-AUV_MAX_V, AUV_MAX_V]), np.array([-AUV_MAX_W, AUV_MAX_W]))
+
 
     def step(self, action):
         """
@@ -121,6 +125,8 @@ class AuvEnv(gym.Env):
         
         # get the old position and orientation data for the auv
         x, y, z, theta = self.state[0]
+        print("old position: ")
+        print(x, ", ", y, ", ", z, ", ", theta)
 
         old_range = self.calculate_range(self.state[0], self.state[1])
 
@@ -128,6 +134,8 @@ class AuvEnv(gym.Env):
         new_x = x + v * np.cos(theta) * DELTA_T
         new_y = y + v * np.sin(theta) * DELTA_T
         new_theta = angle_wrap(theta + w * DELTA_T)
+        print("old position: ")
+        print(new_x, ", ", new_y, ", ", z, ", ", new_theta)
 
         # TODO: For now, the shark's position does not change. Might get updated in the future 
         new_shark_pos = self.state[1]
