@@ -139,6 +139,13 @@ class Agent():
             print(torch.tensor([v_action, w_action]))
             self.ra = torch.tensor([v_action, w_action]).to(self.device) # explore  
 
+            print("figure out action type: ")
+            print(self.ra)
+            print(type(self.ra))
+            print(self.ea)
+            print(type(self.ea))
+            print(self.ra == self.ea)
+
             return self.ra # explore  
         else:
             # turn off gradient tracking bc we are using the model for inference instead of training
@@ -149,14 +156,18 @@ class Agent():
                 #   with the highest Q-Value output from the policy net
                 print("-----")
                 print("exploiting")
-                self.ea = policy_net(state).argmax(dim=0).to(self.device)
+                self.ea = policy_net(state).to(self.device)
+
+                print("figure out action type: ")
+                print(self.ra)
+                print(type(self.ra))
+                print("is this what the neural net is giving me? ")
+                print(self.ea)
+                print(type(self.ea))
+                print(self.ra == self.ea)
+
                 return  self.ra# exploit
 
-        print(self.ra)
-        print(type(self.ra))
-        print(self.ea)
-        print(type(self.ea))
-        print(self.ra == self.ea)
 
 
 class AuvEnvManager():

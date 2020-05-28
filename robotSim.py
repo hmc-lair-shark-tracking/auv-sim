@@ -552,7 +552,7 @@ def main():
         state, reward, done, info = env.step(np.array([v,w]))
         auv_pos, shark_pos = env.render()
         test_robot.render_for_rl_env(auv_pos, shark_pos)
-        print(env.action_space)
+        print(env.action_space.shape)
         print("reward: ", reward)
         print("v: ", v)
         v += 2
