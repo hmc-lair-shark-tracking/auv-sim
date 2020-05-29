@@ -530,7 +530,7 @@ def main():
 
     env = gym.make('gym_auv:auv-v0')
     env.init_env(Motion_plan_state(x = 740.0, y = 280.0, z = -5.0, theta = 0), Motion_plan_state(x = 760.0, y = 280, z = 0.0, theta = 0), obstacle_array)
-
+    
     auv_init_pos, shark_init_pos = env.state
     test_robot.auv_x_array_rl.append(auv_init_pos[0])
     test_robot.auv_y_array_rl.append(auv_init_pos[1])
@@ -545,18 +545,19 @@ def main():
     N = 0
     v = 2
     w = 0
-    while (not done) and N < 50: 
-        # v = np.random.randint(-2, 2, dtype='int')
-        # w = np.random.uniform(-np.pi, np.pi, dtype=np.float32)
 
-        state, reward, done, info = env.step(np.array([v,w]))
-        auv_pos, shark_pos = env.render()
-        test_robot.render_for_rl_env(auv_pos, shark_pos)
-        print(env.action_space.shape)
-        print("reward: ", reward)
-        print("v: ", v)
-        v += 2
-        N += 1
+    # while (not done) and N < 50: 
+    #     # v = np.random.randint(-2, 2, dtype='int')
+    #     # w = np.random.uniform(-np.pi, np.pi, dtype=np.float32)
+
+    #     state, reward, done, info = env.step(np.array([v,w]))
+    #     auv_pos, shark_pos = env.render()
+    #     test_robot.render_for_rl_env(auv_pos, shark_pos)
+    #     print(env.action_space.shape)
+    #     print("reward: ", reward)
+    #     print("v: ", v)
+    #     v += 2
+    #     N += 1
         
 
 if __name__ == "__main__":

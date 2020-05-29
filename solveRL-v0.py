@@ -14,22 +14,28 @@ import torchvision.transforms as T
 
 from motion_plan_state import Motion_plan_state
 
-# env = gym.make('gym_auv:auv-v0')
-# env.init_env(Motion_plan_state(x = 740.0, y = 280.0, z = -5.0, theta = 0), Motion_plan_state(x = 750.0, y = 280, z = -5.0, theta = 0), [])
+
+def process_state_for_nn(state):
+    auv_tensor = torch.from_numpy(state[0])
+    
+    shark_tensor = torch.from_numpy(state[1])
+    # join 2 tensor together
+    return torch.cat((auv_tensor, shark_tensor)).float()
+    
 
 # nn.Module base class for all neural network modules
 class DQN(nn.Module):
-    def __init__(self):
+    def __init__(self, input_size, output_size):
         super().__init__()
 
         # 2 fully connected hidden layers
         # first layer will have 8 inputs
         #   auv 3D position and theta + shark 3D postion and theta
-        self.fc1 = nn.Linear(in_features=8, out_features=24)  
+        self.fc1 = nn.Linear(in_features=input_size, out_features=24)  
         # TODO: for now, this should be ok? 
         self.fc2 = nn.Linear(in_features=24, out_features=32)
         # only available output: 2 actions (v, w)
-        self.out = nn.Linear(in_features=32, out_features=2)
+        self.out = nn.Linear(in_features=32, out_features=output_size)
 
 
     def forward(self, t):
@@ -39,15 +45,8 @@ class DQN(nn.Module):
         Parameters:
             t - the state
         """
-        # Note, the state is a tuple of two np.array
-        # we will convert the state to a flat tensor here:
-        auv_tensor = torch.from_numpy(t[0])
-        print(auv_tensor)
-        shark_tensor = torch.from_numpy(t[1])
-        # join 2 tensor together
-        t = torch.cat((auv_tensor, shark_tensor)).float()
-        print("processed t: ")
-        print(t)
+        t = process_state_for_nn(t)
+
         # pass through the layers then have relu applied to it
         # relu is the activation function that will turn any negative value to 0,
         #   and keep any positive value
@@ -59,9 +58,6 @@ class DQN(nn.Module):
         # pass through the last layer, the output layer
         t = self.out(t)
 
-        print("from the output layer: ")
-        print(t)
-        print("-----")
         return t
 
 
@@ -129,24 +125,16 @@ class Agent():
         rate = self.strategy.get_exploration_rate(self.current_step)
         self.current_step += 1
 
+        w_action = 0
+
         if rate > random.random():
-            v_range = self.actions_range[0]
-            w_range = self.actions_range[1]
-            v_action = np.random.uniform(v_range[0], v_range[1])
-            w_action = np.random.uniform(w_range[0], w_range[1])
+            v_action = random.choice(self.actions_range[0])
+            # w_action = random.choice(self.actions_range[1])
             print("-----")
             print("randomly chosen action: ")
             print(torch.tensor([v_action, w_action]))
-            self.ra = torch.tensor([v_action, w_action]).to(self.device) # explore  
 
-            print("figure out action type: ")
-            print(self.ra)
-            print(type(self.ra))
-            print(self.ea)
-            print(type(self.ea))
-            print(self.ra == self.ea)
-
-            return self.ra # explore  
+            return torch.tensor([v_action, w_action]).to(self.device) # explore  
         else:
             # turn off gradient tracking bc we are using the model for inference instead of training
             # we don't need to keep track the gradient because we are not doing backpropagation to figure out the weight 
@@ -156,18 +144,13 @@ class Agent():
                 #   with the highest Q-Value output from the policy net
                 print("-----")
                 print("exploiting")
-                self.ea = policy_net(state).to(self.device)
+                
+                output_weight = policy_net(state).to(self.device)
 
-                print("figure out action type: ")
-                print(self.ra)
-                print(type(self.ra))
-                print("is this what the neural net is giving me? ")
-                print(self.ea)
-                print(type(self.ea))
-                print(self.ra == self.ea)
+                index_for_max = torch.argmax(output_weight).item()
+                v_action = self.actions_range[0][index_for_max]
 
-                return  self.ra# exploit
-
+                return torch.tensor([v_action, w_action]).to(self.device) # explore  
 
 
 class AuvEnvManager():
@@ -318,20 +301,23 @@ def main():
     em = AuvEnvManager(device)
     strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
 
-    agent = Agent(strategy, em.env.actions_range(), device)
+    # parameter to discretize the action v and w
+    # N specify the number of options that we get to have for v and w
+    N = 4
+    agent = Agent(strategy, em.env.actions_range(N), device)
     memory = ReplayMemory(memory_size)
 
     # to(device) puts the network on our defined device
-    policy_net = DQN().to(device)
-    target_net = DQN().to(device)
+    policy_net_v = DQN(8, N).to(device)
+    target_net_v = DQN(8, N).to(device)
 
     # set the weight and bias in the target_net to be the same as the policy_net
-    target_net.load_state_dict(policy_net.state_dict())
+    target_net_v.load_state_dict(policy_net_v.state_dict())
     # set the target_net in evaluation mode instead of training mode (bc we are only using it to 
     # estimate the next max Q value)
-    target_net.eval()
+    target_net_v.eval()
 
-    optimizer = optim.Adam(params=policy_net.parameters(), lr=lr)
+    optimizer_v = optim.Adam(params=policy_net_v.parameters(), lr=lr)
 
     episode_durations = []
 
@@ -344,55 +330,53 @@ def main():
         for timestep in count(): 
             # For each time step:
             # Select an action (Via exploration or exploitation)
-            action = agent.select_action(state, policy_net)
-            print(action)
-            print(type(action))
+            action = agent.select_action(state, policy_net_v)
             # Execute selected action in an emulator.
             # Observe reward and next state.
-            reward = em.take_action(action)
-            next_state = em.get_state()
+        #     reward = em.take_action(action)
+        #     next_state = em.get_state()
 
-            # Store experience in replay memory.
-            memory.push(Experience(state, action, next_state, reward))
-            state = next_state
+        #     # Store experience in replay memory.
+        #     memory.push(Experience(state, action, next_state, reward))
+        #     state = next_state
 
-            if memory.can_provide_sample(batch_size):
-                # Sample random batch from replay memory.
-                experiences = memory.sample(batch_size)
-                # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
-                # 
-                states, actions, rewards, next_states = extract_tensors(experiences)
+        #     if memory.can_provide_sample(batch_size):
+        #         # Sample random batch from replay memory.
+        #         experiences = memory.sample(batch_size)
+        #         # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
+        #         # 
+        #         states, actions, rewards, next_states = extract_tensors(experiences)
                 
-                # Pass batch of preprocessed states to policy network.
-                # return the q value for the given state-action pair by passing throught the policy net
-                current_q_values = QValues.get_current(policy_net, states, actions)
-                next_q_values = QValues.get_next(target_net, next_states)
-                target_q_values = (next_q_values * gamma) + rewards
+        #         # Pass batch of preprocessed states to policy network.
+        #         # return the q value for the given state-action pair by passing throught the policy net
+        #         current_q_values = QValues.get_current(policy_net_v, states, actions)
+        #         next_q_values = QValues.get_next(target_net_v, next_states)
+        #         target_q_values = (next_q_values * gamma) + rewards
 
-                # Calculate loss between output Q-values and target Q-values.
-                # mse_loss calculate the mean square error
-                loss = F.mse_loss(current_q_values, target_q_values.unsqueeze(1))
+        #         # Calculate loss between output Q-values and target Q-values.
+        #         # mse_loss calculate the mean square error
+        #         loss = F.mse_loss(current_q_values, target_q_values.unsqueeze(1))
 
-                # Gradient descent updates weights in the policy network to minimize loss.
-                # sets the gradients of all the weights and biases in the policy network to zero
-                # so that we can do back propagation 
-                optimizer.zero_grad()
+        #         # Gradient descent updates weights in the policy network to minimize loss.
+        #         # sets the gradients of all the weights and biases in the policy network to zero
+        #         # so that we can do back propagation 
+        #         optimizer_v.zero_grad()
 
-                # use backward propagation to calculate the gradient of loss with respect to all the weights and biases in the policy net
-                loss.backward()
+        #         # use backward propagation to calculate the gradient of loss with respect to all the weights and biases in the policy net
+        #         loss.backward()
 
-                # updates the weights and biases of all the nodes based on the gradient
-                optimizer.step()
+        #         # updates the weights and biases of all the nodes based on the gradient
+        #         optimizer_v.step()
             
-            if em.done: 
-                episode_durations.append(timestep)
-                plot(episode_durations, 100)
-                break
+        #     if em.done: 
+        #         episode_durations.append(timestep)
+        #         plot(episode_durations, 100)
+        #         break
 
-        #  After x time steps, weights in the target network are updated to the weights in the policy network.
-        # in our case, it will be 10 episodes
-        if episode % target_update == 0:
-            target_net.load_state_dict(policy_net.state_dict())
+        # #  After x time steps, weights in the target network are updated to the weights in the policy network.
+        # # in our case, it will be 10 episodes
+        # if episode % target_update == 0:
+        #     target_net_v.load_state_dict(policy_net_v.state_dict())
 
     em.close()
 

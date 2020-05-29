@@ -103,8 +103,10 @@ class AuvEnv(gym.Env):
         self.reset()
 
     
-    def actions_range(self):
-        return (np.array([-AUV_MAX_V, AUV_MAX_V]), np.array([-AUV_MAX_W, AUV_MAX_W]))
+    def actions_range(self, N):
+        v_options = np.linspace(-AUV_MAX_V, AUV_MAX_V, N)
+        w_options = np.linspace(-AUV_MAX_W, AUV_MAX_W, N)
+        return (v_options, w_options)
 
 
     def step(self, action):
