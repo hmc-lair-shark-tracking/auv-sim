@@ -43,9 +43,8 @@ class DQN(nn.Module):
         define the forward pass through the neural network
 
         Parameters:
-            t - the state
+            t - the state as a tensor
         """
-        t = process_state_for_nn(t)
 
         # pass through the layers then have relu applied to it
         # relu is the activation function that will turn any negative value to 0,
@@ -144,6 +143,7 @@ class Agent():
                 #   with the highest Q-Value output from the policy net
                 print("-----")
                 print("exploiting")
+                state = process_state_for_nn(state)
                 
                 output_weight = policy_net(state).to(self.device)
 
@@ -190,7 +190,7 @@ class AuvEnvManager():
         print(reward)
         print("=========================")
         # wrap reward into a tensor, so we have input and output to both be tensor
-        return torch.tensor([reward], device=self.device)
+        return torch.tensor([reward], device=self.device).float()
 
     def get_state(self):
         """
@@ -232,7 +232,8 @@ def extract_tensors(experiences):
     # Convert batch of Experiences to Experience of batches
     batch = Experience(*zip(*experiences))
 
-    t1 = torch.cat(batch.state)
+
+    t1 = torch.stack(batch.state)
     t2 = torch.cat(batch.action)
     t3 = torch.cat(batch.reward)
     t4 = torch.cat(batch.next_state)
@@ -249,8 +250,13 @@ class QValues():
     @staticmethod
     def get_current(policy_net, states, actions):
         # returns the predicted q-values from the policy_net for the specific state-action pairs that were passed in.
-        return policy_net(states).gather(dim=0, index=actions.unsqueeze(-1))
+        # return policy_net(states).gather(dim=0, index=actions.unsqueeze(-1))
+        print(states)
+        print(states.size())
+        print(policy_net(states))
+        return 0
 
+    
     @staticmethod        
     def get_next(target_net, next_states):  
         # for each next state, we want to obtain the max q-value predicted by the target_net among all the possible next actions              
@@ -333,23 +339,26 @@ def main():
             action = agent.select_action(state, policy_net_v)
             # Execute selected action in an emulator.
             # Observe reward and next state.
-        #     reward = em.take_action(action)
-        #     next_state = em.get_state()
+            reward = em.take_action(action)
+            
+            next_state = em.get_state()
+            
+            # Store experience in replay memory.
+            memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
 
-        #     # Store experience in replay memory.
-        #     memory.push(Experience(state, action, next_state, reward))
-        #     state = next_state
+            state = next_state
 
-        #     if memory.can_provide_sample(batch_size):
-        #         # Sample random batch from replay memory.
-        #         experiences = memory.sample(batch_size)
-        #         # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
-        #         # 
-        #         states, actions, rewards, next_states = extract_tensors(experiences)
-                
-        #         # Pass batch of preprocessed states to policy network.
-        #         # return the q value for the given state-action pair by passing throught the policy net
-        #         current_q_values = QValues.get_current(policy_net_v, states, actions)
+            if memory.can_provide_sample(batch_size):
+                # Sample random batch from replay memory.
+                experiences = memory.sample(batch_size)
+
+                # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
+                states, actions, rewards, next_states = extract_tensors(experiences)
+ 
+                # Pass batch of preprocessed states to policy network.
+                # return the q value for the given state-action pair by passing throught the policy net
+                current_q_values = QValues.get_current(policy_net_v, states, actions)
+                exit(0)
         #         next_q_values = QValues.get_next(target_net_v, next_states)
         #         target_q_values = (next_q_values * gamma) + rewards
 
