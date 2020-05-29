@@ -2,6 +2,10 @@ import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
 import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+from live3DGraph import Live3DGraph
 
 # size of the observation space
 # the coordinates of the observation space will be based on 
@@ -14,7 +18,6 @@ AUV_MAX_V = 2.0
 # auv's max angular velocity (unit: rad/s)
 #   TODO: Currently, the track_way_point function has K_P == 1, so this is the range for w. Might change in the future?
 AUV_MAX_W = np.pi
-
 
 # time step (unit: sec)
 DELTA_T = 1
@@ -70,6 +73,16 @@ class AuvEnv(gym.Env):
 
         self.obstacle_array = []
 
+        self.live_graph = Live3DGraph()
+
+        self.auv_x_array_rl = []
+        self.auv_y_array_rl = []
+        self.auv_z_array_rl = []
+
+        self.shark_x_array_rl = []
+        self.shark_y_array_rl = []
+        self.shark_z_array_rl = []
+
 
     def init_env(self, auv_init_pos, shark_init_pos, obstacle_array = []):
         """
@@ -100,8 +113,11 @@ class AuvEnv(gym.Env):
         for obs in obstacle_array:
             self.obstacle_array.append([obs.x, obs.y, obs.z, obs.size])
 
-        self.reset()
 
+        self.init_data_for_3D_plot(auv_init_pos, shark_init_pos)
+        
+        self.reset()
+        
     
     def actions_range(self, N):
         v_options = np.linspace(-AUV_MAX_V, AUV_MAX_V, N)
@@ -259,7 +275,41 @@ class AuvEnv(gym.Env):
         print("x = ", shark_pos[0], " y = ", shark_pos[1], " z = ", shark_pos[2], " theta = ", shark_pos[3])
         print("==========================")
 
+        # self.render_3D_plot(self.state[0], self.state[1])
         return self.state
+
+
+    def render_3D_plot(self, auv_pos, shark_pos):
+        self.auv_x_array_rl.append(auv_pos[0])
+        self.auv_y_array_rl.append(auv_pos[1])
+        self.auv_z_array_rl.append(auv_pos[2])
+
+        self.shark_x_array_rl.append(shark_pos[0])
+        self.shark_y_array_rl.append(shark_pos[1])
+        self.shark_z_array_rl.append(shark_pos[2])
+
+        self.live_graph.plot_entity(self.auv_x_array_rl, self.auv_y_array_rl, self.auv_z_array_rl, label = 'auv', color = 'r', marker = ',')
+
+        self.live_graph.plot_entity(self.shark_x_array_rl, self.shark_y_array_rl, self.shark_z_array_rl, label = 'shark', color = 'b', marker = 'o')
+
+        self.live_graph.ax.legend()
+        
+        plt.draw()
+
+        # pause so the plot can be updated
+        plt.pause(0.001)
+
+        self.live_graph.ax.clear()
+
+
+    def init_data_for_3D_plot(self, auv_init_pos, shark_init_pos):
+        self.auv_x_array_rl = [auv_init_pos.x]
+        self.auv_y_array_rl = [auv_init_pos.y]
+        self.auv_z_array_rl = [auv_init_pos.z]
+
+        self.shark_x_array_rl = [shark_init_pos.x]
+        self.shark_y_array_rl = [shark_init_pos.y]
+        self.shark_z_array_rl = [shark_init_pos.z]
 
 
     

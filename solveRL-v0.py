@@ -182,8 +182,11 @@ class AuvEnvManager():
     def close(self):
         self.env.close()
     
-    def render(self, mode='human'):
-        return self.env.render(mode)
+    def render(self, mode='human', live_graph = False):
+        state = self.env.render(mode)
+        if live_graph: 
+            self.env.render_3D_plot(state[0], state[1])
+        return state
 
     def num_actions_available(self):
         return self.env.action_space.n
@@ -510,18 +513,19 @@ def test_trained_model():
     policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
     target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
 
-    policy_net_v.eval()
-    target_net_v.eval()
+    # policy_net_v.eval()
+    # target_net_v.eval()
 
     time_list = []
-    for i in range(20):
+    for i in range(3):
         print("start testing the network")
         em.reset()
         state = em.get_state()
+        em.env.init_data_for_3D_plot(auv_init_pos, shark_init_pos)
         time_list.append(0)
-        for t in range(2000):
+        for t in range(1500):
             action = agent.select_action(state, policy_net_v)
-            em.render()
+            em.render(live_graph=True)
             reward = em.take_action(action)
             print("steps: ")
             print(t)
