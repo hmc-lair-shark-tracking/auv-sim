@@ -368,10 +368,11 @@ def main():
             
 
                 next_q_values = QValues.get_next(target_net_v, next_states)
-
-                exit(0)
                 
-        #         target_q_values = (next_q_values * gamma) + rewards
+                target_q_values = (next_q_values * gamma) + rewards
+
+                print(target_q_values)
+                exit(0)
 
         #         # Calculate loss between output Q-values and target Q-values.
         #         # mse_loss calculate the mean square error
