@@ -282,8 +282,7 @@ class QValues():
         # #   target_net's maximum predicted q-value - if it's a non-final state.
         # values[non_final_state_locations] = target_net(non_final_states).max(dim=0)[0].detach()
         # return values
-        print(target_net_v(next_states).max(dim=1)[0].detach().unsqueeze(1))
-        exit(0)
+
         return target_net_v(next_states).max(dim=1)[0].detach()
 
 
@@ -389,11 +388,26 @@ def train():
                 
                 target_q_values = (next_q_values * gamma) + rewards
 
+                # print(current_q_values)
+                # print(target_q_values.unsqueeze(1))
+
+                # print(current_q_values.size())
+                # print(next_q_values.size())
+                # print(target_q_values.unsqueeze(1).size())
+                # print(rewards)
+                # print(rewards.size())
+                # print("==================")   
+                # print(rewards.unsqueeze(1))
+                # print(rewards.unsqueeze(1).size())
+                
+                
                 # Calculate loss between output Q-values and target Q-values.
                 # mse_loss calculate the mean square error
                 loss = F.mse_loss(current_q_values, target_q_values.unsqueeze(1))
 
+                print(loss)
 
+                exit(0)
                 # Gradient descent updates weights in the policy network to minimize loss.
                 # sets the gradients of all the weights and biases in the policy network to zero
                 # so that we can do back propagation 

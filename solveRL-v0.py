@@ -1,6 +1,7 @@
 import gym
 import math
 import random
+import time
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -16,6 +17,9 @@ from motion_plan_state import Motion_plan_state
 
 
 def process_state_for_nn(state):
+    """
+    Convert the state, which is a tuple of 2 np.arrays, to a tensor so it can be passed into the neural network
+    """
     auv_tensor = torch.from_numpy(state[0])
     
     shark_tensor = torch.from_numpy(state[1])
@@ -135,8 +139,8 @@ class Agent():
         self.current_step += 1
 
         if rate > random.random():
-            print("-----")
-            print("randomly picking")
+            # print("-----")
+            # print("randomly picking")
             v_action_index = random.choice(range(self.actions_range_v))
             w_action_index = random.choice(range(self.actions_range_w))
 
@@ -148,8 +152,8 @@ class Agent():
             with torch.no_grad():
                 # for the given "state"，the output will be the action 
                 #   with the highest Q-Value output from the policy net
-                print("-----")
-                print("exploiting")
+                # print("-----")
+                # print("exploiting")
                 state = process_state_for_nn(state)
                 
                 output_weight = policy_net(state).to(self.device)
@@ -272,12 +276,12 @@ class QValues():
         
         q_values_for_v = policy_net(states)[0].gather(dim=1, index=actions[:,:1])
         q_values_for_w = policy_net(states)[1].gather(dim=1, index=actions[:,1:2])
-        
-        return torch.cat((q_values_for_v, q_values_for_w))
+       
+        return torch.stack((q_values_for_v, q_values_for_w), dim = 0)
 
     
     @staticmethod        
-    def get_next(target_net_v, next_states):  
+    def get_next(target_net, next_states):  
         # for each next state, we want to obtain the max q-value predicted by the target_net among all the possible next actions              
         # we want to know where the final states are bc we shouldn't pass them into the target net
 
@@ -299,7 +303,16 @@ class QValues():
         # #   target_net's maximum predicted q-value - if it's a non-final state.
         # values[non_final_state_locations] = target_net(non_final_states).max(dim=0)[0].detach()
         # return values
-        return target_net_v(next_states).max(dim=1)[0].detach()
+       
+        v_max_q_values = target_net(next_states)[0].max(dim=1)[0].detach()
+        w_max_q_values = target_net(next_states)[1].max(dim=1)[0].detach()
+
+        # print(v_max_q_values)
+        # print(w_max_q_values)
+        # this will allow you to pair element by element!
+        # print(torch.stack((v_max_q_values, w_max_q_values), dim = 0))
+       
+        return torch.stack((v_max_q_values, w_max_q_values), dim = 0)
 
 
 
@@ -350,7 +363,7 @@ def train():
     # estimate the next max Q value)
     target_net_v.eval()
 
-    optimizer_v = optim.Adam(params=policy_net_v.parameters(), lr=lr)
+    optimizer = optim.Adam(params=policy_net_v.parameters(), lr=lr)
 
     episode_durations = []
 
@@ -367,6 +380,7 @@ def train():
         em.reset()
         state = em.get_state()
         score = 0
+        timestep = time.time()
 
         for timestep in count(): 
             # For each time step:
@@ -397,49 +411,67 @@ def train():
                 # Pass batch of preprocessed states to policy network.
                 # return the q value for the given state-action pair by passing throught the policy net
                 current_q_values = QValues.get_current(policy_net_v, states, actions)
-            
 
-    #             next_q_values = QValues.get_next(target_net_v, next_states)
+                next_q_values = QValues.get_next(target_net_v, next_states)
                 
-    #             target_q_values = (next_q_values * gamma) + rewards
+                target_q_values_v = (next_q_values[0] * gamma) + rewards
+                target_q_values_w = (next_q_values[1] * gamma) + rewards
+                # print(next_q_values[0])
+                # print(target_q_values_v)
+                # print("==================")   
+                # print(next_q_values[1])
+                # print(target_q_values_w)
+                # print(rewards))
+                # print(rewards.size())
+                # print("==================")   
+                # print(rewards.unsqueeze(0))
+                # print(rewards.unsqueeze(0).size())
+                # print(current_q_values[0].size())
+                # print(target_q_values_v.unsqueeze(1).size())
 
-    #             # Calculate loss between output Q-values and target Q-values.
-    #             # mse_loss calculate the mean square error
-    #             loss = F.mse_loss(current_q_values, target_q_values.unsqueeze(1))
+                # Calculate loss between output Q-values and target Q-values.
+                # mse_loss calculate the mean square error
+                loss_v = F.mse_loss(current_q_values[0], target_q_values_v.unsqueeze(1))
+                loss_w = F.mse_loss(current_q_values[1], target_q_values_w.unsqueeze(1))
 
+                loss_total = loss_v + loss_w
+                
+                # Gradient descent updates weights in the policy network to minimize loss.
+                # sets the gradients of all the weights and biases in the policy network to zero
+                # so that we can do back propagation 
+                optimizer.zero_grad()
 
-    #             # Gradient descent updates weights in the policy network to minimize loss.
-    #             # sets the gradients of all the weights and biases in the policy network to zero
-    #             # so that we can do back propagation 
-    #             optimizer_v.zero_grad()
+                # use backward propagation to calculate the gradient of loss with respect to all the weights and biases in the policy net
+                loss_total.backward()
 
-    #             # use backward propagation to calculate the gradient of loss with respect to all the weights and biases in the policy net
-    #             loss.backward()
-
-    #             # updates the weights and biases of all the nodes based on the gradient
-    #             optimizer_v.step()
+                # updates the weights and biases of all the nodes based on the gradient
+                optimizer.step()
             
-    #         if em.done: 
-    #             episode_durations.append(timestep)
-    #             plot(episode_durations, 100)
-    #             break
+            if em.done: 
+                episode_durations.append(timestep)
+                plot(episode_durations, 100)
+                break
 
-    #     #  After x time steps, weights in the target network are updated to the weights in the policy network.
-    #     # in our case, it will be 10 episodes
-    #     if episode % target_update == 0:
-    #         target_net_v.load_state_dict(policy_net_v.state_dict())
+            
 
-    #     print("+++++++++++++++++++++++++++++")
-    #     print("Episode # ", episode, "end with reward: ", score)
-    #     print("+++++++++++++++++++++++++++++")
+        #  After x time steps, weights in the target network are updated to the weights in the policy network.
+        # in our case, it will be 10 episodes
+        if episode % target_update == 0:
+            target_net_v.load_state_dict(policy_net_v.state_dict())
 
-    #     if episode % save_every == 0:
-    #         save_model()
+        print("+++++++++++++++++++++++++++++")
+        print("Episode # ", episode, "end with reward: ", score, " used time: ", timestep)
+        print("+++++++++++++++++++++++++++++")
 
-    #     if score >= 13.5:
-    #         save_model()
+        if episode % save_every == 0:
+            save_model()
 
-    # em.close()
+        if score >= 13.5:
+            save_model()
+
+        time.sleep(1)
+
+    em.close()
 
 
 def test_trained_model():
@@ -468,37 +500,48 @@ def test_trained_model():
 
     strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
 
-    agent = Agent(strategy, N, device)
+    agent = Agent(strategy, N, N, device)
 
     # to(device) puts the network on our defined device
-    policy_net_v = DQN(8, N).to(device)
-    target_net_v = DQN(8, N).to(device)
+    policy_net_v = DQN(8, N, N).to(device)
+    target_net_v = DQN(8, N, N).to(device)
 
     # if we want to load the already trained network
     policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
     target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
 
-    for _ in range(1):
+    policy_net_v.eval()
+    target_net_v.eval()
+
+    time_list = []
+    for i in range(20):
         print("start testing the network")
         em.reset()
         state = em.get_state()
-        for t in range(1200):
+        time_list.append(0)
+        for t in range(2000):
             action = agent.select_action(state, policy_net_v)
             em.render()
             reward = em.take_action(action)
             print("steps: ")
             print(t)
+            time_list[i] = t
             print("reward: ")
             print(reward.item())
             if em.done:
                 break
+        
 
     em.close()
 
+    print("final sums of time")
+    print(time_list)
+
+
     
 def main():
-    train()
-    # test_trained_model()
+    # train()
+    test_trained_model()
 
 if __name__ == "__main__":
     main()
