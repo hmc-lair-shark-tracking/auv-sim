@@ -239,7 +239,7 @@ def extract_tensors(experiences):
     t1 = torch.stack(batch.state)
     t2 = torch.stack(batch.action)
     t3 = torch.cat(batch.reward)
-    t4 = torch.cat(batch.next_state)
+    t4 = torch.stack(batch.next_state)
 
     return (t1,t2,t3,t4)
 
@@ -252,41 +252,39 @@ class QValues():
 
     @staticmethod
     def get_current(policy_net_v, states, actions):
-        # returns the predicted q-values from the policy_net for the specific state-action pairs that were passed in.
-        # return policy_net(states).gather(dim=0, index=actions.unsqueeze(-1))
-        # print(actions.dim())
-        # t = torch.zeros(actions.size()[0])
-        # print(t.dim())
-        # print(actions.gather(dim=0, index=torch.zeros(actions.size()[0])))
-        print(policy_net_v(states))
-        print(policy_net_v(states).gather(dim=1, index=actions[:,:1]))
-        print(actions[:,:1])
-
+        # actions is a tensor with this format: [[v_action_index1, w_action_index1], [v_action_index2, w_action_index2] ]
+        # actions[:,:1] gets only the first element in the [v_action_index, w_action_index], 
+        #   so we get all the v_action_index as a tensor
+        # policy_net_v(states) gives all the predicted q-values for all the action outcome for a given state
+        # policy_net_v(states).gather(dim=1, index=actions[:,:1]) gives us
+        #   a tensor of the q-value corresponds to the state and action(specified by index=actions[:,:1]) pair 
         return policy_net_v(states).gather(dim=1, index=actions[:,:1])
 
     
     @staticmethod        
-    def get_next(target_net, next_states):  
+    def get_next(target_net_v, next_states):  
         # for each next state, we want to obtain the max q-value predicted by the target_net among all the possible next actions              
         # we want to know where the final states are bc we shouldn't pass them into the target net
+
         # check individual next state's max value
         # if max value is 0 (.eq(0)), set to be true
-        final_state_locations = next_states.flatten(start_dim=0) \
-            .max(dim=0)[0].eq(0).type(torch.bool)
+        # final_state_locations = next_states.flatten(start_dim=1) \
+        #     .max(dim=1)[0].eq(0).type(torch.bool)
         # flip the non final_state 
-        non_final_state_locations = (final_state_locations == False)
+        # non_final_state_locations = (final_state_locations == False)
 
-        non_final_states = next_states[non_final_state_locations]
+        # non_final_states = next_states[non_final_state_locations]
 
-        batch_size = next_states.shape[0]
-        # create a tensor of zero
-        values = torch.zeros(batch_size).to(QValues.device)
+        # batch_size = next_states.shape[0]
+        # # create a tensor of zero
+        # values = torch.zeros(batch_size).to(QValues.device)
 
-        # a tensor of 
-        #   zero - if it's a final state
-        #   target_net's maximum predicted q-value - if it's a non-final state.
-        values[non_final_state_locations] = target_net(non_final_states).max(dim=0)[0].detach()
-        return values
+        # # a tensor of 
+        # #   zero - if it's a final state
+        # #   target_net's maximum predicted q-value - if it's a non-final state.
+        # values[non_final_state_locations] = target_net(non_final_states).max(dim=0)[0].detach()
+        # return values
+        return target_net_v(next_states).max(dim=1)[0].detach()
 
 
 def main():
@@ -367,8 +365,12 @@ def main():
                 # Pass batch of preprocessed states to policy network.
                 # return the q value for the given state-action pair by passing throught the policy net
                 current_q_values = QValues.get_current(policy_net_v, states, actions)
+            
+
+                next_q_values = QValues.get_next(target_net_v, next_states)
+
                 exit(0)
-        #         next_q_values = QValues.get_next(target_net_v, next_states)
+                
         #         target_q_values = (next_q_values * gamma) + rewards
 
         #         # Calculate loss between output Q-values and target Q-values.
