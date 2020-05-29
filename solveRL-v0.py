@@ -129,8 +129,8 @@ class Agent():
         if rate > random.random():
             v_action_index = random.choice(range(self.actions_range))
             # w_action = random.choice(self.actions_range[1])
-            print("-----")
-            print("randomly chosen action: ")
+            # print("-----")
+            # print("randomly chosen action: ")
             print(torch.tensor([v_action_index, w_action_index]))
 
             return torch.tensor([v_action_index, w_action_index]).to(self.device) # explore  
@@ -141,8 +141,8 @@ class Agent():
             with torch.no_grad():
                 # for the given "state"，the output will be the action 
                 #   with the highest Q-Value output from the policy net
-                print("-----")
-                print("exploiting")
+                # print("-----")
+                # print("exploiting")
                 state = process_state_for_nn(state)
                 
                 output_weight = policy_net(state).to(self.device)
@@ -181,17 +181,20 @@ class AuvEnvManager():
         w_action_index = action[1].item()
         v_action = self.possible_actions[0][v_action_index]
         w_action = self.possible_actions[1][w_action_index]
-        print("=========================")
-        print("action v: ", v_action_index, " | ", v_action)  
-        print("action w: ", w_action_index, " | ", w_action)  
+        # print("=========================")
+        # print("action v: ", v_action_index, " | ", v_action)  
+        # print("action w: ", w_action_index, " | ", w_action)  
+        
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
-        self.current_state, reward, self.done, _ = self.env.step((v_action, v_action))
-        print("new state: ")
-        print(self.current_state)
-        print("reward: ")
-        print(reward)
-        print("=========================")
+        self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
+        # print("new state: ")
+        # print(self.current_state)
+        # print("reward: ")
+        # print(reward)
+        # print("=========================")
+        if w_action != 0:
+            exit(0)
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
 
@@ -287,6 +290,7 @@ class QValues():
         return target_net_v(next_states).max(dim=1)[0].detach()
 
 
+
 def main():
     batch_size = 256
     # discount factor for exploration rate decay
@@ -305,7 +309,7 @@ def main():
     # learning rate
     lr = 0.001
 
-    num_episodes = 1000
+    num_episodes = 300
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -334,72 +338,114 @@ def main():
 
     episode_durations = []
 
-    # For each episode:
-    for episode in range(num_episodes):
-        # Initialize the starting state.
+    save_every = 20
+
+    def save_model():
+        print("Model Save...")
+        torch.save(policy_net_v.state_dict(), 'checkpoint_policy.pth')
+        torch.save(target_net_v.state_dict(), 'checkpoint_target.pth')
+
+    # # For each episode:
+    # for episode in range(num_episodes):
+    #     # Initialize the starting state.
+    #     em.reset()
+    #     state = em.get_state()
+    #     score = 0
+
+    #     for timestep in count(): 
+    #         # For each time step:
+    #         # Select an action (Via exploration or exploitation)
+    #         action = agent.select_action(state, policy_net_v)
+           
+    #         # Execute selected action in an emulator.
+    #         # Observe reward and next state.
+    #         reward = em.take_action(action)
+
+    #         score += reward.item()
+
+    #         # em.render()
+            
+    #         next_state = em.get_state()
+            
+    #         # Store experience in replay memory.
+    #         memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
+
+    #         state = next_state
+
+    #         if memory.can_provide_sample(batch_size):
+    #             # Sample random batch from replay memory.
+    #             experiences = memory.sample(batch_size)
+
+    #             # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
+    #             states, actions, rewards, next_states = extract_tensors(experiences)
+ 
+    #             # Pass batch of preprocessed states to policy network.
+    #             # return the q value for the given state-action pair by passing throught the policy net
+    #             current_q_values = QValues.get_current(policy_net_v, states, actions)
+            
+
+    #             next_q_values = QValues.get_next(target_net_v, next_states)
+                
+    #             target_q_values = (next_q_values * gamma) + rewards
+
+    #             # Calculate loss between output Q-values and target Q-values.
+    #             # mse_loss calculate the mean square error
+    #             loss = F.mse_loss(current_q_values, target_q_values.unsqueeze(1))
+
+
+    #             # Gradient descent updates weights in the policy network to minimize loss.
+    #             # sets the gradients of all the weights and biases in the policy network to zero
+    #             # so that we can do back propagation 
+    #             optimizer_v.zero_grad()
+
+    #             # use backward propagation to calculate the gradient of loss with respect to all the weights and biases in the policy net
+    #             loss.backward()
+
+    #             # updates the weights and biases of all the nodes based on the gradient
+    #             optimizer_v.step()
+            
+    #         if em.done: 
+    #             episode_durations.append(timestep)
+    #             plot(episode_durations, 100)
+    #             break
+
+    #     #  After x time steps, weights in the target network are updated to the weights in the policy network.
+    #     # in our case, it will be 10 episodes
+    #     if episode % target_update == 0:
+    #         target_net_v.load_state_dict(policy_net_v.state_dict())
+
+    #     print("+++++++++++++++++++++++++++++")
+    #     print("Episode # ", episode, "end with reward: ", score)
+    #     print("+++++++++++++++++++++++++++++")
+
+    #     if episode % save_every == 0:
+    #         save_model()
+
+    #     if score >= 13.5:
+    #         save_model()
+
+    # if we want to load the already trained network
+    policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
+    target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
+
+    for _ in range(1):
+        print("start testing the network")
         em.reset()
         state = em.get_state()
-        
-        for timestep in count(): 
-            # For each time step:
-            # Select an action (Via exploration or exploitation)
+        for t in range(1200):
             action = agent.select_action(state, policy_net_v)
-            # Execute selected action in an emulator.
-            # Observe reward and next state.
+            em.render()
             reward = em.take_action(action)
-            
-            next_state = em.get_state()
-            
-            # Store experience in replay memory.
-            memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
-
-            state = next_state
-
-            if memory.can_provide_sample(batch_size):
-                # Sample random batch from replay memory.
-                experiences = memory.sample(batch_size)
-
-                # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
-                states, actions, rewards, next_states = extract_tensors(experiences)
- 
-                # Pass batch of preprocessed states to policy network.
-                # return the q value for the given state-action pair by passing throught the policy net
-                current_q_values = QValues.get_current(policy_net_v, states, actions)
-            
-
-                next_q_values = QValues.get_next(target_net_v, next_states)
-                
-                target_q_values = (next_q_values * gamma) + rewards
-
-                print(target_q_values)
-                exit(0)
-
-        #         # Calculate loss between output Q-values and target Q-values.
-        #         # mse_loss calculate the mean square error
-        #         loss = F.mse_loss(current_q_values, target_q_values.unsqueeze(1))
-
-        #         # Gradient descent updates weights in the policy network to minimize loss.
-        #         # sets the gradients of all the weights and biases in the policy network to zero
-        #         # so that we can do back propagation 
-        #         optimizer_v.zero_grad()
-
-        #         # use backward propagation to calculate the gradient of loss with respect to all the weights and biases in the policy net
-        #         loss.backward()
-
-        #         # updates the weights and biases of all the nodes based on the gradient
-        #         optimizer_v.step()
-            
-        #     if em.done: 
-        #         episode_durations.append(timestep)
-        #         plot(episode_durations, 100)
-        #         break
-
-        # #  After x time steps, weights in the target network are updated to the weights in the policy network.
-        # # in our case, it will be 10 episodes
-        # if episode % target_update == 0:
-        #     target_net_v.load_state_dict(policy_net_v.state_dict())
+            print("steps: ")
+            print(t)
+            print("reward: ")
+            print(reward.item())
+            if em.done:
+                break
 
     em.close()
+
+    
 
 
 if __name__ == "__main__":
