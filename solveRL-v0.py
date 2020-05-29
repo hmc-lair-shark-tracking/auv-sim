@@ -25,17 +25,21 @@ def process_state_for_nn(state):
 
 # nn.Module base class for all neural network modules
 class DQN(nn.Module):
-    def __init__(self, input_size, output_size):
+    def __init__(self, input_size, output_size_v, output_size_w):
         super().__init__()
 
         # 2 fully connected hidden layers
         # first layer will have 8 inputs
         #   auv 3D position and theta + shark 3D postion and theta
         self.fc1 = nn.Linear(in_features=input_size, out_features=24)  
-        # TODO: for now, this should be ok? 
-        self.fc2 = nn.Linear(in_features=24, out_features=32)
-        # only available output: 2 actions (v, w)
-        self.out = nn.Linear(in_features=32, out_features=output_size)
+        # branch for selecting v
+        self.fc2_v = nn.Linear(in_features=24, out_features=32)      
+        self.out_v = nn.Linear(in_features=32, out_features=output_size_v)
+
+        # branch for selecting w
+        self.fc2_w = nn.Linear(in_features=24, out_features=32)
+        self.out_w = nn.Linear(in_features=32, out_features=output_size_w)
+
 
 
     def forward(self, t):
@@ -51,13 +55,18 @@ class DQN(nn.Module):
         #   and keep any positive value
         t = self.fc1(t)
         t = F.relu(t)
-        t = self.fc2(t)
-        t = F.relu(t)
+
+        t_v = self.fc2_v(t)
+        t_v = F.relu(t_v)
+
+        t_w = self.fc2_v(t)
+        t_w = F.relu(t_w)
 
         # pass through the last layer, the output layer
-        t = self.out(t)
+        t_v = self.out_v(t_v)
+        t_w = self.out_w(t_w)
 
-        return t
+        return torch.stack((t_v, t_w))
 
 
 # Create the experience class
@@ -106,14 +115,15 @@ class EpsilonGreedyStrategy():
 
 
 class Agent():
-    def __init__(self, strategy, actions_range, device):
+    def __init__(self, strategy, actions_range_v, actions_range_w, device):
         # the agent's current step in the environment
         self.current_step = 0
         # in our case, the strategy will be the epsilon greedy strategy
         self.strategy = strategy
         # how many possible actions can the agent take at a given state
         # for our case, it only has 2 actions (left or right)
-        self.actions_range = actions_range
+        self.actions_range_v = actions_range_v
+        self.actions_range_w = actions_range_w
         # what we want to PyTorch to use for tensor calculation
         self.device = device
 
@@ -124,10 +134,11 @@ class Agent():
         rate = self.strategy.get_exploration_rate(self.current_step)
         self.current_step += 1
 
-        w_action_index = 0
-
         if rate > random.random():
-            v_action_index = random.choice(range(self.actions_range))
+            print("-----")
+            print("randomly picking")
+            v_action_index = random.choice(range(self.actions_range_v))
+            w_action_index = random.choice(range(self.actions_range_w))
 
             return torch.tensor([v_action_index, w_action_index]).to(self.device) # explore  
         else:
@@ -137,13 +148,14 @@ class Agent():
             with torch.no_grad():
                 # for the given "state"，the output will be the action 
                 #   with the highest Q-Value output from the policy net
-                # print("-----")
-                # print("exploiting")
+                print("-----")
+                print("exploiting")
                 state = process_state_for_nn(state)
                 
                 output_weight = policy_net(state).to(self.device)
 
-                v_action_index = torch.argmax(output_weight).item()
+                v_action_index = torch.argmax(output_weight[0]).item()
+                w_action_index = torch.argmax(output_weight[1]).item()
 
                 return torch.tensor([v_action_index, w_action_index]).to(self.device) # explore  
 
@@ -177,20 +189,19 @@ class AuvEnvManager():
         w_action_index = action[1].item()
         v_action = self.possible_actions[0][v_action_index]
         w_action = self.possible_actions[1][w_action_index]
-        # print("=========================")
-        # print("action v: ", v_action_index, " | ", v_action)  
-        # print("action w: ", w_action_index, " | ", w_action)  
+        print("=========================")
+        print("action v: ", v_action_index, " | ", v_action)  
+        print("action w: ", w_action_index, " | ", w_action)  
         
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
         self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
-        # print("new state: ")
-        # print(self.current_state)
-        # print("reward: ")
-        # print(reward)
-        # print("=========================")
-        if w_action != 0:
-            exit(0)
+        print("new state: ")
+        print(self.current_state)
+        print("reward: ")
+        print(reward)
+        print("=========================")
+
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
 
@@ -321,12 +332,12 @@ def train():
     em = AuvEnvManager(device, N, auv_init_pos, shark_init_pos, obstacle_array)
     strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
 
-    agent = Agent(strategy, N, device)
+    agent = Agent(strategy, N, N, device)
     memory = ReplayMemory(memory_size)
 
     # to(device) puts the network on our defined device
-    policy_net_v = DQN(8, N).to(device)
-    target_net_v = DQN(8, N).to(device)
+    policy_net_v = DQN(8, N, N).to(device)
+    target_net_v = DQN(8, N, N).to(device)
 
     # set the weight and bias in the target_net to be the same as the policy_net
     target_net_v.load_state_dict(policy_net_v.state_dict())
@@ -356,75 +367,73 @@ def train():
             # For each time step:
             # Select an action (Via exploration or exploitation)
             action = agent.select_action(state, policy_net_v)
-           
+            
             # Execute selected action in an emulator.
             # Observe reward and next state.
             reward = em.take_action(action)
 
             score += reward.item()
 
-            # em.render()
-            
             next_state = em.get_state()
             
-            # Store experience in replay memory.
-            memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
+    #         # Store experience in replay memory.
+    #         memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
 
-            state = next_state
+    #         state = next_state
 
-            if memory.can_provide_sample(batch_size):
-                # Sample random batch from replay memory.
-                experiences = memory.sample(batch_size)
+    #         if memory.can_provide_sample(batch_size):
+    #             # Sample random batch from replay memory.
+    #             experiences = memory.sample(batch_size)
 
-                # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
-                states, actions, rewards, next_states = extract_tensors(experiences)
+    #             # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
+    #             states, actions, rewards, next_states = extract_tensors(experiences)
  
-                # Pass batch of preprocessed states to policy network.
-                # return the q value for the given state-action pair by passing throught the policy net
-                current_q_values = QValues.get_current(policy_net_v, states, actions)
+    #             # Pass batch of preprocessed states to policy network.
+    #             # return the q value for the given state-action pair by passing throught the policy net
+    #             current_q_values = QValues.get_current(policy_net_v, states, actions)
             
 
-                next_q_values = QValues.get_next(target_net_v, next_states)
+    #             next_q_values = QValues.get_next(target_net_v, next_states)
                 
-                target_q_values = (next_q_values * gamma) + rewards
+    #             target_q_values = (next_q_values * gamma) + rewards
 
-                # Calculate loss between output Q-values and target Q-values.
-                # mse_loss calculate the mean square error
-                loss = F.mse_loss(current_q_values, target_q_values.unsqueeze(1))
+    #             # Calculate loss between output Q-values and target Q-values.
+    #             # mse_loss calculate the mean square error
+    #             loss = F.mse_loss(current_q_values, target_q_values.unsqueeze(1))
 
 
-                # Gradient descent updates weights in the policy network to minimize loss.
-                # sets the gradients of all the weights and biases in the policy network to zero
-                # so that we can do back propagation 
-                optimizer_v.zero_grad()
+    #             # Gradient descent updates weights in the policy network to minimize loss.
+    #             # sets the gradients of all the weights and biases in the policy network to zero
+    #             # so that we can do back propagation 
+    #             optimizer_v.zero_grad()
 
-                # use backward propagation to calculate the gradient of loss with respect to all the weights and biases in the policy net
-                loss.backward()
+    #             # use backward propagation to calculate the gradient of loss with respect to all the weights and biases in the policy net
+    #             loss.backward()
 
-                # updates the weights and biases of all the nodes based on the gradient
-                optimizer_v.step()
+    #             # updates the weights and biases of all the nodes based on the gradient
+    #             optimizer_v.step()
             
-            if em.done: 
-                episode_durations.append(timestep)
-                plot(episode_durations, 100)
-                break
+    #         if em.done: 
+    #             episode_durations.append(timestep)
+    #             plot(episode_durations, 100)
+    #             break
 
-        #  After x time steps, weights in the target network are updated to the weights in the policy network.
-        # in our case, it will be 10 episodes
-        if episode % target_update == 0:
-            target_net_v.load_state_dict(policy_net_v.state_dict())
+    #     #  After x time steps, weights in the target network are updated to the weights in the policy network.
+    #     # in our case, it will be 10 episodes
+    #     if episode % target_update == 0:
+    #         target_net_v.load_state_dict(policy_net_v.state_dict())
 
-        print("+++++++++++++++++++++++++++++")
-        print("Episode # ", episode, "end with reward: ", score)
-        print("+++++++++++++++++++++++++++++")
+    #     print("+++++++++++++++++++++++++++++")
+    #     print("Episode # ", episode, "end with reward: ", score)
+    #     print("+++++++++++++++++++++++++++++")
 
-        if episode % save_every == 0:
-            save_model()
+    #     if episode % save_every == 0:
+    #         save_model()
 
-        if score >= 13.5:
-            save_model()
+    #     if score >= 13.5:
+    #         save_model()
 
-    em.close()
+    # em.close()
 
 
 def test_trained_model():
@@ -482,8 +491,8 @@ def test_trained_model():
 
     
 def main():
-    # train()
-    test_trained_model()
+    train()
+    # test_trained_model()
 
 if __name__ == "__main__":
     main()
