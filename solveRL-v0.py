@@ -376,17 +376,19 @@ def train():
 
             next_state = em.get_state()
             
-    #         # Store experience in replay memory.
-    #         memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
+            # Store experience in replay memory.
+            memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
 
-    #         state = next_state
+            state = next_state
 
-    #         if memory.can_provide_sample(batch_size):
-    #             # Sample random batch from replay memory.
-    #             experiences = memory.sample(batch_size)
+            if memory.can_provide_sample(batch_size):
+                # Sample random batch from replay memory.
+                experiences = memory.sample(batch_size)
 
-    #             # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
-    #             states, actions, rewards, next_states = extract_tensors(experiences)
+                # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
+                states, actions, rewards, next_states = extract_tensors(experiences)
+                print(actions)
+                exit(0)
  
     #             # Pass batch of preprocessed states to policy network.
     #             # return the q value for the given state-action pair by passing throught the policy net
