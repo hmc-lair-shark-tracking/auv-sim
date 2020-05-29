@@ -251,9 +251,7 @@ class QValues():
     def get_current(policy_net, states, actions):
         # returns the predicted q-values from the policy_net for the specific state-action pairs that were passed in.
         # return policy_net(states).gather(dim=0, index=actions.unsqueeze(-1))
-        print(states)
-        print(states.size())
-        print(policy_net(states))
+        print(actions)
         return 0
 
     
