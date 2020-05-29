@@ -149,11 +149,11 @@ class Agent():
 
 
 class AuvEnvManager():
-    def __init__(self, device, N):
+    def __init__(self, device, N, auv_init_pos, shark_init_pos, obstacle_array = []):
         self.device = device
         # have access to behind-the-scenes dynamics of the environment 
         self.env = gym.make('gym_auv:auv-v0').unwrapped
-        self.env.init_env(Motion_plan_state(x = 740.0, y = 280.0, z = -5.0, theta = 0), Motion_plan_state(x = 750.0, y = 280, z = -5.0, theta = 0), [])
+        self.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
 
         self.current_state = None
         self.done = False
@@ -314,7 +314,11 @@ def train():
     # N specify the number of options that we get to have for v and w
     N = 4
 
-    em = AuvEnvManager(device, N)
+    auv_init_pos = Motion_plan_state(x = 740.0, y = 280.0, z = -5.0, theta = 0)
+    shark_init_pos = Motion_plan_state(x = 750.0, y = 280, z = -5.0, theta = 0) 
+    obstacle_array = []
+    
+    em = AuvEnvManager(device, N, auv_init_pos, shark_init_pos, obstacle_array)
     strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
 
     agent = Agent(strategy, N, device)
@@ -441,7 +445,12 @@ def test_trained_model():
     # N specify the number of options that we get to have for v and w
     N = 4
 
-    em = AuvEnvManager(device, N)
+    auv_init_pos = Motion_plan_state(x = 740.0, y = 280.0, z = -5.0, theta = 0)
+    shark_init_pos = Motion_plan_state(x = 750.0, y = 280.0, z = -5.0, theta = 0) 
+    obstacle_array = []
+    
+    em = AuvEnvManager(device, N, auv_init_pos, shark_init_pos, obstacle_array)
+
     strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
 
     agent = Agent(strategy, N, device)
@@ -474,7 +483,7 @@ def test_trained_model():
     
 def main():
     # train()
-    # test_trained_model()
+    test_trained_model()
 
 if __name__ == "__main__":
     main()
