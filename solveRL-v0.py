@@ -124,16 +124,16 @@ class Agent():
         rate = self.strategy.get_exploration_rate(self.current_step)
         self.current_step += 1
 
-        w_action = 0
+        w_action_index = 0
 
         if rate > random.random():
-            v_action = random.choice(self.actions_range[0])
+            v_action_index = random.choice(range(self.actions_range))
             # w_action = random.choice(self.actions_range[1])
             print("-----")
             print("randomly chosen action: ")
-            print(torch.tensor([v_action, w_action]))
+            print(torch.tensor([v_action_index, w_action_index]))
 
-            return torch.tensor([v_action, w_action]).to(self.device) # explore  
+            return torch.tensor([v_action_index, w_action_index]).to(self.device) # explore  
         else:
             # turn off gradient tracking bc we are using the model for inference instead of training
             # we don't need to keep track the gradient because we are not doing backpropagation to figure out the weight 
@@ -147,14 +147,13 @@ class Agent():
                 
                 output_weight = policy_net(state).to(self.device)
 
-                index_for_max = torch.argmax(output_weight).item()
-                v_action = self.actions_range[0][index_for_max]
+                v_action_index = torch.argmax(output_weight).item()
 
-                return torch.tensor([v_action, w_action]).to(self.device) # explore  
+                return torch.tensor([v_action_index, w_action_index]).to(self.device) # explore  
 
 
 class AuvEnvManager():
-    def __init__(self, device):
+    def __init__(self, device, N):
         self.device = device
         # have access to behind-the-scenes dynamics of the environment 
         self.env = gym.make('gym_auv:auv-v0').unwrapped
@@ -162,6 +161,8 @@ class AuvEnvManager():
 
         self.current_state = None
         self.done = False
+
+        self.possible_actions = self.env.actions_range(N)
 
     def reset(self):
         self.env.reset()
@@ -176,14 +177,16 @@ class AuvEnvManager():
         return self.env.action_space.n
 
     def take_action(self, action):
-        v_action = action[0].item()
-        w_action = action[1].item()
+        v_action_index = action[0].item()
+        w_action_index = action[1].item()
+        v_action = self.possible_actions[0][v_action_index]
+        w_action = self.possible_actions[1][w_action_index]
         print("=========================")
-        print("action v: ", v_action)  
-        print("action w: ", w_action)    
+        print("action v: ", v_action_index, " | ", v_action)  
+        print("action w: ", w_action_index, " | ", w_action)  
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
-        self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
+        self.current_state, reward, self.done, _ = self.env.step((v_action, v_action))
         print("new state: ")
         print(self.current_state)
         print("reward: ")
@@ -234,7 +237,7 @@ def extract_tensors(experiences):
 
 
     t1 = torch.stack(batch.state)
-    t2 = torch.cat(batch.action)
+    t2 = torch.stack(batch.action)
     t3 = torch.cat(batch.reward)
     t4 = torch.cat(batch.next_state)
 
@@ -248,11 +251,18 @@ class QValues():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     @staticmethod
-    def get_current(policy_net, states, actions):
+    def get_current(policy_net_v, states, actions):
         # returns the predicted q-values from the policy_net for the specific state-action pairs that were passed in.
         # return policy_net(states).gather(dim=0, index=actions.unsqueeze(-1))
-        print(actions)
-        return 0
+        # print(actions.dim())
+        # t = torch.zeros(actions.size()[0])
+        # print(t.dim())
+        # print(actions.gather(dim=0, index=torch.zeros(actions.size()[0])))
+        print(policy_net_v(states))
+        print(policy_net_v(states).gather(dim=1, index=actions[:,:1]))
+        print(actions[:,:1])
+
+        return policy_net_v(states).gather(dim=1, index=actions[:,:1])
 
     
     @staticmethod        
@@ -302,13 +312,14 @@ def main():
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    em = AuvEnvManager(device)
-    strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
-
     # parameter to discretize the action v and w
     # N specify the number of options that we get to have for v and w
     N = 4
-    agent = Agent(strategy, em.env.actions_range(N), device)
+
+    em = AuvEnvManager(device, N)
+    strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
+
+    agent = Agent(strategy, N, device)
     memory = ReplayMemory(memory_size)
 
     # to(device) puts the network on our defined device
