@@ -26,9 +26,10 @@ def process_state_for_nn(state):
     """
     auv_tensor = torch.from_numpy(state[0])
     shark_tensor = torch.from_numpy(state[1])
-
+    obstacle_tensor = torch.from_numpy(state[2])
+    
     # join 2 tensor together
-    return torch.cat((auv_tensor, shark_tensor)).float()
+    return torch.cat((auv_tensor, shark_tensor, obstacle_tensor)).float()
     
 
 """
@@ -201,7 +202,8 @@ class Agent():
                 print("-----")
                 print("exploiting")
                 state = process_state_for_nn(state)
-                
+                print(state)
+                exit(0)
                 output_weight = policy_net(state).to(self.device)
 
                 v_action_index = torch.argmax(output_weight[0]).item()
@@ -430,7 +432,7 @@ def train():
         # randomize the auv and shark position
         auv_init_pos = Motion_plan_state(x = np.random.uniform(0.0, 500.0), y = np.random.uniform(0.0, 500.0), z = -5.0, theta = 0)
         shark_init_pos = Motion_plan_state(x = np.random.uniform(0.0, 500.0), y = np.random.uniform(0.0, 500.0), z = -5.0, theta = 0) 
-        obstacle_array = []
+        
 
         em.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
         print("===============================")

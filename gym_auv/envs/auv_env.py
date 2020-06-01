@@ -93,6 +93,13 @@ class AuvEnv(gym.Env):
             auv_init_pos - an motion plan state object
             shark_init_pos - an motion plan state object
         """
+        self.auv_init_pos = auv_init_pos
+        self.shark_init_pos = shark_init_pos
+
+        for obs in obstacle_array:
+            self.obstacle_array.append([obs.x, obs.y, obs.z, obs.size])
+        self.obstacle_array = np.array(self.obstacle_array)
+
         # action: 
         #   a tuple of (v, w), linear velocity and angular velocity
         # range for v (unit: m/s): [-AUV_MAX_V, AUV_MAX_V]
@@ -104,22 +111,13 @@ class AuvEnv(gym.Env):
         #      [x_pos, y_pos, z_pos, theta]
         #   2. np array represent the shark's (TODO: one shark for now?)
         #      [x_pos, y_pos, z_pos, theta]
-        self.observation_space = spaces.Tuple((\
-            spaces.Box(low = np.array([auv_init_pos.x - ENV_SIZE, auv_init_pos.y - ENV_SIZE, -ENV_SIZE, 0.0]), high = np.array([auv_init_pos.x + ENV_SIZE, auv_init_pos.y + ENV_SIZE, 0.0, 0.0]), dtype = np.float64),\
-            spaces.Box(low = np.array([shark_init_pos.x - ENV_SIZE, shark_init_pos.y - ENV_SIZE, -ENV_SIZE, 0.0]), high = np.array([shark_init_pos.x + ENV_SIZE, shark_init_pos.y + ENV_SIZE, 0.0, 0.0]), dtype = np.float64)))
-
-        self.auv_init_pos = auv_init_pos
-        self.shark_init_pos = shark_init_pos
-
-        for obs in obstacle_array:
-            self.obstacle_array.append([obs.x, obs.y, obs.z, obs.size])
-
+        self.observation_space = spaces.Box(low = np.array([auv_init_pos.x - ENV_SIZE, auv_init_pos.y - ENV_SIZE, -ENV_SIZE, 0.0]), high = np.array([auv_init_pos.x + ENV_SIZE, auv_init_pos.y + ENV_SIZE, 0.0, 0.0]), dtype = np.float64)
 
         self.init_data_for_3D_plot(auv_init_pos, shark_init_pos)
         
         self.reset()
-        
-    
+
+
     def actions_range(self, N):
         v_options = np.linspace(-AUV_MAX_V, AUV_MAX_V, N)
         w_options = np.linspace(-AUV_MAX_W, AUV_MAX_W, N)
@@ -161,7 +159,7 @@ class AuvEnv(gym.Env):
         new_shark_pos = self.state[1]
         
         # update the current state to the new state
-        self.state = (np.array([new_x, new_y, z, new_theta]), new_shark_pos)
+        self.state = (np.array([new_x, new_y, z, new_theta]), new_shark_pos, self.obstacle_array)
 
         # the episode will only end (done = True) if
         #   - the auv has reached the target, or
@@ -257,7 +255,7 @@ class AuvEnv(gym.Env):
             Set the observation to the initial auv and shark position
         """
         self.state = (np.array([self.auv_init_pos.x, self.auv_init_pos.y, self.auv_init_pos.z, self.auv_init_pos.theta]),\
-            np.array([self.shark_init_pos.x, self.shark_init_pos.y, self.shark_init_pos.z, self.shark_init_pos.theta]))
+            np.array([self.shark_init_pos.x, self.shark_init_pos.y, self.shark_init_pos.z, self.shark_init_pos.theta]), self.obstacle_array)
         return self.state
 
 
