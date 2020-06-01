@@ -1,6 +1,9 @@
 import math
+import random
+import timeit
 from motion_plan_state import Motion_plan_state
 import matplotlib.pyplot as plt
+import numpy as np
 
 class Node: 
     # a node in the graph
@@ -24,6 +27,14 @@ class astar:
         self.max_bound = boundary[1]
 
     def euclidean_dist(self, point1, point2): # point is a position tuple (x, y)
+        """
+        Calculate the distance square between two points
+
+        Parameter:
+            point1 - a position tuple: (x, y)
+            point2 - a position tuple: (x, y)
+        """
+
         dx = abs(point1[0]-point2[0])
         dy = abs(point1[1]-point2[1])
 
@@ -31,6 +42,14 @@ class astar:
 
 
     def get_distance_angle(self, start_mps, end_mps):
+        """
+        Calculate the distance and angle between two points
+
+        Parameter:
+            start_mps - a Motion_plan_state object
+            end_mps - a Motion_plan_state object
+        """
+
         dx = end_mps.x-start_mps.x
         dy = end_mps.y-start_mps.y
         
@@ -39,6 +58,13 @@ class astar:
         return dist, theta
 
     def check_collision(self, position, obstacleList): # obstacleList lists of motion plan state 
+        """
+        Check if the current position is collision-free
+
+        Parameter:
+            position - a tuple with two elements, x and y coordinates
+            obstacleList - a list of Motion_plan_state objects
+        """
 
         position_mps = Motion_plan_state(position[0], position[1])
 
@@ -52,9 +78,14 @@ class astar:
 
     def curr_neighbors(self, current_node): 
 
-        """Return a list of points that are close to the current point"""
+        """
+        Return a list of position tuples that are close to the current point
 
-        adjacent_squares = [(0,-1),(0,1),(-1,0),(1,0)]
+        Parameter:
+            current_node: a Node object 
+        """
+
+        adjacent_squares = [(0,-10),(0,10),(-10,0),(10,0),(10,10),(10,-10),(-10,10),(-10,-10)]
 
         current_neighbors = []
 
@@ -68,9 +99,106 @@ class astar:
                 if node_position[1] >= self.min_bound.y and node_position[1] <= self.max_bound.y:
                     current_neighbors.append(node_position)
 
-        return current_neighbors   
+        return current_neighbors  
+    
+    def path_distance(self, path):
 
-    def astar(self, obs_lst, start, goal): # obs_lst is a list of motion plan state; start, goal are position tuples
+        """
+        Calculate the path distance 
+
+        Parameter: 
+            path - a list of Motion_plan_state objects, the trajectory created with A*
+        """
+        
+        path_dist = 0 
+        
+        for index in range(len(path)-1):
+           start_mps = path[index]
+           end_mps = path[index+1]
+           dist, _ = self.get_distance_angle(start_mps, end_mps)
+           path_dist += dist
+
+        return path_dist
+           
+    def perform_analysis(self, start, goal, boundary): 
+        """
+        Plot two graphs: the number of obstacles vs. A* unning time to find the optimal path
+            and path distance vs. A* running time to find the optimal path 
+        
+        Parameter:
+            start - a tuple of two elements: x and y coordinates
+            goal - a tuple of two elements: x and y coordinates
+            boundary - a list of two motion_plan_state objects 
+        """
+
+        obstacle_size = 1
+        max_obstacle = 10
+        obstacle_num = 0
+        max_iteration = 30
+
+        time_list = np.array([])
+        ave_time_list = np.array([])
+        obstacle_list = []
+        obstacle_num_list = np.array([])
+
+        path_dist_list = np.array([])
+        ave_path_dist_list = np.array([])
+
+        while obstacle_num < max_obstacle:
+
+            obstacle_num += 1
+            print ('obstacle_num: ', obstacle_num)
+            obstacle_num_list = np.append(obstacle_num_list, obstacle_num)
+
+            for iteration in range(max_iteration):
+
+                i = 0 
+
+                while i < obstacle_num:
+                    obstacle_x = np.random.randint(0, 100, size=None, dtype='int')
+                    obstacle_y = np.random.randint(0, 100, size=None, dtype='int')
+                    if obstacle_x != goal[0] and obstacle_y != goal[1]:
+                        obstacle_list.append(Motion_plan_state(obstacle_x, obstacle_y, size=obstacle_size))
+                        i += 1
+                        
+                astar_solver = astar(start, goal, obstacle_list, boundary)
+                start_time = timeit.timeit()
+                path = astar_solver.astar(obstacle_list, start, goal)
+                end_time = timeit.timeit()
+
+                # compute and add path distance to list
+
+                path_dist_list = np.append(path_dist_list, self.path_distance(path))
+    
+                time_list = np.append(time_list, abs(end_time - start_time))
+            
+            ave_time_list = np.append(ave_time_list, np.average(time_list))
+            ave_path_dist_list = np.append(ave_path_dist_list, np.average(path_dist_list))
+            print ('ave_time_list element: ', np.average(time_list))
+            print ('ave_path_dist_list: ', np.average(path_dist_list))
+
+
+        plot_obs = plt.figure(1)
+        plt.plot(obstacle_num_list, ave_time_list) 
+        plt.xlabel('obstacle number')
+        plt.ylabel('running time')
+
+        plot_dist = plt.figure(2)
+        plt.plot(ave_path_dist_list, ave_time_list)
+        plt.xlabel('path distance')
+        plt.ylabel('running time') 
+
+        plt.show()
+
+    def astar(self, obs_lst, start, goal): 
+        """
+        Find the optimal path from start to goal avoiding given obstacles 
+
+        Parameter: 
+            obs_lst - a list of motion_plan_state objects that represent obstacles 
+            start - a tuple of two elements: x and y coordinates
+            goal - a tuple of two elements: x and y coordinates
+        """
 
         start_node = Node(None, start)
         start_node.g = start_node.h = start_node.f = 0
@@ -81,7 +209,6 @@ class astar:
         closed_list = [] # hold all the exapnded nodes 
 
         open_list.append(start_node)
-
 
         while len(open_list) > 0:
             
@@ -115,8 +242,7 @@ class astar:
 
             # find close neighbors of the current node
             
-            current_neighbors = self.curr_neighbors(current_node) 
-            # print (current_neighbors)
+            current_neighbors = self.curr_neighbors(current_node)
 
             # make current neighbors Nodes
 
@@ -124,7 +250,6 @@ class astar:
 
             for neighbor in current_neighbors: # create new node if the neighbor is collision-free
                 if self.check_collision(neighbor, obs_lst):
-                    # print (self.check_collision(neighbor, obs_lst))
                     new_node = Node(current_node, neighbor)
                     children.append(new_node)
 
@@ -144,22 +269,23 @@ class astar:
                         continue
                 
                 open_list.append(child)
-                # print([child.position for child in open_list])
-
+        
 def main():
 
     start = (0,0)
-    goal = (7,6)
+    goal = (100,100)
 
-    boundary = [Motion_plan_state(0,0), Motion_plan_state(10,10)]
+    boundary = [Motion_plan_state(0,0), Motion_plan_state(100,100)]
+    obstacle_list = [] 
 
-    obstacle_list = [Motion_plan_state(5,3,size=1),Motion_plan_state(3,6,size=2)]
-    
     astar_solver = astar(start, goal, obstacle_list, boundary)
 
-    final_path_mps = astar_solver.astar(obstacle_list, start, goal)
+    astar_solver.perform_analysis(start, goal, boundary) 
 
-    print (final_path_mps)
+    # obstacle_list = [Motion_plan_state(3,3,size=1),Motion_plan_state(3,6,size=2)]
+    # astar_solver = astar(start, goal, obstacle_list, boundary)
+    # final_path_mps = astar_solver.astar(obstacle_list, start, goal)
+    # print (final_path_mps)
 
 if __name__ == "__main__":
     main()
