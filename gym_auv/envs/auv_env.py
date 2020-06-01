@@ -29,7 +29,7 @@ END_GAME_RADIUS = 1.0
 R_COLLIDE = -1000.0       # when the auv collides with an obstacle
 R_ARRIVE = 1000.0         # when the auv arrives at the target
 R_RANGE = 0.1           # this is a scaler to help determine immediate reward at a time step
-R_AWAY = 0.2
+R_AWAY = 0.1
 
 def angle_wrap(ang):
     """
