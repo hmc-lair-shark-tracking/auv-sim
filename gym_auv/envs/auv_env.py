@@ -11,7 +11,7 @@ from live3DGraph import Live3DGraph
 # the coordinates of the observation space will be based on 
 #   the ENV_SIZE and the inital position of auv and the shark
 # (unit: m)
-ENV_SIZE = 200.0
+ENV_SIZE = 500.0
 
 # auv's max speed (unit: m/s)
 AUV_MAX_V = 2.0
@@ -26,9 +26,10 @@ DELTA_T = 1
 END_GAME_RADIUS = 1.0
 
 # constants for reward
-R_COLLIDE = -10.0       # when the auv collides with an obstacle
-R_ARRIVE = 10.0         # when the auv arrives at the target
-R_RANGE = 1.0           # this is a scaler to help determine immediate reward at a time step
+R_COLLIDE = -1000.0       # when the auv collides with an obstacle
+R_ARRIVE = 1000.0         # when the auv arrives at the target
+R_RANGE = 0.1           # this is a scaler to help determine immediate reward at a time step
+R_AWAY = 0.2
 
 def angle_wrap(ang):
     """
@@ -226,7 +227,11 @@ class AuvEnv(gym.Env):
             new_range = self.calculate_range(auv_pos, shark_pos)
             # if auv has gotten closer to the shark, will receive positive reward
             #   else, receive negative reward
-            reward = R_RANGE * (old_range - new_range)
+            range_diff = old_range - new_range
+            if range_diff <= 0: 
+                reward = R_AWAY * range_diff
+            else:
+                reward = R_RANGE * range_diff
             return reward
     
 

@@ -18,23 +18,37 @@ from motion_plan_state import Motion_plan_state
 
 def process_state_for_nn(state):
     """
-    Convert the state, which is a tuple of 2 np.arrays, to a tensor so it can be passed into the neural network
+    Convert the state (observation in the environment) to a tensor so it can be passed into the neural network
+
+    Parameter:
+        state - a tuple of two np arrays
+            Each array is this form [x, y, z, theta]
     """
     auv_tensor = torch.from_numpy(state[0])
-    
     shark_tensor = torch.from_numpy(state[1])
+
     # join 2 tensor together
     return torch.cat((auv_tensor, shark_tensor)).float()
     
 
-# nn.Module base class for all neural network modules
+"""
+Class for building policy and target neural network
+"""
 class DQN(nn.Module):
     def __init__(self, input_size, output_size_v, output_size_w):
+        """
+        Initialize the Q neural network with input
+
+        Parameter:
+            input_size - int, the size of observation space
+            output_size_v - int, the number of possible options for v
+            output_size_y - int, the number of possible options for w
+        """
         super().__init__()
 
         # 2 fully connected hidden layers
-        # first layer will have 8 inputs
-        #   auv 3D position and theta + shark 3D postion and theta
+        # first layer will have "input_size" inputs
+        #   Cureently, auv 3D position and theta + shark 3D postion and theta
         self.fc1 = nn.Linear(in_features=input_size, out_features=24)  
         # branch for selecting v
         self.fc2_v = nn.Linear(in_features=24, out_features=32)      
@@ -45,10 +59,9 @@ class DQN(nn.Module):
         self.out_w = nn.Linear(in_features=32, out_features=output_size_w)
 
 
-
     def forward(self, t):
         """
-        define the forward pass through the neural network
+        Define the forward pass through the neural network
 
         Parameters:
             t - the state as a tensor
@@ -60,6 +73,7 @@ class DQN(nn.Module):
         t = self.fc1(t)
         t = F.relu(t)
 
+        # the neural network is separated into 2 separate branch
         t_v = self.fc2_v(t)
         t_v = F.relu(t_v)
 
@@ -67,17 +81,20 @@ class DQN(nn.Module):
         t_w = F.relu(t_w)
 
         # pass through the last layer, the output layer
+        # output is a tensor of Q-Values for all the optinons for v/w
         t_v = self.out_v(t_v)
         t_w = self.out_w(t_w)
 
         return torch.stack((t_v, t_w))
 
 
-# Create the experience class
-# namedtuple allows you to create tuples with named fields, kind of like struct?
+# namedtuple allows us to store Experiences as labeled tuples
 Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'))
 
 
+"""
+    Class to define replay memeory for training the neural network
+"""
 class ReplayMemory():
     def __init__(self, capacity):
         self.capacity = capacity
@@ -86,7 +103,11 @@ class ReplayMemory():
 
     def push(self, experience):
         """
-        function to store experience
+        Store an experience in the replay memory
+        Will overwrite any oldest experience first if necessary
+
+        Parameter:
+            experience - namedtuples for storing experiences
         """
         # if there's space in the replay memory
         if len(self.memory) < self.capacity:
@@ -97,9 +118,21 @@ class ReplayMemory():
         self.push_count += 1
 
     def sample(self, batch_size):
+        """
+        Randomly sample "batch_size" amount of experiences from replace memory
+
+        Parameter: 
+            batch_size - int, number of experiences that we want to sample from replace memory
+        """
         return random.sample(self.memory, batch_size)
 
     def can_provide_sample(self, batch_size):
+        """
+        The replay memeory should only sample experiences when it has experiences greater or equal to batch_size
+
+        Parameter: 
+            batch_size - int, number of experiences that we want to sample from replace memory
+        """
         return len(self.memory) >= batch_size
 
 
@@ -109,15 +142,28 @@ For implementing epsilon greedy strategy in choosing an action
 """
 class EpsilonGreedyStrategy():
     def __init__(self, start, end, decay):
+        """
+        Parameter:
+            start - the start value of epsilon
+            end - the end value of epsilon
+            decay - the decay value of epsilon 
+        """
         self.start = start
         self.end = end
         self.decay = decay
 
     def get_exploration_rate(self, current_step):
+        """
+        Calculate the exploration rate to determine whether the agent should
+            explore or exploit in the environment
+        """
         return self.end + (self.start - self.end) * \
             math.exp(-1. * current_step * self.decay)
 
 
+"""
+Class to represent the agent and decide its action in the environment
+"""
 class Agent():
     def __init__(self, strategy, actions_range_v, actions_range_w, device):
         # the agent's current step in the environment
@@ -139,8 +185,8 @@ class Agent():
         self.current_step += 1
 
         if rate > random.random():
-            # print("-----")
-            # print("randomly picking")
+            print("-----")
+            print("randomly picking")
             v_action_index = random.choice(range(self.actions_range_v))
             w_action_index = random.choice(range(self.actions_range_w))
 
@@ -152,8 +198,8 @@ class Agent():
             with torch.no_grad():
                 # for the given "state"，the output will be the action 
                 #   with the highest Q-Value output from the policy net
-                # print("-----")
-                # print("exploiting")
+                print("-----")
+                print("exploiting")
                 state = process_state_for_nn(state)
                 
                 output_weight = policy_net(state).to(self.device)
@@ -196,18 +242,18 @@ class AuvEnvManager():
         w_action_index = action[1].item()
         v_action = self.possible_actions[0][v_action_index]
         w_action = self.possible_actions[1][w_action_index]
-        print("=========================")
-        print("action v: ", v_action_index, " | ", v_action)  
-        print("action w: ", w_action_index, " | ", w_action)  
+        # print("=========================")
+        # print("action v: ", v_action_index, " | ", v_action)  
+        # print("action w: ", w_action_index, " | ", w_action)  
         
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
         self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
-        print("new state: ")
-        print(self.current_state)
-        print("reward: ")
-        print(reward)
-        print("=========================")
+        # print("new state: ")
+        # print(self.current_state)
+        # print("reward: ")
+        # print(reward)
+        # print("=========================")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
@@ -346,8 +392,8 @@ def train():
     # N specify the number of options that we get to have for v and w
     N = 4
 
-    auv_init_pos = Motion_plan_state(x = 740.0, y = 280.0, z = -5.0, theta = 0)
-    shark_init_pos = Motion_plan_state(x = 750.0, y = 280, z = -5.0, theta = 0) 
+    auv_init_pos = Motion_plan_state(x = np.random.uniform(0.0, 300.0), y = np.random.uniform(0.0, 500.0), z = -5.0, theta = 0)
+    shark_init_pos = Motion_plan_state(x = np.random.uniform(0.0, 300.0), y = np.random.uniform(0.0, 500.0), z = -5.0, theta = 0) 
     obstacle_array = []
     
     em = AuvEnvManager(device, N, auv_init_pos, shark_init_pos, obstacle_array)
@@ -372,6 +418,8 @@ def train():
 
     save_every = 20
 
+    max_step = 3000
+
     def save_model():
         print("Model Save...")
         torch.save(policy_net_v.state_dict(), 'checkpoint_policy.pth')
@@ -379,13 +427,26 @@ def train():
 
     # For each episode:
     for episode in range(num_episodes):
+        # randomize the auv and shark position
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(0.0, 500.0), y = np.random.uniform(0.0, 500.0), z = -5.0, theta = 0)
+        shark_init_pos = Motion_plan_state(x = np.random.uniform(0.0, 500.0), y = np.random.uniform(0.0, 500.0), z = -5.0, theta = 0) 
+        obstacle_array = []
+
+        em.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
+        print("===============================")
+        print("Inital State")
+        print(auv_init_pos)
+        print(shark_init_pos)
+        print("===============================")
+
         # Initialize the starting state.
         em.reset()
+        
         state = em.get_state()
         score = 0
         timestep = time.time()
 
-        for timestep in count(): 
+        for timestep in range(max_step): 
             # For each time step:
             # Select an action (Via exploration or exploitation)
             action = agent.select_action(state, policy_net_v)
@@ -452,7 +513,7 @@ def train():
             
             if em.done: 
                 episode_durations.append(timestep)
-                plot(episode_durations, 100)
+                # plot(episode_durations, 100)
                 break
 
             
@@ -463,6 +524,7 @@ def train():
             target_net_v.load_state_dict(policy_net_v.state_dict())
 
         print("+++++++++++++++++++++++++++++")
+        print(em.get_state())
         print("Episode # ", episode, "end with reward: ", score, " used time: ", timestep)
         print("+++++++++++++++++++++++++++++")
 
@@ -475,13 +537,14 @@ def train():
         time.sleep(1)
 
     em.close()
+    print(episode_durations)
 
 
 def test_trained_model():
     batch_size = 256
     # discount factor for exploration rate decay
     gamma = 0.999
-    eps_start = 1
+    eps_start = 0.05
     eps_end = 0.01
     eps_decay = 0.001
 

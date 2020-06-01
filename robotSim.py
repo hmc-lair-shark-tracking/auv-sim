@@ -521,30 +521,30 @@ class RobotSim:
 
 def main():
     test_robot = RobotSim(740,280,-5,0.1)
-    # # load shark trajectories from csv file
-    # # the second parameter specify the ids of sharks that we want to track
-    # test_robot.setup("./data/sharkTrackingData.csv", [1,2])
-    # test_robot.main_navigation_loop()
-    obstacle_array = [Motion_plan_state(765.0, 300.0, -5.0, size=2.0),Motion_plan_state(747.0, 278.5, -5.0, size=3.0)]
-    # obstacle_array = []
+    # load shark trajectories from csv file
+    # the second parameter specify the ids of sharks that we want to track
+    test_robot.setup("./data/sharkTrackingData.csv", [1,2])
+    test_robot.main_navigation_loop()
+    # obstacle_array = [Motion_plan_state(765.0, 300.0, -5.0, size=2.0),Motion_plan_state(747.0, 278.5, -5.0, size=3.0)]
+    # # obstacle_array = []
 
-    env = gym.make('gym_auv:auv-v0')
-    env.init_env(Motion_plan_state(x = 740.0, y = 280.0, z = -5.0, theta = 0), Motion_plan_state(x = 760.0, y = 280, z = 0.0, theta = 0), obstacle_array)
+    # env = gym.make('gym_auv:auv-v0')
+    # env.init_env(Motion_plan_state(x = 740.0, y = 280.0, z = -5.0, theta = 0), Motion_plan_state(x = 760.0, y = 280, z = 0.0, theta = 0), obstacle_array)
     
-    auv_init_pos, shark_init_pos = env.state
-    test_robot.auv_x_array_rl.append(auv_init_pos[0])
-    test_robot.auv_y_array_rl.append(auv_init_pos[1])
-    test_robot.auv_z_array_rl.append(auv_init_pos[2])
+    # auv_init_pos, shark_init_pos = env.state
+    # test_robot.auv_x_array_rl.append(auv_init_pos[0])
+    # test_robot.auv_y_array_rl.append(auv_init_pos[1])
+    # test_robot.auv_z_array_rl.append(auv_init_pos[2])
 
-    test_robot.shark_x_array_rl.append(shark_init_pos[0])
-    test_robot.shark_y_array_rl.append(shark_init_pos[1])
-    test_robot.shark_z_array_rl.append(shark_init_pos[2])
+    # test_robot.shark_x_array_rl.append(shark_init_pos[0])
+    # test_robot.shark_y_array_rl.append(shark_init_pos[1])
+    # test_robot.shark_z_array_rl.append(shark_init_pos[2])
 
-    done = False
+    # done = False
 
-    N = 0
-    v = 2
-    w = 0
+    # N = 0
+    # v = 2
+    # w = 0
 
     # while (not done) and N < 50: 
     #     # v = np.random.randint(-2, 2, dtype='int')
