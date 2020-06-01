@@ -204,7 +204,7 @@ class RobotSim:
         print("AUV [x, y, z, theta]:  [", self.x, ", " , self.y, ", ", self.z, ", ", self.theta, "]")
 
 
-    def update_live_graph(self, planned_traj_array = [], particle_array = []):
+    def update_live_graph(self, planned_traj_array = [], particle_array = [], obstacle_array = []):
         """
         Plot the position of the robot, the sharks, and any planned trajectories
 
@@ -216,6 +216,8 @@ class RobotSim:
             particle_array - (optional) an array of particles
                 each element has this format:
                     [x_p, y_p, v_p, theta_p, weight_p]
+            obstacle_array - (optional) an array of motion_plan_states that represent the obstacles's
+                position and size
         """
 
         # plot the new auv position as a red "o"
@@ -234,6 +236,9 @@ class RobotSim:
         # if there's particles to plot, plot them
         if particle_array != []:
             self.live_graph.plot_particles(particle_array)
+
+        if obstacle_array != []:
+            self.live_graph.plot_obstacles(obstacle_array)
 
         # change grid spacing on graph 
         # self.live_graph.ax.legend(self.live_graph.labels)
@@ -506,11 +511,14 @@ class RobotSim:
             
             particle_array += [[740 + np.random.randint(-20, 20, dtype='int'), 280 + np.random.randint(-20, 20, dtype='int'), 0, 0, 0] for i in range(50)]
             
+            # example of how to indicate the obstacles and plot them
+            obstacle_array = [Motion_plan_state(10,5, -10, size=2),Motion_plan_state(5,7, -10, size=1)]
+
             # In order to plot your planned trajectory, you have to wrap your trajectory in another array, where
             #   1st element: the planner's name (either "A *" or "RRT")
             #   2nd element: the list of Motion_plan_state returned by your planner
             # Use the "planned_traj_array" as an example
-            self.update_live_graph(planned_traj_array, particle_array)
+            self.update_live_graph(planned_traj_array, particle_array, obstacle_array)
             
             # increment the current time by 0.1 second
             self.curr_time += 0.1
