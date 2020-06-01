@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import csv
+import time
 
 # import 3 data representation class
 from sharkState import SharkState
@@ -10,6 +11,7 @@ from sharkTrajectory import SharkTrajectory
 from live3DGraph import Live3DGraph
 from motion_plan_state import Motion_plan_state
 from rrt_dubins import RRT
+from shortest_rrt import Performance
 
 # keep all the constants in the constants.py file
 # to get access to a constant, eg:
@@ -39,7 +41,7 @@ def angle_wrap(ang):
 
 
 class RobotSim:
-    def __init__(self, init_x, init_y, init_z, init_theta):
+    def __init__(self, init_x, init_y, init_z, init_theta, replan_time=2.0, planning_time=1.0):
         # initialize auv's data
         self.x = init_x
         self.y = init_y
@@ -73,6 +75,10 @@ class RobotSim:
 
         self.live_graph = Live3DGraph()
 
+        #time interval to replan trajectory
+        self.replan_time = replan_time
+        #time limit for path planning algorithm to find the shortest path
+        self.planning_time = planning_time
 
     def get_auv_state(self):
         """
@@ -159,7 +165,7 @@ class RobotSim:
             return False
 
 
-    def track_trajectory(self, trajectory):
+    def track_trajectory(self, trajectory, new_trajectory = False):
         """
         Return an Motion_plan_state object representing the trajectory point TRAJ_LOOK_AHEAD_TIME sec ahead
         of current time
@@ -169,6 +175,8 @@ class RobotSim:
             a Motion_plan_state object that consist of time stamp, x, y, z,theta
         """
         # only increment the index if it hasn't reached the end of the trajectory list
+        if new_trajectory:
+            self.curr_traj_pt_index = 0
         while (self.curr_traj_pt_index < len(trajectory)-1) and\
             (self.curr_time + const.TRAJ_LOOK_AHEAD_TIME) > trajectory[self.curr_traj_pt_index].time_stamp: 
                 self.curr_traj_pt_index += 1
@@ -198,7 +206,34 @@ class RobotSim:
         # TODO: For now this should just update AUV States?
 
         self.calculate_new_auv_state(v, w, const.SIM_TIME_INTERVAL)
+
+    def replan_trajectory(self, planner, auv_pos, shark_pos, obstacle, boundary):
+        '''after replan_time, calculate a new trajectory based on planner chosen
         
+        Parameters:
+            planner: path planning algorithm: RRT or A*
+            auv_pos: current auv position
+            shark_pos: current shark position
+            obstacle: obstacle list
+            boundary'''
+        
+        t_end = time.time() + self.planning_time
+        shortest_path = []
+        shortest_length = float("inf")
+        
+        if planner == "RRT":
+            path_planning = RRT(auv_pos, shark_pos, obstacle, boundary)
+
+        while time.time() < t_end:
+            result = path_planning.planning(animation=False)
+            if result is not None:
+                length = result[0]
+                path = result[1]
+                if length < shortest_length:
+                    shortest_length = length
+                    shortest_path = path
+        
+        return shortest_path
 
     def log_data(self):
         """
@@ -424,7 +459,9 @@ class RobotSim:
             getting data -> get trajectory -> send trajectory to actuators
             -> log and plot data
         """
-        
+        #set beginning time
+        t_start = self.curr_time
+
         while self.live_graph.run_sim:
             
             auv_sensor_data = self.get_auv_sensor_measurements()
@@ -449,13 +486,16 @@ class RobotSim:
 
             # testing data for plotting RRT_traj
             boundary = [Motion_plan_state(0,0), Motion_plan_state(1000,1000)]
-            rrt = RRT(auv_sensor_data, shark_state_dict[1], obstacle_array, boundary)
-            RRT_traj = rrt.planning(exp_rate=5.0, dist_to_end=50, animation=show_animation)
-            if RRT_traj:
-                RRT_traj = RRT_traj[1]
+            #condition to replan trajectory
+            if self.curr_time == 0 or self.curr_time - t_start >= self.replan_time:
+                RRT_traj = self.replan_trajectory("RRT", auv_sensor_data, shark_state_dict[1], obstacle_array, boundary)
+                new_trajectory = True
+                t_start = self.curr_time
+            else:
+                new_trajectory = False
             
             # test trackTrajectory
-            tracking_pt = self.track_trajectory(RRT_traj)
+            tracking_pt = self.track_trajectory(RRT_traj, new_trajectory)
             print("==================")
             print ("Currently tracking point: " + str(tracking_pt))
             
