@@ -16,7 +16,9 @@ from rrt_dubins import RRT
 #   const.SIM_TIME_INTERVAL
 import constants as const
 
+
 show_animation = False
+
 
 def angle_wrap(ang):
     """
@@ -88,6 +90,7 @@ class RobotSim:
 
         # using dictionary so we can access the state of a shark based on its id quickly?
         shark_state_dict = {}
+
 
         for shark in self.live_graph.shark_array:
             shark_state_dict[shark.id] = shark.get_curr_position()
@@ -224,7 +227,9 @@ class RobotSim:
         # scale the arrow for the auv and the sharks properly for graph
         self.live_graph.scale_quiver_arrow()
 
+
         self.live_graph.plot_auv(self.x_list, self.y_list, self.z_list)
+
 
         # plot the new positions for all the sharks that the robot is tracking
         self.live_graph.plot_sharks(self.curr_time)
@@ -433,6 +438,7 @@ class RobotSim:
 
             has_new_data = self.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
 
+
             if has_new_data == True:
                 print("======NEW DATA=======")
                 print("All The Shark Sensor Measurements [range, bearing]: " +\
@@ -469,6 +475,16 @@ class RobotSim:
             A_star_traj = [Motion_plan_state(740, 280)]
             A_star_traj += [Motion_plan_state(740+i, 280+i) for i in range(50)]
 
+
+            # example of first parameter to update_live_graph function
+            planned_traj_array = [["A *", A_star_traj], ["RRT", RRT_traj]]
+
+            # testing data for displaying particle array
+            particle_array = [[740, 280, 0, 0, 0]]
+            
+            particle_array += [[740 + np.random.randint(-20, 20, dtype='int'), 280 + np.random.randint(-20, 20, dtype='int'), 0, 0, 0] for i in range(50)]
+
+            
             # example of first parameter to update_live_graph function
             planned_traj_array = [["A *", A_star_traj], ["RRT", RRT_traj]]
 
