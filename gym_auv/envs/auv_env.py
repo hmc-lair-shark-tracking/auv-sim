@@ -170,7 +170,8 @@ class AuvEnv(gym.Env):
         done = self.check_reached_target(self.state[0], self.state[1]) or\
             self.check_collision(self.state[0])
 
-        reward = self.get_reward(old_range, self.state[0], self.state[1])
+        # reward = self.get_reward(old_range, self.state[0], self.state[1])
+        reward = self.get_binary_reward(self.state[0], self.state[1])
 
         return self.state, reward, done, {}
 
@@ -234,6 +235,19 @@ class AuvEnv(gym.Env):
             else:
                 reward = R_RANGE * range_diff
             return reward
+
+
+    def get_binary_reward(self, auv_pos, goal_pos):
+        """
+        Return a binary reward (to help implementing HER algorithm in replay memory)
+        Specifically,
+            if auv reaches the shark, 1
+            else, -1
+        """
+        if self.check_reached_target(auv_pos, goal_pos):
+            return -1
+        else:
+            return -1
     
 
     def check_collision(self, auv_pos):

@@ -16,9 +16,9 @@ import torchvision.transforms as T
 from motion_plan_state import Motion_plan_state
 
 MIN_X = 0.0
-MAX_X= 100.0
+MAX_X= 50.0
 MIN_Y = 0.0
-MAX_Y = 100.0
+MAX_Y = 50.0
 
 def process_state_for_nn(state):
     """
