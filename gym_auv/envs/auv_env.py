@@ -96,9 +96,11 @@ class AuvEnv(gym.Env):
         self.auv_init_pos = auv_init_pos
         self.shark_init_pos = shark_init_pos
 
+        self.obstacle_array = []
         for obs in obstacle_array:
             self.obstacle_array.append([obs.x, obs.y, obs.z, obs.size])
         self.obstacle_array = np.array(self.obstacle_array)
+        print(self.obstacle_array)
 
         # action: 
         #   a tuple of (v, w), linear velocity and angular velocity

@@ -15,6 +15,10 @@ import torchvision.transforms as T
 
 from motion_plan_state import Motion_plan_state
 
+MIN_X = 0.0
+MAX_X= 300.0
+MIN_Y = 0.0
+MAX_Y = 300.0
 
 def process_state_for_nn(state):
     """
@@ -366,6 +370,51 @@ class QValues():
         return torch.stack((v_max_q_values, w_max_q_values), dim = 0)
 
 
+def calculate_range(a_pos, b_pos):
+        """
+        Calculate the range (distance) between point a and b, specified by their coordinates
+
+        Parameters:
+            a_pos - an array / a numpy array
+            b_pos - an array / a numpy array
+                both have the format: [x_pos, y_pos, z_pos, theta]
+
+        TODO: include z pos in future range calculation?
+        """
+        a_x = a_pos[0]
+        a_y = a_pos[1]
+        b_x = b_pos[0]
+        b_y = b_pos[1]
+
+        delta_x = b_x - a_x
+        delta_y = b_y - a_y
+
+        return np.sqrt(delta_x**2 + delta_y**2)
+
+
+def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_pos, obstacle_array):
+    auv_overlaps = calculate_range([auv_init_pos.x, auv_init_pos.y], new_obstacle) <= new_obs_size
+    shark_overlaps = calculate_range([shark_init_pos.x, shark_init_pos.y], new_obstacle) <= new_obs_size
+    obs_overlaps = False
+    for obs in obstacle_array:
+        if calculate_range([obs.x, obs.y], new_obstacle) <= (new_obs_size + obs.size):
+            obs_overlaps = True
+            break
+    return auv_overlaps or shark_overlaps or obs_overlaps
+
+def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
+    obstacle_array = []
+    for i in range(num_of_obstacles):
+        obs_x = np.random.uniform(MIN_X, MAX_X)
+        obs_y = np.random.uniform(MIN_Y, MAX_Y)
+        obs_size = np.random.randint(1,11)
+        while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array):
+            obs_x = np.random.uniform(MIN_X, MAX_X)
+            obs_y = np.random.uniform(MIN_Y, MAX_Y)
+        obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, size = obs_size))
+
+    return obstacle_array
+
 
 def train():
     batch_size = 256
@@ -422,6 +471,8 @@ def train():
 
     max_step = 3000
 
+    num_of_obstacles = 2
+
     def save_model():
         print("Model Save...")
         torch.save(policy_net_v.state_dict(), 'checkpoint_policy.pth')
@@ -430,17 +481,18 @@ def train():
     # For each episode:
     for episode in range(num_episodes):
         # randomize the auv and shark position
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(0.0, 500.0), y = np.random.uniform(0.0, 500.0), z = -5.0, theta = 0)
-        shark_init_pos = Motion_plan_state(x = np.random.uniform(0.0, 500.0), y = np.random.uniform(0.0, 500.0), z = -5.0, theta = 0) 
-        
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0)
+        shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0) 
+        obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
 
         em.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
         print("===============================")
         print("Inital State")
         print(auv_init_pos)
         print(shark_init_pos)
+        print(obstacle_array)
         print("===============================")
-
+        exit(0)
         # Initialize the starting state.
         em.reset()
         
@@ -609,8 +661,8 @@ def test_trained_model():
 
     
 def main():
-    # train()
-    test_trained_model()
+    train()
+    # test_trained_model()
 
 if __name__ == "__main__":
     main()
