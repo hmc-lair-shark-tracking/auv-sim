@@ -16,9 +16,9 @@ import torchvision.transforms as T
 from motion_plan_state import Motion_plan_state
 
 MIN_X = 0.0
-MAX_X= 300.0
+MAX_X= 100.0
 MIN_Y = 0.0
-MAX_Y = 300.0
+MAX_Y = 100.0
 
 def process_state_for_nn(state):
     """
@@ -31,6 +31,7 @@ def process_state_for_nn(state):
     auv_tensor = torch.from_numpy(state[0])
     shark_tensor = torch.from_numpy(state[1])
     obstacle_tensor = torch.from_numpy(state[2])
+    obstacle_tensor = torch.flatten(obstacle_tensor)
     
     # join 2 tensor together
     return torch.cat((auv_tensor, shark_tensor, obstacle_tensor)).float()
@@ -190,8 +191,8 @@ class Agent():
         self.current_step += 1
 
         if rate > random.random():
-            print("-----")
-            print("randomly picking")
+            # print("-----")
+            # print("randomly picking")
             v_action_index = random.choice(range(self.actions_range_v))
             w_action_index = random.choice(range(self.actions_range_w))
 
@@ -203,11 +204,10 @@ class Agent():
             with torch.no_grad():
                 # for the given "state"，the output will be the action 
                 #   with the highest Q-Value output from the policy net
-                print("-----")
-                print("exploiting")
+                # print("-----")
+                # print("exploiting")
                 state = process_state_for_nn(state)
-                print(state)
-                exit(0)
+
                 output_weight = policy_net(state).to(self.device)
 
                 v_action_index = torch.argmax(output_weight[0]).item()
@@ -411,7 +411,7 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
         while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array):
             obs_x = np.random.uniform(MIN_X, MAX_X)
             obs_y = np.random.uniform(MIN_Y, MAX_Y)
-        obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, size = obs_size))
+        obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, z=-5, size = obs_size))
 
     return obstacle_array
 
@@ -441,11 +441,13 @@ def train():
 
     # parameter to discretize the action v and w
     # N specify the number of options that we get to have for v and w
-    N = 4
+    N = 8
+
+    num_of_obstacles = 2
 
     auv_init_pos = Motion_plan_state(x = np.random.uniform(0.0, 300.0), y = np.random.uniform(0.0, 500.0), z = -5.0, theta = 0)
     shark_init_pos = Motion_plan_state(x = np.random.uniform(0.0, 300.0), y = np.random.uniform(0.0, 500.0), z = -5.0, theta = 0) 
-    obstacle_array = []
+    obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
     
     em = AuvEnvManager(device, N, auv_init_pos, shark_init_pos, obstacle_array)
     strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
@@ -453,9 +455,11 @@ def train():
     agent = Agent(strategy, N, N, device)
     memory = ReplayMemory(memory_size)
 
+    input_size = 8 + len(obstacle_array) * 4
+
     # to(device) puts the network on our defined device
-    policy_net_v = DQN(8, N, N).to(device)
-    target_net_v = DQN(8, N, N).to(device)
+    policy_net_v = DQN(input_size, N, N).to(device)
+    target_net_v = DQN(input_size, N, N).to(device)
 
     # set the weight and bias in the target_net to be the same as the policy_net
     target_net_v.load_state_dict(policy_net_v.state_dict())
@@ -470,8 +474,6 @@ def train():
     save_every = 20
 
     max_step = 3000
-
-    num_of_obstacles = 2
 
     def save_model():
         print("Model Save...")
@@ -492,7 +494,7 @@ def train():
         print(shark_init_pos)
         print(obstacle_array)
         print("===============================")
-        exit(0)
+        
         # Initialize the starting state.
         em.reset()
         
@@ -508,6 +510,8 @@ def train():
             # Execute selected action in an emulator.
             # Observe reward and next state.
             reward = em.take_action(action)
+
+            em.render(live_graph=True)
 
             score += reward.item()
 

@@ -73,6 +73,7 @@ class AuvEnv(gym.Env):
         self.state = None
 
         self.obstacle_array = []
+        self.obstacle_array_for_rendering = []
 
         self.live_graph = Live3DGraph()
 
@@ -95,12 +96,12 @@ class AuvEnv(gym.Env):
         """
         self.auv_init_pos = auv_init_pos
         self.shark_init_pos = shark_init_pos
+        self.obstacle_array_for_rendering = obstacle_array
 
         self.obstacle_array = []
         for obs in obstacle_array:
             self.obstacle_array.append([obs.x, obs.y, obs.z, obs.size])
         self.obstacle_array = np.array(self.obstacle_array)
-        print(self.obstacle_array)
 
         # action: 
         #   a tuple of (v, w), linear velocity and angular velocity
@@ -296,6 +297,9 @@ class AuvEnv(gym.Env):
         self.live_graph.plot_entity(self.auv_x_array_rl, self.auv_y_array_rl, self.auv_z_array_rl, label = 'auv', color = 'r', marker = ',')
 
         self.live_graph.plot_entity(self.shark_x_array_rl, self.shark_y_array_rl, self.shark_z_array_rl, label = 'shark', color = 'b', marker = 'o')
+
+        if self.obstacle_array_for_rendering != []:
+            self.live_graph.plot_obstacles(self.obstacle_array_for_rendering)
 
         self.live_graph.ax.legend()
         
