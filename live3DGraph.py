@@ -1,6 +1,11 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.widgets import CheckButtons
+import numpy as np
+import pandas as pd
+
+
+
 
 """
 Uses matplotlib to generate live 3D Graph while the simulator is running
@@ -10,14 +15,13 @@ Able to draw the auv as well as multiple sharks
 class Live3DGraph:
     def __init__(self):
         self.shark_array = []
-
         # array of pre-defined colors, 
         # so we can draw sharks with different colors
         self.colors = ['b', 'g', 'c', 'm', 'y', 'k']
 
         # initialize the 3d scatter position plot for the auv and shark
         self.fig = plt.figure(figsize = [13, 10])
-        self.ax = self.fig.add_subplot(111, projection='3d')
+        self.ax = self.fig.add_subplot( 111, projection='3d')
 
         self.ax.set_xlabel('X')
         self.ax.set_ylabel('Y')
@@ -30,7 +34,6 @@ class Live3DGraph:
         #   2. the CheckButtons object
         #   3. color of the plot
         self.traj_checkbox_dict = {}
-        
         # initialize the A * button
         #self.traj_checkbox_dict["RRT"] = [False,\
             #CheckButtons(ax = plt.axes([0.7, 0.05, 0.15, 0.05]), labels = ["RRT Trajectory"], actives = [False]), '#043d10']
@@ -40,7 +43,6 @@ class Live3DGraph:
         #self.traj_checkbox_dict["RRT"] = [False,\
             #CheckButtons(ax = plt.axes([0.7, 0.05, 0.15, 0.05]), labels = ["RRT Trajectory"]), '#043d10']
         # when the RRT checkbox is checked, it should call self.enable_traj_plot
-
         self.particle_checkbox = CheckButtons(plt.axes([0.1, 0.10, 0.15, 0.05]),["Display Particles"])
         self.display_particles = False
         self.particle_checkbox.on_clicked(self.particle_checkbox_clicked)
@@ -175,17 +177,30 @@ class Live3DGraph:
                 #   red -> orange -> purple -> blue
                 if particle[4] > 0.75 and particle[4] <= 1.0:
                     # red
-                    particle_color_array.append('r')
+                    particle_color_array.append('lavenderblush')
                 elif particle[4] > 0.5 and particle[4] <= 0.75:
                     # orange
-                    particle_color_array.append('#ff974d')
+                    particle_color_array.append('lightpink')
                 elif particle[4] > 0.25 and particle[4] <= 0.5:
                     # purple
-                    particle_color_array.append('#b24dff')
+                    particle_color_array.append('hotpink')
                 else:
                     # blue
-                    particle_color_array.append('b')
+                    particle_color_array.append('magenta')
 
-            
             # TODO: for now, we set the z position of the trajectory to be -10
+            self.ax.autoscale(False)
             self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = particle_color_array)
+
+    def plot_shark(self, test_particle):
+        """
+        Plot the shark: my attempt teehee 
+
+        Parameter:
+            particle_array - an array of arrays, where each element has the format:
+                [x_p, y_p, v_p, theta_p, weight_p]
+        """
+        self.ax.scatter(test_particle.initial_x_shark, test_particle.initial_y_shark), -10, marker = 'o', color = r')
+
+
+    
