@@ -169,6 +169,7 @@ class Live3DGraph:
             particle_y_array = []
             particle_color_array = []
             # create two arrays for plotting x and y positions
+
             for particle in particle_array:
                 particle_x_array.append(particle[0])
                 particle_y_array.append(particle[1])
@@ -177,22 +178,31 @@ class Live3DGraph:
                 #   red -> orange -> purple -> blue
                 if particle[4] > 0.75 and particle[4] <= 1.0:
                     # red
-                    particle_color_array.append('lavenderblush')
+                    particle_color_array.append('#e31263')
                 elif particle[4] > 0.5 and particle[4] <= 0.75:
                     # orange
-                    particle_color_array.append('lightpink')
+                    particle_color_array.append('#912951')
                 elif particle[4] > 0.25 and particle[4] <= 0.5:
                     # purple
-                    particle_color_array.append('hotpink')
+                    particle_color_array.append('#7a5b67')
                 else:
                     # blue
-                    particle_color_array.append('magenta')
+                    particle_color_array.append('#786b70')
 
             # TODO: for now, we set the z position of the trajectory to be -10
-            self.ax.autoscale(False)
             self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = particle_color_array)
 
-    def plot_shark(self, test_particle):
+            self.ax.set_xlim3d(-50,50)
+            self.ax.set_ylim3d(-50,50)
+            self.ax.set_zlim3d(-50,50)
+
+            self.ax.set_xlabel('X')
+            self.ax.set_ylabel('Y')
+            self.ax.set_zlabel('Z')
+
+            self.ax.autoscale(False)
+
+    def plot_shark_particle(self, test_particle):
         """
         Plot the shark: my attempt teehee 
 
@@ -200,7 +210,7 @@ class Live3DGraph:
             particle_array - an array of arrays, where each element has the format:
                 [x_p, y_p, v_p, theta_p, weight_p]
         """
-        self.ax.scatter(test_particle.initial_x_shark, test_particle.initial_y_shark), -10, marker = 'o', color = r')
+        self.ax.scatter(test_particle.initial_x_shark, test_particle.initial_y_shark, -10, marker = '-o', color = '#42f5da')
 
 
     
