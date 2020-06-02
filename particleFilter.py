@@ -84,7 +84,7 @@ class particleFilter:
 
     def updateShark(self, dt):
         v_x_shark = 0
-        v_y_shark = 3
+        v_y_shark = 0.3
         self.x_shark = self.x_shark + (v_x_shark * dt)
         self.y_shark = self.y_shark + (v_y_shark * dt)
         return [self.x_shark, self.y_shark]
@@ -318,6 +318,8 @@ def main():
     final_weights = test_particle.combined_weights(weights_list, weight_range_list)
     new_particles = test_particle.correct(final_weights, randomize_particles)
     # new particles based on first weight
+    new_coordinate_x = []
+    new_coordinate_y = []
     while True:
         time.sleep(.1)
         auv_alpha = test_particle.auv_to_alpha()
@@ -332,19 +334,14 @@ def main():
         randomize_particles = test_particle.updateParticles(new_particles, .1)
         new_coordinates = test_particle.updateShark(1)
         test_particle.initial_x_shark = new_coordinates[0]
-        print("new x")
-        print(new_coordinates[0])
+        new_coordinate_x.append(new_coordinates[0])
         test_particle.initial_y_shark = new_coordinates[1]
-        print("new y")
-        print(new_coordinates[1])
-        print("coordinates of shark")
+        new_coordinate_y.append(new_coordinates[1])
+        print("coordinates of shark, y ")
         print(test_particle.initial_y_shark)
-
-
-        
         #simulation stuff
         test_grapher.plot_particles(new_particles)
-        
+        #test_grapher.plot_shark_particle()
         plt.draw()
         plt.pause(0.5)
         test_grapher.ax.clear()
