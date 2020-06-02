@@ -23,7 +23,7 @@ AUV_MAX_W = np.pi
 DELTA_T = 1
 
 # the maximum range between the auv and shark to be considered that the auv has reached the shark
-END_GAME_RADIUS = 1.0
+END_GAME_RADIUS = 2.0
 
 # constants for reward
 R_COLLIDE = -1000.0       # when the auv collides with an obstacle
@@ -123,8 +123,8 @@ class AuvEnv(gym.Env):
 
     def actions_range(self, N):
         v_options = np.linspace(-AUV_MAX_V, AUV_MAX_V, N)
-        w_options = np.linspace(-AUV_MAX_W, AUV_MAX_W, N)
-        # w_options = [0] * N
+        # w_options = np.linspace(-AUV_MAX_W, AUV_MAX_W, N)
+        w_options = [0] * N
         return (v_options, w_options)
 
 
@@ -245,7 +245,7 @@ class AuvEnv(gym.Env):
             else, -1
         """
         if self.check_reached_target(auv_pos, goal_pos):
-            return -1
+            return 1
         else:
             return -1
     

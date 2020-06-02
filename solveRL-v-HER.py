@@ -16,9 +16,9 @@ import torchvision.transforms as T
 from motion_plan_state import Motion_plan_state
 
 MIN_X = 0.0
-MAX_X= 100.0
-MIN_Y = 0.0
-MAX_Y = 100.0
+MAX_X= 10.0
+MIN_Y = 11.0
+MAX_Y = 15.0
 
 def process_state_for_nn(state):
     """
@@ -172,27 +172,45 @@ Class to represent the agent and decide its action in the environment
 """
 class Agent():
     def __init__(self, strategy, actions_range_v, actions_range_w, device):
+        """
+        Parameter: 
+            strategy - Epsilon Greedy Strategy class (decide whether we should explore the environment or if we should use the DQN)
+            actions_range_v - int,the number of possible values for v that the agent can take
+            actions_range_w - An array, representing the possible values for w that the agent can take
+            device - what we want to PyTorch to use for tensor calculation
+        """
         # the agent's current step in the environment
         self.current_step = 0
-        # in our case, the strategy will be the epsilon greedy strategy
+        
         self.strategy = strategy
-        # how many possible actions can the agent take at a given state
-        # for our case, it only has 2 actions (left or right)
+        
         self.actions_range_v = actions_range_v
         self.actions_range_w = actions_range_w
-        # what we want to PyTorch to use for tensor calculation
+       
         self.device = device
 
-        self.ra = None
-        self.ea = None
 
     def select_action(self, state, policy_net):
+        """
+        Pick an action (index to select from array of options for v and from array of options for w)
+
+        Parameters:
+            state - tuples for auv position, shark (goal) position, and obstacles position
+            policy_net - the neural network to determine the action
+
+        Returns:
+            a tensor representing the index for v action and the index for w action
+                format: tensor([v_index, w_index])
+        """
         rate = self.strategy.get_exploration_rate(self.current_step)
+        print("exploration rate: ", rate)
+        # as the number of steps increases, the exploration rate will decrease
         self.current_step += 1
 
         if rate > random.random():
-            # print("-----")
-            # print("randomly picking")
+            # exploring the environment by randomly chosing an action
+            print("-----")
+            print("randomly picking")
             v_action_index = random.choice(range(self.actions_range_v))
             w_action_index = random.choice(range(self.actions_range_w))
 
@@ -202,64 +220,103 @@ class Agent():
             # we don't need to keep track the gradient because we are not doing backpropagation to figure out the weight 
             # of each node yet
             with torch.no_grad():
-                # for the given "state"，the output will be the action 
-                #   with the highest Q-Value output from the policy net
-                # print("-----")
-                # print("exploiting")
+                print("-----")
+                print("exploiting")
+                # convert the state to a flat tensor to prepare for passing into the neural network
                 state = process_state_for_nn(state)
 
+                # for the given "state"，the output will be Q values for each possible action (index for v and w)
+                #   from the policy net
                 output_weight = policy_net(state).to(self.device)
 
+                # output_weight[0] is for the v_index, output_weight[1] is for w_index
+                # this is finding the index with the highest Q value
                 v_action_index = torch.argmax(output_weight[0]).item()
                 w_action_index = torch.argmax(output_weight[1]).item()
 
                 return torch.tensor([v_action_index, w_action_index]).to(self.device) # explore  
 
 
+"""
+Class Wrapper for the auv RL environment
+"""
 class AuvEnvManager():
     def __init__(self, device, N, auv_init_pos, shark_init_pos, obstacle_array = []):
+        """
+        Parameters: 
+            device - what we want to PyTorch to use for tensor calculation
+            N - 
+            auv_init_pos - 
+            shark_init_pos -
+            obstacle_array - 
+        """
         self.device = device
+
         # have access to behind-the-scenes dynamics of the environment 
         self.env = gym.make('gym_auv:auv-v0').unwrapped
+
+        # initialize the environment's state
         self.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
 
         self.current_state = None
         self.done = False
 
+        # an array of the form:
+        #   [[array of options for v], [array of options for w]]
+        # values of v and w for the agent to chose from
         self.possible_actions = self.env.actions_range(N)
 
     def reset(self):
+        """
+        Reset the environment and return the initial state
+        """
         return self.env.reset()
         
     def close(self):
         self.env.close()
     
     def render(self, mode='human', live_graph = False):
+        """
+        Render the environment both as text in terminal and as a 3D graph if necessary
+
+        Parameter:
+            mode - string, modes for rendering, currently only supporting "human"
+            live_graph - boolean, will display the 3D live_graph if True
+        """
         state = self.env.render(mode)
         if live_graph: 
             self.env.render_3D_plot(state[0], state[1])
         return state
 
     def num_actions_available(self):
-        return self.env.action_space.n
+        """
+        Return the number of options (values) to choose for v and w
+        """
+        return len(self.possible_actions[0])
 
     def take_action(self, action):
+        """
+        Parameter: 
+            action - tensor of the format: tensor([v_index, w_index])
+                use the index from the action and take a step in environment
+                based on the chosen values for v and w
+        """
         v_action_index = action[0].item()
         w_action_index = action[1].item()
         v_action = self.possible_actions[0][v_action_index]
         w_action = self.possible_actions[1][w_action_index]
-        # print("=========================")
-        # print("action v: ", v_action_index, " | ", v_action)  
-        # print("action w: ", w_action_index, " | ", w_action)  
+        print("=========================")
+        print("action v: ", v_action_index, " | ", v_action)  
+        print("action w: ", w_action_index, " | ", w_action)  
         
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
         self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
-        # print("new state: ")
-        # print(self.current_state)
-        # print("reward: ")
-        # print(reward)
-        # print("=========================")
+        print("new state: ")
+        print(self.current_state)
+        print("reward: ")
+        print(reward)
+        print("=========================")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
@@ -269,7 +326,20 @@ class AuvEnvManager():
         state will be represented as the difference bewteen 2 screens
             so we can calculate the velocity
         """
-        return self.current_state
+        return self.env.state
+
+
+    def get_binary_reward(self, auv_pos, goal_pos):
+        """
+        Wrapper to convert the binary reward (-1 or 1) to a tensor
+
+        Parameters:
+            auv_pos - an array of the form [x, y, z, theta]
+            goal_pos - an array of the same form, represent the target position that the auv is currently trying to reach
+        """
+        reward = self.env.get_binary_reward(auv_pos, goal_pos)
+
+        return torch.tensor([reward], device=self.device).float()
 
 
 # Ultility functions
@@ -303,7 +373,7 @@ def plot(values, moving_avg_period):
 def extract_tensors(experiences):
     # Convert batch of Experiences to Experience of batches
     batch = Experience(*zip(*experiences))
-
+   
     t1 = torch.stack(batch.state)
     t2 = torch.stack(batch.action)
     t3 = torch.cat(batch.reward)
@@ -312,10 +382,10 @@ def extract_tensors(experiences):
     return (t1,t2,t3,t4)
 
 
+"""
+Use QValues class's 
+"""
 class QValues():
-    """
-    mainly use its static method
-    """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     @staticmethod
@@ -360,11 +430,6 @@ class QValues():
        
         v_max_q_values = target_net(next_states)[0].max(dim=1)[0].detach()
         w_max_q_values = target_net(next_states)[1].max(dim=1)[0].detach()
-
-        # print(v_max_q_values)
-        # print(w_max_q_values)
-        # this will allow you to pair element by element!
-        # print(torch.stack((v_max_q_values, w_max_q_values), dim = 0))
        
         return torch.stack((v_max_q_values, w_max_q_values), dim = 0)
 
@@ -406,7 +471,7 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
     for i in range(num_of_obstacles):
         obs_x = np.random.uniform(MIN_X, MAX_X)
         obs_y = np.random.uniform(MIN_Y, MAX_Y)
-        obs_size = np.random.randint(1,11)
+        obs_size = np.random.randint(1,5)
         while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array):
             obs_x = np.random.uniform(MIN_X, MAX_X)
             obs_y = np.random.uniform(MIN_Y, MAX_Y)
@@ -416,7 +481,7 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
 
 
 def train():
-    batch_size = 256
+    batch_size = 128
     # discount factor for exploration rate decay
     gamma = 0.999
     eps_start = 1
@@ -433,8 +498,8 @@ def train():
     # learning rate
     lr = 0.001
 
-    # num_episodes = 300
-    num_episodes = 1
+    num_episodes = 100
+    # num_episodes = 1
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -445,9 +510,10 @@ def train():
 
     num_of_obstacles = 2
 
-    auv_init_pos = Motion_plan_state(x = np.random.uniform(0.0, 300.0), y = np.random.uniform(0.0, 500.0), z = -5.0, theta = 0)
-    shark_init_pos = Motion_plan_state(x = np.random.uniform(0.0, 300.0), y = np.random.uniform(0.0, 500.0), z = -5.0, theta = 0) 
-    obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
+    auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MIN_Y), z = -5.0, theta = 0)
+    shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MIN_Y), z = -5.0, theta = 0)
+    # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
+    obstacle_array = []
     
     em = AuvEnvManager(device, N, auv_init_pos, shark_init_pos, obstacle_array)
     strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
@@ -473,10 +539,12 @@ def train():
 
     save_every = 20
 
-    # max_step = 3000
-    max_step = 10
+    max_step = 1000
+    # max_step = 10
 
-    num_goals_sampled_HER = 2
+    score = 0
+
+    num_goals_sampled_HER = 4
 
     def save_model():
         print("Model Save...")
@@ -486,9 +554,18 @@ def train():
     # For each episode:
     for episode in range(num_episodes):
         # randomize the auv and shark position
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0)
-        shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0) 
-        obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
+        # auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0)
+        # shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0) 
+        # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
+
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = 0.0, z = -5.0, theta = 0)
+        shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = 0.0, z = -5.0, theta = 0) 
+        obstacle_array = []
+
+        # # when the auv and shark are very close, very likely to get an reward
+        # auv_init_pos = Motion_plan_state(x = 0.0, y = 0.0, z = -5.0, theta = 0)
+        # shark_init_pos = Motion_plan_state(x = -1.1, y = 0.0, z = -5.0, theta = 0) 
+        # obstacle_array = []
 
         em.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
         print("===============================")
@@ -499,135 +576,143 @@ def train():
         print("===============================")
         
         # Initialize the starting state.
-        em.reset()
+        state = em.reset()
         
-        state = em.get_state()
         score = 0
 
         action_array = []
         next_state_array = []
 
+        iteration = max_step
+
         for timestep in range(max_step): 
             # For each time step:
             # Select an action (Via exploration or exploitation)
+    
             action = agent.select_action(state, policy_net_v)
             
             action_array.append(action)
 
             # Execute selected action in an emulator.
             # Observe reward and next state.
-            em.take_action(action)
+            score = em.take_action(action)
 
-            # em.render(live_graph=True)
+            # em.render(live_graph=False)
 
             next_state = em.get_state()
 
             next_state_array.append(next_state)
+
+            if em.done: 
+                episode_durations.append(timestep)
+                iteration = timestep
+                # plot(episode_durations, 100)
+                break
         
         # reset the starting state
         state = em.reset()
 
-        for timestep in range(max_step):
-            action = next_state_array[timestep]
+        for timestep in range(iteration):
+            action = action_array[timestep]
+
             next_state = next_state_array[timestep]
             
             # next_state[0] the auv's position after it has taken an action
             # next_state[1] the actual goal (real shark position)
-            reward = em.env.get_binary_reward(next_state[0], next_state[1])
-
+            reward = em.get_binary_reward(next_state[0], next_state[1])
+            
             # Store experience in replay memory.
             memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
-
-            state = next_state
-
+           
             # sample the goals based on the "future" strategy:
             #    replay with k random states which come from the same episode as the transition being replayed and were observed after it
             future_goals_to_sample = next_state_array[timestep + 1:]
-        
+
+            # print(future_goals_to_sample)
             # Note: Might have repeated goals if the len(future_goals_to_sample) < num_goals_sampled_HER
             if future_goals_to_sample != []:
-                additional_goals = random.choices(future_goals_to_sample, k = num_goals_sampled_HER)
+                k = num_goals_sampled_HER
+                if len(future_goals_to_sample) < k:
+                    k = len(future_goals_to_sample)
+                additional_goals = random.sample(future_goals_to_sample, k = k)
             else:
                 additional_goals = [next_state_array[-1]]
-            
+
             for goal in additional_goals:
                 # next_state[0] the auv's position after it has taken an action
                 # goal[0] the additional goal (real shark position)
-                reward = em.env.get_binary_reward(next_state[0], goal[0])
-
-                memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
-
-            # if memory.can_provide_sample(batch_size):
-            #     # Sample random batch from replay memory.
-            #     experiences = memory.sample(batch_size)
-
-            #     # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
-            #     states, actions, rewards, next_states = extract_tensors(experiences)
-
- 
-            #     # Pass batch of preprocessed states to policy network.
-            #     # return the q value for the given state-action pair by passing throught the policy net
-            #     current_q_values = QValues.get_current(policy_net_v, states, actions)
-
-            #     next_q_values = QValues.get_next(target_net_v, next_states)
                 
-            #     target_q_values_v = (next_q_values[0] * gamma) + rewards
-            #     target_q_values_w = (next_q_values[1] * gamma) + rewards
-            #     # print(next_q_values[0])
-            #     # print(target_q_values_v)
-            #     # print("==================")   
-            #     # print(next_q_values[1])
-            #     # print(target_q_values_w)
-            #     # print(rewards))
-            #     # print(rewards.size())
-            #     # print("==================")   
-            #     # print(rewards.unsqueeze(0))
-            #     # print(rewards.unsqueeze(0).size())
-            #     # print(current_q_values[0].size())
-            #     # print(target_q_values_v.unsqueeze(1).size())
+                reward = em.get_binary_reward(next_state[0], goal[0])
+                # print("reward: ", reward)
+                new_next_state = (next_state[0], goal[0], next_state[2])
 
-            #     # Calculate loss between output Q-values and target Q-values.
-            #     # mse_loss calculate the mean square error
-            #     loss_v = F.mse_loss(current_q_values[0], target_q_values_v.unsqueeze(1))
-            #     loss_w = F.mse_loss(current_q_values[1], target_q_values_w.unsqueeze(1))
+                memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(new_next_state), reward))
+                # print("-")
+                # print(Experience(process_state_for_nn(state), action, process_state_for_nn(new_next_state), reward))
+            # print("==================")
 
-            #     loss_total = loss_v + loss_w
+            state = next_state
+
+
+            if memory.can_provide_sample(batch_size):
+                # Sample random batch from replay memory.
+                experiences = memory.sample(batch_size)
+                print(experiences)
                 
-            #     # Gradient descent updates weights in the policy network to minimize loss.
-            #     # sets the gradients of all the weights and biases in the policy network to zero
-            #     # so that we can do back propagation 
-            #     optimizer.zero_grad()
+                # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
+                states, actions, rewards, next_states = extract_tensors(experiences)
 
-            #     # use backward propagation to calculate the gradient of loss with respect to all the weights and biases in the policy net
-            #     loss_total.backward()
+                # Pass batch of preprocessed states to policy network.
+                # return the q value for the given state-action pair by passing throught the policy net
+                current_q_values = QValues.get_current(policy_net_v, states, actions)
 
-            #     # updates the weights and biases of all the nodes based on the gradient
-            #     optimizer.step()
+                next_q_values = QValues.get_next(target_net_v, next_states)
+                
+                target_q_values_v = (next_q_values[0] * gamma) + rewards
+                target_q_values_w = (next_q_values[1] * gamma) + rewards
+                
+                # Calculate loss between output Q-values and target Q-values.
+                # mse_loss calculate the mean square error
+                loss_v = F.mse_loss(current_q_values[0], target_q_values_v.unsqueeze(1))
+                loss_w = F.mse_loss(current_q_values[1], target_q_values_w.unsqueeze(1))
+
+                loss_total = loss_v + loss_w
+                
+                # Gradient descent updates weights in the policy network to minimize loss.
+                # sets the gradients of all the weights and biases in the policy network to zero
+                # so that we can do back propagation 
+                optimizer.zero_grad()
+
+                # use backward propagation to calculate the gradient of loss with respect to all the weights and biases in the policy net
+                loss_total.backward()
+
+                # updates the weights and biases of all the nodes based on the gradient
+                optimizer.step()
+
             
-            # if em.done: 
-            #     episode_durations.append(timestep)
-            #     # plot(episode_durations, 100)
-            #     break
+            if em.done: 
+                episode_durations.append(timestep)
+                # plot(episode_durations, 100)
+                break
 
             
 
-        #  After x time steps, weights in the target network are updated to the weights in the policy network.
+        # After x time steps, weights in the target network are updated to the weights in the policy network.
         # in our case, it will be 10 episodes
-        # if episode % target_update == 0:
-        #     target_net_v.load_state_dict(policy_net_v.state_dict())
+        if episode % target_update == 0:
+            target_net_v.load_state_dict(policy_net_v.state_dict())
 
-        # print("+++++++++++++++++++++++++++++")
-        # print(em.get_state())
-        # print("Episode # ", episode, "end with reward: ", score, " used time: ", timestep)
-        # print("+++++++++++++++++++++++++++++")
+        print("+++++++++++++++++++++++++++++")
+        print("Episode # ", episode, "end with reward: ", score, " used time: ", timestep)
+        print("+++++++++++++++++++++++++++++")
 
-        # if episode % save_every == 0:
-        #     save_model()
+        if episode % save_every == 0:
+            save_model()
 
-        # if score >= 13.5:
-        #     save_model()
+        save_model()
 
         # time.sleep(1)
+        text = input("manual stop")
 
     em.close()
     print(episode_durations)
@@ -649,10 +734,12 @@ def test_trained_model():
 
     # parameter to discretize the action v and w
     # N specify the number of options that we get to have for v and w
-    N = 4
+    N = 8
 
-    auv_init_pos = Motion_plan_state(x = 740.0, y = 280.0, z = -5.0, theta = 0)
-    shark_init_pos = Motion_plan_state(x = 750.0, y = 280.0, z = -5.0, theta = 0) 
+    num_of_obstacles = 2
+
+    auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = 0.0, z = -5.0, theta = 0)
+    shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = 0.0, z = -5.0, theta = 0) 
     obstacle_array = []
     
     em = AuvEnvManager(device, N, auv_init_pos, shark_init_pos, obstacle_array)
@@ -661,9 +748,11 @@ def test_trained_model():
 
     agent = Agent(strategy, N, N, device)
 
+    input_size = 8 + len(obstacle_array) * 4
+
     # to(device) puts the network on our defined device
-    policy_net_v = DQN(8, N, N).to(device)
-    target_net_v = DQN(8, N, N).to(device)
+    policy_net_v = DQN(input_size, N, N).to(device)
+    target_net_v = DQN(input_size, N, N).to(device)
 
     # if we want to load the already trained network
     policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
@@ -675,8 +764,7 @@ def test_trained_model():
     time_list = []
     for i in range(3):
         print("start testing the network")
-        em.reset()
-        state = em.get_state()
+        state = em.reset()
         em.env.init_data_for_3D_plot(auv_init_pos, shark_init_pos)
         time_list.append(0)
         for t in range(1500):
@@ -700,8 +788,8 @@ def test_trained_model():
 
     
 def main():
-    train()
-    # test_trained_model()
+    # train()
+    test_trained_model()
 
 if __name__ == "__main__":
     main()
