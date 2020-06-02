@@ -84,7 +84,7 @@ class particleFilter:
 
     def updateShark(self, dt):
         v_x_shark = 0
-        v_y_shark = .1
+        v_y_shark = 3
         self.x_shark = self.x_shark + (v_x_shark * dt)
         self.y_shark = self.y_shark + (v_y_shark * dt)
         return [self.x_shark, self.y_shark]
@@ -299,7 +299,12 @@ def main():
 
     # coordinates are x_shark, y_shark, theta, x_auv, y_auv
     test_grapher = Live3DGraph()
-    test_particle = particleFilter(0, 0 , 0, 0 ,1)
+    x_auv = 0
+    y_auv = 1
+    theta = 0
+    initial_x_shark = 0
+    initial_y_shark = 0
+    test_particle = particleFilter(initial_x_shark, initial_y_shark, theta, x_auv ,y_auv)
     coordinate_of_particle = test_particle.createParticles()
     #coordinate_of_particle = [[1, 1 , 3, 1.4, 0.333333],[0, 0, 3, 1.4, 0.333333], [0, 2, 3, 1.4, 0.333333]]
     randomize_particles = test_particle.updateParticles(coordinate_of_particle, .1)
@@ -326,6 +331,16 @@ def main():
         new_particles = test_particle.correct(final_weights, randomize_particles)
         randomize_particles = test_particle.updateParticles(new_particles, .1)
         new_coordinates = test_particle.updateShark(1)
+        test_particle.initial_x_shark = new_coordinates[0]
+        print("new x")
+        print(new_coordinates[0])
+        test_particle.initial_y_shark = new_coordinates[1]
+        print("new y")
+        print(new_coordinates[1])
+        print("coordinates of shark")
+        print(test_particle.initial_y_shark)
+
+
         
         #simulation stuff
         test_grapher.plot_particles(new_particles)
@@ -336,8 +351,6 @@ def main():
 
     
     #creates particles 
-
-
 
 if __name__ == "__main__":
     main()
