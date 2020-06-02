@@ -156,7 +156,7 @@ class Live3DGraph:
         self.display_particles = not self.display_particles
     
     
-    def plot_particles(self, particle_array):
+    def plot_particles(self, particle_array, new_x, new_y):
         """
         Plot the particles if the the particle checkbox is checked
 
@@ -191,10 +191,11 @@ class Live3DGraph:
 
             # TODO: for now, we set the z position of the trajectory to be -10
             self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = particle_color_array)
+            self.ax.scatter(new_x, new_y, -10, marker = '-o', color = '#42f5da')
 
-            self.ax.set_xlim3d(-50,50)
-            self.ax.set_ylim3d(-50,50)
-            self.ax.set_zlim3d(-50,50)
+            self.ax.set_xlim3d(-75,75)
+            self.ax.set_ylim3d(-75,75)
+            self.ax.set_zlim3d(-75,75)
 
             self.ax.set_xlabel('X')
             self.ax.set_ylabel('Y')
@@ -202,15 +203,6 @@ class Live3DGraph:
 
             self.ax.autoscale(False)
 
-    def plot_shark_particle(self, test_particle):
-        """
-        Plot the shark: my attempt teehee 
-
-        Parameter:
-            particle_array - an array of arrays, where each element has the format:
-                [x_p, y_p, v_p, theta_p, weight_p]
-        """
-        self.ax.scatter(test_particle.initial_x_shark, test_particle.initial_y_shark, -10, marker = '-o', color = '#42f5da')
-
+        
 
     

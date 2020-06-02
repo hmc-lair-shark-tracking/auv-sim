@@ -339,9 +339,10 @@ def main():
         new_coordinate_y.append(new_coordinates[1])
         print("coordinates of shark, y ")
         print(test_particle.initial_y_shark)
+        new_x = test_particle.initial_x_shark
+        new_y = test_particle.initial_y_shark
         #simulation stuff
-        test_grapher.plot_particles(new_particles)
-        #test_grapher.plot_shark_particle()
+        test_grapher.plot_particles(new_particles, new_x, new_y)
         plt.draw()
         plt.pause(0.5)
         test_grapher.ax.clear()
