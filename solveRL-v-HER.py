@@ -77,45 +77,45 @@ class DQN(nn.Module):
         Parameters:
             t - the state as a tensor
         """
-        print("initial state: ")
-        print(t)
-        text = input("stop")
+        # print("initial state: ")
+        # print(t)
+        # text = input("stop")
         # pass through the layers then have relu applied to it
         # relu is the activation function that will turn any negative value to 0,
         #   and keep any positive value
         t = self.fc1(t)
-        print("fc1")
-        print(t)
+        # print("fc1")
+        # print(t)
         t = F.relu(t)
-        print("relu")
-        print(t)
-        text = input("stop")
+        # print("relu")
+        # print(t)
+        # text = input("stop")
 
         # the neural network is separated into 2 separate branch
         t_v = self.fc2_v(t)
-        print("fc2_v")
-        print(t_v)
+        # print("fc2_v")
+        # print(t_v)
         t_v = F.relu(t_v)
-        print("fc2_v relu")
-        print(t_v)
-        text = input("stop")
+        # print("fc2_v relu")
+        # print(t_v)
+        # text = input("stop")
 
         t_w = self.fc2_w(t)
-        print("fc2_w")
-        print(t_w)
+        # print("fc2_w")
+        # print(t_w)
         t_w = F.relu(t_w)
-        text = input("stop")
+        # text = input("stop")
 
         # pass through the last layer, the output layer
         # output is a tensor of Q-Values for all the optinons for v/w
 
         t_v = self.out_v(t_v)
         t_w = self.out_w(t_w)
-        print("t_v")
-        print(t_v)
-        print("t_w")
-        print(t_w)
-        input("stop")
+        # print("t_v")
+        # print(t_v)
+        # print("t_w")
+        # print(t_w)
+        # input("stop")
 
         return torch.stack((t_v, t_w))
 
@@ -201,8 +201,8 @@ class Agent():
         """
         Parameter: 
             strategy - Epsilon Greedy Strategy class (decide whether we should explore the environment or if we should use the DQN)
-            actions_range_v - int,the number of possible values for v that the agent can take
-            actions_range_w - An array, representing the possible values for w that the agent can take
+            actions_range_v - int, the number of possible values for v that the agent can take
+            actions_range_w - int, the number of possible values for w that the agent can take
             device - what we want to PyTorch to use for tensor calculation
         """
         # the agent's current step in the environment
@@ -425,7 +425,14 @@ class QValues():
         # policy_net(states).gather(dim=1, index=actions[:,:1]) gives us
         #   a tensor of the q-value corresponds to the state and action(specified by index=actions[:,:1]) pair 
         # print(policy_net(states))
-        
+    
+        print(states)
+        print(states[0])
+        print("all the predicted q-values for all the action outcome")
+        print(policy_net(states)[0])
+        print("first one")
+        print(policy_net(states)[0][0])
+        text = input("stop")
         q_values_for_v = policy_net(states)[0].gather(dim=1, index=actions[:,:1])
         q_values_for_w = policy_net(states)[1].gather(dim=1, index=actions[:,1:2])
        
@@ -513,8 +520,8 @@ def train():
     # discount factor for exploration rate decay
     gamma = 0.999
     eps_start = 1
-    eps_end = 0.1
-    eps_decay = 0.005
+    eps_end = 0.01
+    eps_decay = 0.001
 
     # how frequently (in terms of episode) we will update the target policy network with 
     #   weights from the policy network
@@ -574,9 +581,6 @@ def train():
     score = 0
 
     num_goals_sampled_HER = 4
-    
-    policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
-    target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
 
     def save_model():
         print("Model Save...")
@@ -590,26 +594,28 @@ def train():
         # shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0) 
         # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
 
-        # auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = 0.0, z = -5.0, theta = 0)
-        # shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = 0.0, z = -5.0, theta = 0) 
-        # obstacle_array = []
-
-        auv_x = float(input("auv_x: "))
-        goal_x = float(input("goal_x: "))
-
-        # when the auv and shark are very close, very likely to get an reward
-        auv_init_pos = Motion_plan_state(x = auv_x, y = 0.0, z = -5.0, theta = 0)
-        shark_init_pos = Motion_plan_state(x = goal_x, y = 0.0, z = -5.0, theta = 0) 
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = 0.0, z = -5.0, theta = 0)
+        shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = 0.0, z = -5.0, theta = 0) 
         obstacle_array = []
 
+        # auv_x = float(input("auv_x: "))
+        # goal_x = float(input("goal_x: "))
+
+        # # when the auv and shark are very close, very likely to get an reward
+        # auv_init_pos = Motion_plan_state(x = auv_x, y = 0.0, z = -5.0, theta = 0)
+        # shark_init_pos = Motion_plan_state(x = goal_x, y = 0.0, z = -5.0, theta = 0) 
+        # obstacle_array = []
+
         em.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
-        print("===============================")
-        print("Inital State")
-        print(auv_init_pos)
-        print(shark_init_pos)
-        print(obstacle_array)
-        print("===============================")
-        text = input("mannual stop")
+        if episode > 20:
+            print("===============================")
+            print("Inital State")
+            print(auv_init_pos)
+            print(shark_init_pos)
+            print(obstacle_array)
+            print("===============================")
+            text = input("mannual stop")
+
         # Initialize the starting state.
         state = em.reset()
         
@@ -619,11 +625,6 @@ def train():
         next_state_array = []
 
         iteration = max_step
-
-        test_state = process_state_for_nn(state)
-        print(policy_net_v(test_state).to(device))
-        text = input("mannual stop")
-        continue
 
         for timestep in range(max_step): 
             # For each time step:
@@ -642,6 +643,8 @@ def train():
             next_state = em.get_state()
 
             next_state_array.append(next_state)
+            
+            state = next_state
 
             if em.done: 
                 episode_durations.append(timestep)
@@ -649,15 +652,18 @@ def train():
                 # plot(episode_durations, 100)
                 break
         
+        
         # reset the starting state
         state = em.reset()
-        print("iteration - ", iteration)
-        text = input("mannual stop")
 
-        for timestep in range(iteration):
-            action = action_array[timestep]
+        print("iteration: ", iteration)
+        if episode > 20:
+            text = input("mannual stop")
 
-            next_state = next_state_array[timestep]
+        for t in range(iteration):
+            action = action_array[t]
+
+            next_state = next_state_array[t]
             
             # next_state[0] the auv's position after it has taken an action
             # next_state[1] the actual goal (real shark position)
@@ -668,7 +674,7 @@ def train():
            
             # sample the goals based on the "future" strategy:
             #    replay with k random states which come from the same episode as the transition being replayed and were observed after it
-            future_goals_to_sample = next_state_array[timestep + 1:]
+            future_goals_to_sample = next_state_array[t + 1:]
 
             # print(future_goals_to_sample)
             # Note: Might have repeated goals if the len(future_goals_to_sample) < num_goals_sampled_HER
@@ -699,7 +705,8 @@ def train():
             # print("==================")
 
             state = next_state
-            print("+++++++", timestep, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++", additional_reward)
+            print("+++++++", t, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++", additional_reward)
+
             if memory.can_provide_sample(batch_size):
                 # Sample random batch from replay memory.
                 experiences = memory.sample(batch_size)
@@ -718,12 +725,22 @@ def train():
                 
                 # Calculate loss between output Q-values and target Q-values.
                 # mse_loss calculate the mean square error
+                
+                print("target q value")
+                print(target_q_values_v.unsqueeze(1))
+                print("current q value")
+                print(current_q_values[0])
+                
                 loss_v = F.mse_loss(current_q_values[0], target_q_values_v.unsqueeze(1))
                 print("v loss: ", loss_v)
+
                 loss_w = F.mse_loss(current_q_values[1], target_q_values_w.unsqueeze(1))
                 print("w loss: ", loss_w)
 
                 loss_total = loss_v + loss_w
+
+                # what if we ignore the loss for w for now because it doesn't matter whether we return w or not
+                # loss_total = loss_v
                 
                 # Gradient descent updates weights in the policy network to minimize loss.
                 # sets the gradients of all the weights and biases in the policy network to zero
@@ -737,24 +754,19 @@ def train():
                 optimizer.step()
 
             
-            if em.done: 
-                episode_durations.append(timestep)
-                # plot(episode_durations, 100)
-                break
-
-            
 
         # After x time steps, weights in the target network are updated to the weights in the policy network.
         # in our case, it will be 10 episodes
         if episode % target_update == 0:
+            print("UPDATE TARGET NETWORK")
             target_net_v.load_state_dict(policy_net_v.state_dict())
 
         print("+++++++++++++++++++++++++++++")
         print("Episode # ", episode, "end with reward: ", score, " used time: ", timestep)
         print("+++++++++++++++++++++++++++++")
 
-        if episode % save_every == 0:
-            save_model()
+        # if episode % save_every == 0:
+        #     save_model()
 
         save_model()
 
