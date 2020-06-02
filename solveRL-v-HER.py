@@ -15,10 +15,15 @@ import torchvision.transforms as T
 
 from motion_plan_state import Motion_plan_state
 
-MIN_X = 0.0
+MIN_X = 6.0
 MAX_X= 10.0
-MIN_Y = 11.0
+MIN_Y = 0.0
 MAX_Y = 15.0
+
+# MIN_X = 50.0
+# MAX_X= 60.0
+# MIN_Y = 0.0
+# MAX_Y = 110.0
 
 def process_state_for_nn(state):
     """
@@ -54,7 +59,7 @@ class DQN(nn.Module):
 
         # 2 fully connected hidden layers
         # first layer will have "input_size" inputs
-        #   Cureently, auv 3D position and theta + shark 3D postion and theta
+        #   Currently, auv 3D position and theta + shark 3D postion and theta
         self.fc1 = nn.Linear(in_features=input_size, out_features=24)  
         # branch for selecting v
         self.fc2_v = nn.Linear(in_features=24, out_features=32)      
@@ -72,24 +77,45 @@ class DQN(nn.Module):
         Parameters:
             t - the state as a tensor
         """
-
+        print("initial state: ")
+        print(t)
+        text = input("stop")
         # pass through the layers then have relu applied to it
         # relu is the activation function that will turn any negative value to 0,
         #   and keep any positive value
         t = self.fc1(t)
+        print("fc1")
+        print(t)
         t = F.relu(t)
+        print("relu")
+        print(t)
+        text = input("stop")
 
         # the neural network is separated into 2 separate branch
         t_v = self.fc2_v(t)
+        print("fc2_v")
+        print(t_v)
         t_v = F.relu(t_v)
+        print("fc2_v relu")
+        print(t_v)
+        text = input("stop")
 
-        t_w = self.fc2_v(t)
+        t_w = self.fc2_w(t)
+        print("fc2_w")
+        print(t_w)
         t_w = F.relu(t_w)
+        text = input("stop")
 
         # pass through the last layer, the output layer
         # output is a tensor of Q-Values for all the optinons for v/w
+
         t_v = self.out_v(t_v)
         t_w = self.out_w(t_w)
+        print("t_v")
+        print(t_v)
+        print("t_w")
+        print(t_w)
+        input("stop")
 
         return torch.stack((t_v, t_w))
 
@@ -228,6 +254,8 @@ class Agent():
                 # for the given "state"，the output will be Q values for each possible action (index for v and w)
                 #   from the policy net
                 output_weight = policy_net(state).to(self.device)
+                print("Q values check")
+                print(output_weight[0])
 
                 # output_weight[0] is for the v_index, output_weight[1] is for w_index
                 # this is finding the index with the highest Q value
@@ -354,7 +382,7 @@ def get_moving_average(period, values):
         moving_avg = torch.zeros(len(values))
         return moving_avg.numpy()
 
-
+# TODO: modify this to plot a more relevant plot
 def plot(values, moving_avg_period):
     plt.figure(2)
     plt.clf()        
@@ -485,8 +513,8 @@ def train():
     # discount factor for exploration rate decay
     gamma = 0.999
     eps_start = 1
-    eps_end = 0.01
-    eps_decay = 0.001
+    eps_end = 0.1
+    eps_decay = 0.005
 
     # how frequently (in terms of episode) we will update the target policy network with 
     #   weights from the policy network
@@ -496,7 +524,8 @@ def train():
     memory_size = 100000
 
     # learning rate
-    lr = 0.001
+    # lr = 0.001
+    lr = 0.00025
 
     num_episodes = 100
     # num_episodes = 1
@@ -545,6 +574,9 @@ def train():
     score = 0
 
     num_goals_sampled_HER = 4
+    
+    policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
+    target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
 
     def save_model():
         print("Model Save...")
@@ -558,14 +590,17 @@ def train():
         # shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0) 
         # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
 
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = 0.0, z = -5.0, theta = 0)
-        shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = 0.0, z = -5.0, theta = 0) 
-        obstacle_array = []
-
-        # # when the auv and shark are very close, very likely to get an reward
-        # auv_init_pos = Motion_plan_state(x = 0.0, y = 0.0, z = -5.0, theta = 0)
-        # shark_init_pos = Motion_plan_state(x = -1.1, y = 0.0, z = -5.0, theta = 0) 
+        # auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = 0.0, z = -5.0, theta = 0)
+        # shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = 0.0, z = -5.0, theta = 0) 
         # obstacle_array = []
+
+        auv_x = float(input("auv_x: "))
+        goal_x = float(input("goal_x: "))
+
+        # when the auv and shark are very close, very likely to get an reward
+        auv_init_pos = Motion_plan_state(x = auv_x, y = 0.0, z = -5.0, theta = 0)
+        shark_init_pos = Motion_plan_state(x = goal_x, y = 0.0, z = -5.0, theta = 0) 
+        obstacle_array = []
 
         em.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
         print("===============================")
@@ -574,7 +609,7 @@ def train():
         print(shark_init_pos)
         print(obstacle_array)
         print("===============================")
-        
+        text = input("mannual stop")
         # Initialize the starting state.
         state = em.reset()
         
@@ -584,6 +619,11 @@ def train():
         next_state_array = []
 
         iteration = max_step
+
+        test_state = process_state_for_nn(state)
+        print(policy_net_v(test_state).to(device))
+        text = input("mannual stop")
+        continue
 
         for timestep in range(max_step): 
             # For each time step:
@@ -611,6 +651,8 @@ def train():
         
         # reset the starting state
         state = em.reset()
+        print("iteration - ", iteration)
+        text = input("mannual stop")
 
         for timestep in range(iteration):
             action = action_array[timestep]
@@ -637,12 +679,17 @@ def train():
                 additional_goals = random.sample(future_goals_to_sample, k = k)
             else:
                 additional_goals = [next_state_array[-1]]
+            
+            additional_reward = 0
 
             for goal in additional_goals:
                 # next_state[0] the auv's position after it has taken an action
                 # goal[0] the additional goal (real shark position)
                 
                 reward = em.get_binary_reward(next_state[0], goal[0])
+                if reward == 1:
+                    additional_reward += reward
+
                 # print("reward: ", reward)
                 new_next_state = (next_state[0], goal[0], next_state[2])
 
@@ -652,12 +699,10 @@ def train():
             # print("==================")
 
             state = next_state
-
-
+            print("+++++++", timestep, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++", additional_reward)
             if memory.can_provide_sample(batch_size):
                 # Sample random batch from replay memory.
                 experiences = memory.sample(batch_size)
-                print(experiences)
                 
                 # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
                 states, actions, rewards, next_states = extract_tensors(experiences)
@@ -674,7 +719,9 @@ def train():
                 # Calculate loss between output Q-values and target Q-values.
                 # mse_loss calculate the mean square error
                 loss_v = F.mse_loss(current_q_values[0], target_q_values_v.unsqueeze(1))
+                print("v loss: ", loss_v)
                 loss_w = F.mse_loss(current_q_values[1], target_q_values_w.unsqueeze(1))
+                print("w loss: ", loss_w)
 
                 loss_total = loss_v + loss_w
                 
@@ -764,10 +811,26 @@ def test_trained_model():
     time_list = []
     for i in range(3):
         print("start testing the network")
+
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = 0.0, z = -5.0, theta = 0)
+        shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = 0.0, z = -5.0, theta = 0) 
+        obstacle_array = []
+
+        em.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
+        print("===============================")
+        print("Inital State")
+        print(auv_init_pos)
+        print(shark_init_pos)
+        print(obstacle_array)
+        print("===============================")
+        text = input("mannual stop")
+
         state = em.reset()
+
         em.env.init_data_for_3D_plot(auv_init_pos, shark_init_pos)
+
         time_list.append(0)
-        for t in range(1500):
+        for t in range(300):
             action = agent.select_action(state, policy_net_v)
             em.render(live_graph=True)
             reward = em.take_action(action)
@@ -788,8 +851,8 @@ def test_trained_model():
 
     
 def main():
-    # train()
-    test_trained_model()
+    train()
+    # test_trained_model()
 
 if __name__ == "__main__":
     main()

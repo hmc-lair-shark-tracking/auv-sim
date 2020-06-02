@@ -23,7 +23,7 @@ AUV_MAX_W = np.pi
 DELTA_T = 1
 
 # the maximum range between the auv and shark to be considered that the auv has reached the shark
-END_GAME_RADIUS = 2.0
+END_GAME_RADIUS = 1.0
 
 # constants for reward
 R_COLLIDE = -1000.0       # when the auv collides with an obstacle
