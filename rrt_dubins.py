@@ -30,7 +30,7 @@ class RRT:
         self.obstacle_list = obstacle_list
         self.mps_list = [] # a list of motion_plan_state
 
-    def planning(self, max_iter = 1000, exp_rate = 1.0, dist_to_end = 1.0, animation=True):
+    def planning(self, max_iter = 1000, exp_rate = 1, dist_to_end = 1, diff_max = 0.5, freq = 10, animation=True):
         """
         rrt path planning
         animation: flag for animation on or off
@@ -41,7 +41,7 @@ class RRT:
             ran_mps = self.get_random_mps()
             closest_mps = self.get_closest_mps(ran_mps, self.mps_list)
 
-            new_mps = self.steer(closest_mps)
+            new_mps = self.steer(closest_mps, dist_to_end, diff_max, freq)
 
             if self.check_collision(new_mps, self.obstacle_list):
                 new_mps.parent = closest_mps
@@ -64,7 +64,7 @@ class RRT:
 
         return None  # cannot find path
 
-    def steer(self, mps, dist_to_end=1.0, diff_max = 0.5, freq = 10):
+    def steer(self, mps, dist_to_end, diff_max, freq):
         #dubins library
         '''new_mps = Motion_plan_state(from_mps.x, from_mps.y, theta = from_mps.theta)
         new_mps.path = []
@@ -321,14 +321,13 @@ class RRT:
         return dist, theta
 
 def main():
-    initial = Motion_plan_state(0.857750018119165, 10.172956349100575, theta=-3.0444940112496375)
-    goal = Motion_plan_state(1.6655158694579508, 12.156606781748543, theta=1.9226332891151001)
-    obstacle_list = [Motion_plan_state(5,5,size=1),Motion_plan_state(3,6,size=2),Motion_plan_state(3,8,size=2),\
-    Motion_plan_state(3,10,size=2),Motion_plan_state(7,5,size=2),Motion_plan_state(9,5,size=2),Motion_plan_state(8,10,size=1)]
-    boundary = [Motion_plan_state(0,0), Motion_plan_state(15,15)]
-
-    rrt = RRT(initial, goal, obstacle_list, boundary)
-    path = rrt.planning(animation=show_animation)
+    start = Motion_plan_state(0,0)
+    goal = Motion_plan_state(7,4)
+    boundary = [Motion_plan_state(0,0), Motion_plan_state(10,10)]
+    obstacle_array = [Motion_plan_state(5,7, size=2),Motion_plan_state(4,2, size=1)]
+    rrt = RRT(start, goal, obstacle_array, boundary)
+    path = rrt.planning(animation=False)
+    print(path)
 
     # Draw final path
     if path is not None:
