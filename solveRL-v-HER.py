@@ -486,7 +486,8 @@ def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_p
     Helper function for checking whether the newly obstacle generated is valid or not
 
     Parameters:
-        new_obstacle - an array
+        new_obstacle - an array, represent the new position for the obstacle
+            format []
     """
     auv_overlaps = calculate_range([auv_init_pos.x, auv_init_pos.y], new_obstacle) <= new_obs_size
     shark_overlaps = calculate_range([shark_init_pos.x, shark_init_pos.y], new_obstacle) <= new_obs_size
@@ -539,7 +540,7 @@ def train():
 
     # parameter to discretize the action v and w
     # N specify the number of options that we get to have for v and w
-    N = 2
+    N = 4
 
     num_of_obstacles = 2
 
@@ -666,7 +667,7 @@ def train():
             memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
             # print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
            
-            # sample the goals based on the "future" strategy:
+            """# sample the goals based on the "future" strategy:
             #    replay with k random states which come from the same episode as the transition being replayed and were observed after it
             future_goals_to_sample = next_state_array[t + 1:]
 
@@ -701,7 +702,7 @@ def train():
                 # print(new_next_state)
                 
                 memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
-                # print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
+                # print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))"""
 
             state = next_state
             # print("+++++++", t, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++", additional_reward)
