@@ -231,14 +231,14 @@ class Agent():
             # we don't need to keep track the gradient because we are not doing backpropagation to figure out the weight 
             # of each node yet
             with torch.no_grad():
-                # print("-----")
-                # print("exploiting")
                 # convert the state to a flat tensor to prepare for passing into the neural network
                 state = process_state_for_nn(state)
 
                 # for the given "state"，the output will be Q values for each possible action (index for v and w)
                 #   from the policy net
                 output_weight = policy_net(state).to(self.device)
+                # print("-----")
+                # print("exploiting")
                 # print("Q values check - v")
                 # print(output_weight[0])
 
@@ -534,7 +534,7 @@ def train():
 
     # parameter to discretize the action v and w
     # N specify the number of options that we get to have for v and w
-    N = 2
+    N = 3
 
     num_of_obstacles = 2
 
@@ -586,8 +586,11 @@ def train():
     # For each episode:
     for episode in range(num_episodes):      
         # randomize the auv and shark position
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = 0.0, z = -5.0, theta = 0)
-        shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = 0.0, z = -5.0, theta = 0) 
+        # auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = 0.0, z = -5.0, theta = 0)
+        # shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = 0.0, z = -5.0, theta = 0) 
+        # obstacle_array = []
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
+        shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0) 
         obstacle_array = []
         # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
 
@@ -793,7 +796,7 @@ def test_trained_model():
 
     # parameter to discretize the action v and w
     # N specify the number of options that we get to have for v and w
-    N = 2
+    N = 3
 
     num_of_obstacles = 2
 
@@ -821,7 +824,8 @@ def test_trained_model():
     # if we want to load the already trained network
     policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
     target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
-
+    
+    policy_net_v.eval()
 
     for i in range(num_trails):
         auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = 0.0, z = -5.0, theta = 0)
@@ -835,7 +839,7 @@ def test_trained_model():
         print(shark_init_pos)
         print(obstacle_array)
         print("===============================")
-        # text = input("mannual stop")
+        text = input("mannual stop")
 
         em.env.init_data_for_3D_plot(auv_init_pos, shark_init_pos)
         state = em.reset()
@@ -845,7 +849,7 @@ def test_trained_model():
             action = agent.select_action(state, policy_net_v)
             em.render(print_state = False, live_graph=True)
             em.take_action(action)
-            
+            text = input("stop")
             if em.done:
                 episode_durations[i] = t
                 break
@@ -863,8 +867,8 @@ def test_trained_model():
 
     
 def main():
-    train()
-    # test_trained_model()
+    # train()
+    test_trained_model()
 
 if __name__ == "__main__":
     main()
