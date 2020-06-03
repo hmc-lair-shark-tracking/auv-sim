@@ -542,7 +542,7 @@ def train():
 
     # parameter to discretize the action v and w
     # N specify the number of options that we get to have for v and w
-    N = 8
+    N = 2
 
     num_of_obstacles = 2
 
