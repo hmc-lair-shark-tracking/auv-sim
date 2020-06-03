@@ -294,7 +294,7 @@ class AuvEnvManager():
         self.env.close()
 
 
-    def render(self, mode='human', live_graph = False):
+    def render(self, mode='human', print_state = True, live_graph = False):
         """
         Render the environment both as text in terminal and as a 3D graph if necessary
 
@@ -302,7 +302,7 @@ class AuvEnvManager():
             mode - string, modes for rendering, currently only supporting "human"
             live_graph - boolean, will display the 3D live_graph if True
         """
-        state = self.env.render(mode)
+        state = self.env.render(mode, print_state)
         if live_graph: 
             self.env.render_3D_plot(state[0], state[1])
         return state
@@ -768,7 +768,7 @@ def train():
 
         # time.sleep(1)
         # text = input("manual stop")
-
+    save_model()
     em.close()
     print(episode_durations)
     print("average loss")
@@ -776,33 +776,36 @@ def train():
 
 
 def test_trained_model():
-    batch_size = 256
+    batch_size = 128
     # discount factor for exploration rate decay
     gamma = 0.999
-    eps_start = 0.05
+    eps_start = 0.011
     eps_end = 0.01
     eps_decay = 0.001
 
     # learning rate
     lr = 0.001
 
+    num_trails = 10
+
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # parameter to discretize the action v and w
     # N specify the number of options that we get to have for v and w
-    N = 8
+    N = 2
 
     num_of_obstacles = 2
 
-    auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = 0.0, z = -5.0, theta = 0)
-    shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = 0.0, z = -5.0, theta = 0) 
+    auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MIN_Y), z = -5.0, theta = 0)
+    shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MIN_Y), z = -5.0, theta = 0)
+    # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
     obstacle_array = []
     
+    # setup the environment
     em = AuvEnvManager(device, N, auv_init_pos, shark_init_pos, obstacle_array)
 
     strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
-
     agent = Agent(strategy, N, N, device)
 
     input_size = 8 + len(obstacle_array) * 4
@@ -811,17 +814,16 @@ def test_trained_model():
     policy_net_v = DQN(input_size, N, N).to(device)
     target_net_v = DQN(input_size, N, N).to(device)
 
+    episode_durations = []
+
+    max_step = 200
+
     # if we want to load the already trained network
     policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
     target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
 
-    # policy_net_v.eval()
-    # target_net_v.eval()
 
-    time_list = []
-    for i in range(3):
-        print("start testing the network")
-
+    for i in range(num_trails):
         auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = 0.0, z = -5.0, theta = 0)
         shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = 0.0, z = -5.0, theta = 0) 
         obstacle_array = []
@@ -835,28 +837,28 @@ def test_trained_model():
         print("===============================")
         # text = input("mannual stop")
 
+        em.env.init_data_for_3D_plot(auv_init_pos, shark_init_pos)
         state = em.reset()
 
-        em.env.init_data_for_3D_plot(auv_init_pos, shark_init_pos)
-
-        time_list.append(0)
-        for t in range(300):
+        episode_durations.append(max_step)
+        for t in range(max_step):
             action = agent.select_action(state, policy_net_v)
-            em.render(live_graph=True)
-            reward = em.take_action(action)
-            print("steps: ")
-            print(t)
-            time_list[i] = t
-            print("reward: ")
-            print(reward.item())
+            em.render(print_state = False, live_graph=True)
+            em.take_action(action)
+            
             if em.done:
+                episode_durations[i] = t
                 break
+
+        print("+++++++++++++++++++++++++++++")
+        print("Episode # ", i, " used time: ", episode_durations[i])
+        print("+++++++++++++++++++++++++++++")
         
 
     em.close()
 
     print("final sums of time")
-    print(time_list)
+    print(episode_durations)
 
 
     
