@@ -15,15 +15,15 @@ import torchvision.transforms as T
 
 from motion_plan_state import Motion_plan_state
 
-MIN_X = 6.0
-MAX_X= 10.0
-MIN_Y = 0.0
-MAX_Y = 15.0
-
-# MIN_X = 50.0
-# MAX_X= 60.0
+# MIN_X = 6.0
+# MAX_X= 10.0
 # MIN_Y = 0.0
-# MAX_Y = 110.0
+# MAX_Y = 15.0
+
+MIN_X = 50.0
+MAX_X= 100.0
+MIN_Y = 0.0
+MAX_Y = 150.0
 
 def process_state_for_nn(state):
     """
@@ -214,15 +214,15 @@ class Agent():
                 format: tensor([v_index, w_index])
         """
         rate = self.strategy.get_exploration_rate(self.current_step)
-        print("exploration rate: ", rate)
+        # print("exploration rate: ", rate)
         # as the number of steps increases, the exploration rate will decrease
         self.current_step += 1
         w_action_index = 0
 
         if rate > random.random():
             # exploring the environment by randomly chosing an action
-            print("-----")
-            print("randomly picking")
+            # print("-----")
+            # print("randomly picking")
             v_action_index = random.choice(range(self.actions_range_v))
             """w_action_index = random.choice(range(self.actions_range_w))"""
 
@@ -233,16 +233,16 @@ class Agent():
             # we don't need to keep track the gradient because we are not doing backpropagation to figure out the weight 
             # of each node yet
             with torch.no_grad():
-                print("-----")
-                print("exploiting")
+                # print("-----")
+                # print("exploiting")
                 # convert the state to a flat tensor to prepare for passing into the neural network
                 state = process_state_for_nn(state)
 
                 # for the given "state"，the output will be Q values for each possible action (index for v and w)
                 #   from the policy net
                 output_weight = policy_net(state).to(self.device)
-                print("Q values check - v")
-                print(output_weight)
+                # print("Q values check - v")
+                # print(output_weight)
 
                 """print("Q values check - w")
                 print(output_weight[1])"""
@@ -324,18 +324,18 @@ class AuvEnvManager():
         w_action_index = action[1].item()
         v_action = self.possible_actions[0][v_action_index]
         w_action = self.possible_actions[1][w_action_index]
-        print("=========================")
-        print("action v: ", v_action_index, " | ", v_action)  
-        print("action w: ", w_action_index, " | ", w_action)  
+        # print("=========================")
+        # print("action v: ", v_action_index, " | ", v_action)  
+        # print("action w: ", w_action_index, " | ", w_action)  
         
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
         self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
-        print("new state: ")
-        print(self.current_state)
-        print("reward: ")
-        print(reward)
-        print("=========================")
+        # print("new state: ")
+        # print(self.current_state)
+        # print("reward: ")
+        # print(reward)
+        # print("=========================")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
@@ -572,7 +572,7 @@ def train():
     # determine when we should save the neural network model
     save_every = 10
 
-    max_step = 1000
+    max_step = 2000
 
     score = 0
 
@@ -644,7 +644,7 @@ def train():
         # reset the starting state
         state = em.reset()
 
-        print("iteration: ", iteration)
+        # print("iteration: ", iteration)
         episode_durations.append(iteration)
         # print(action_array)
         # print(next_state_array)
@@ -701,7 +701,7 @@ def train():
                 # print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
 
             state = next_state
-            print("+++++++", t, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++", additional_reward)
+            # print("+++++++", t, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++", additional_reward)
 
             if memory.can_provide_sample(batch_size):
                 # Sample random batch from replay memory.
@@ -736,7 +736,7 @@ def train():
                 
                 """loss_v = F.mse_loss(current_q_values[0], target_q_values_v.unsqueeze(1))"""
 
-                print("v loss: ", loss_v)
+                # print("v loss: ", loss_v)
                 
 
                 """loss_w = F.mse_loss(current_q_values[1], target_q_values_w.unsqueeze(1))
