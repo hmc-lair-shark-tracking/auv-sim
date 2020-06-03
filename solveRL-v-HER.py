@@ -631,6 +631,7 @@ def train():
 
         action_array = []
         next_state_array = []
+        loss_in_ep = []
 
         iteration = max_step
 
@@ -746,6 +747,8 @@ def train():
                 print("w loss: ", loss_w)
 
                 loss_total = loss_v + loss_w
+
+                loss_in_ep.append(loss_total)
 
                 # what if we ignore the loss for w for now because it doesn't matter whether we return w or not
                 # loss_total = loss_v
