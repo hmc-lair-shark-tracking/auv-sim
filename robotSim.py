@@ -212,6 +212,12 @@ class RobotSim:
                     shortest_path = path
 
         shortest_path.reverse()
+        
+        step = self.curr_time
+        for pt in shortest_path:
+            pt.time_stamp = step
+            step += const.SIM_TIME_INTERVAL
+        
         return shortest_path
 
     def calculate_new_auv_state (self, v, w, delta_t):
@@ -547,7 +553,6 @@ class RobotSim:
 
             if self.curr_time == 0 or self.curr_time - t_start >= self.replan_time:
                 RRT_traj = self.replan_trajectory("RRT", Motion_plan_state(0,0), Motion_plan_state(7,4), obstacle_array, boundary)
-                RRT_traj = self.create_trajectory_list(RRT_traj)
                 new_trajectory = True
                 t_start = self.curr_time
             else:
