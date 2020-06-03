@@ -65,9 +65,11 @@ class DQN(nn.Module):
         self.fc2_v = nn.Linear(in_features=24, out_features=32)      
         self.out_v = nn.Linear(in_features=32, out_features=output_size_v)
 
+        """
         # branch for selecting w
         self.fc2_w = nn.Linear(in_features=24, out_features=32)
         self.out_w = nn.Linear(in_features=32, out_features=output_size_w)
+        """
 
 
     def forward(self, t):
@@ -77,47 +79,30 @@ class DQN(nn.Module):
         Parameters:
             t - the state as a tensor
         """
-        # print("initial state: ")
-        # print(t)
-        # text = input("stop")
         # pass through the layers then have relu applied to it
         # relu is the activation function that will turn any negative value to 0,
         #   and keep any positive value
         t = self.fc1(t)
-        # print("fc1")
-        # print(t)
         t = F.relu(t)
-        # print("relu")
-        # print(t)
-        # text = input("stop")
 
         # the neural network is separated into 2 separate branch
         t_v = self.fc2_v(t)
-        # print("fc2_v")
-        # print(t_v)
         t_v = F.relu(t_v)
-        # print("fc2_v relu")
-        # print(t_v)
-        # text = input("stop")
 
+        """
         t_w = self.fc2_w(t)
-        # print("fc2_w")
-        # print(t_w)
         t_w = F.relu(t_w)
-        # text = input("stop")
+        """
 
         # pass through the last layer, the output layer
         # output is a tensor of Q-Values for all the optinons for v/w
-
         t_v = self.out_v(t_v)
-        t_w = self.out_w(t_w)
-        # print("t_v")
-        # print(t_v)
-        # print("t_w")
-        # print(t_w)
-        # input("stop")
 
-        return torch.stack((t_v, t_w))
+        """t_w = self.out_w(t_w)
+
+
+        return torch.stack((t_v, t_w))"""
+        return t_v
 
 
 # namedtuple allows us to store Experiences as labeled tuples
@@ -232,15 +217,17 @@ class Agent():
         print("exploration rate: ", rate)
         # as the number of steps increases, the exploration rate will decrease
         self.current_step += 1
+        w_action_index = 0
 
         if rate > random.random():
             # exploring the environment by randomly chosing an action
             print("-----")
             print("randomly picking")
             v_action_index = random.choice(range(self.actions_range_v))
-            w_action_index = random.choice(range(self.actions_range_w))
+            """w_action_index = random.choice(range(self.actions_range_w))"""
 
-            return torch.tensor([v_action_index, w_action_index]).to(self.device) # explore  
+            return torch.tensor([v_action_index, w_action_index]).to(self.device) # explore
+
         else:
             # turn off gradient tracking bc we are using the model for inference instead of training
             # we don't need to keep track the gradient because we are not doing backpropagation to figure out the weight 
@@ -255,14 +242,16 @@ class Agent():
                 #   from the policy net
                 output_weight = policy_net(state).to(self.device)
                 print("Q values check - v")
-                print(output_weight[0])
-                print("Q values check - w")
-                print(output_weight[1])
+                print(output_weight)
+
+                """print("Q values check - w")
+                print(output_weight[1])"""
 
                 # output_weight[0] is for the v_index, output_weight[1] is for w_index
                 # this is finding the index with the highest Q value
-                v_action_index = torch.argmax(output_weight[0]).item()
-                w_action_index = torch.argmax(output_weight[1]).item()
+                """v_action_index = torch.argmax(output_weight[0]).item()
+                w_action_index = torch.argmax(output_weight[1]).item()"""
+                v_action_index = torch.argmax(output_weight).item()
 
                 return torch.tensor([v_action_index, w_action_index]).to(self.device) # explore  
 
@@ -372,36 +361,39 @@ class AuvEnvManager():
         return torch.tensor([reward], device=self.device).float()
 
 
-# Ultility functions
-def get_moving_average(period, values):
-    values = torch.tensor(values, dtype=torch.float)
-    if len(values) >= period:
-        moving_avg = values.unfold(dimension=0, size=period, step=1) \
-            .mean(dim=0).flatten(start_dim=0)
-        moving_avg = torch.cat((torch.zeros(period-1), moving_avg))
-        return moving_avg.numpy()
-    else:
-        moving_avg = torch.zeros(len(values))
-        return moving_avg.numpy()
+# Ultility functions for plotting (from the rl tutorial)
+# def get_moving_average(period, values):
+#     values = torch.tensor(values, dtype=torch.float)
+#     if len(values) >= period:
+#         moving_avg = values.unfold(dimension=0, size=period, step=1) \
+#             .mean(dim=0).flatten(start_dim=0)
+#         moving_avg = torch.cat((torch.zeros(period-1), moving_avg))
+#         return moving_avg.numpy()
+#     else:
+#         moving_avg = torch.zeros(len(values))
+#         return moving_avg.numpy()
+
 
 # TODO: modify this to plot a more relevant plot
-def plot(values, moving_avg_period):
-    plt.figure(2)
-    plt.clf()        
-    plt.title('Training...')
-    plt.xlabel('Episode')
-    plt.ylabel('Duration')
-    plt.plot(values)
+# def plot(values, moving_avg_period):
+#     plt.figure(2)
+#     plt.clf()        
+#     plt.title('Training...')
+#     plt.xlabel('Episode')
+#     plt.ylabel('Duration')
+#     plt.plot(values)
 
-    moving_avg = get_moving_average(moving_avg_period, values)
-    plt.plot(moving_avg)    
-    plt.pause(0.001)
-    print("Episode", len(values), "\n", \
-        moving_avg_period, "episode moving avg:", moving_avg[-1])
+#     moving_avg = get_moving_average(moving_avg_period, values)
+#     plt.plot(moving_avg)    
+#     plt.pause(0.001)
+#     print("Episode", len(values), "\n", \
+#         moving_avg_period, "episode moving avg:", moving_avg[-1])
 
 
 def extract_tensors(experiences):
-    # Convert batch of Experiences to Experience of batches
+    """
+    Convert batches of experiences sampled from the replay memeory to tuples of tensors
+    """
     batch = Experience(*zip(*experiences))
    
     t1 = torch.stack(batch.state)
@@ -427,10 +419,12 @@ class QValues():
         # policy_net(states).gather(dim=1, index=actions[:,:1]) gives us
         #   a tensor of the q-value corresponds to the state and action(specified by index=actions[:,:1]) pair 
         
-        q_values_for_v = policy_net(states)[0].gather(dim=1, index=actions[:,:1])
+        q_values_for_v = policy_net(states).gather(dim=1, index=actions[:,:1])
+        """q_values_for_v = policy_net(states)[0].gather(dim=1, index=actions[:,:1])
         q_values_for_w = policy_net(states)[1].gather(dim=1, index=actions[:,1:2])
        
-        return torch.stack((q_values_for_v, q_values_for_w), dim = 0)
+        return torch.stack((q_values_for_v, q_values_for_w), dim = 0)"""
+        return q_values_for_v
 
     
     @staticmethod        
@@ -457,10 +451,12 @@ class QValues():
         # values[non_final_state_locations] = target_net(non_final_states).max(dim=0)[0].detach()
         # return values
        
-        v_max_q_values = target_net(next_states)[0].max(dim=1)[0].detach()
+        v_max_q_values = target_net(next_states).max(dim=1)[0].detach()
+        """v_max_q_values = target_net(next_states)[0].max(dim=1)[0].detach()
         w_max_q_values = target_net(next_states)[1].max(dim=1)[0].detach()
        
-        return torch.stack((v_max_q_values, w_max_q_values), dim = 0)
+        return torch.stack((v_max_q_values, w_max_q_values), dim = 0)"""
+        return v_max_q_values
 
 
 def calculate_range(a_pos, b_pos):
@@ -534,7 +530,7 @@ def train():
     # lr = 0.001
     lr = 0.00025
 
-    num_episodes = 500
+    num_episodes = 100
     # num_episodes = 1
 
     # use GPU if available, else use CPU
@@ -590,23 +586,12 @@ def train():
         torch.save(target_net_v.state_dict(), 'checkpoint_target.pth')
 
     # For each episode:
-    for episode in range(num_episodes):
+    for episode in range(num_episodes):      
         # randomize the auv and shark position
-        # auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0)
-        # shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0) 
-        # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
-
         auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = 0.0, z = -5.0, theta = 0)
         shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = 0.0, z = -5.0, theta = 0) 
         obstacle_array = []
-
-        # auv_x = float(input("auv_x: "))
-        # goal_x = float(input("goal_x: "))
-
-        # # when the auv and shark are very close, very likely to get an reward
-        # auv_init_pos = Motion_plan_state(x = auv_x, y = 0.0, z = -5.0, theta = 0)
-        # shark_init_pos = Motion_plan_state(x = goal_x, y = 0.0, z = -5.0, theta = 0) 
-        # obstacle_array = []
+        # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
 
         em.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
         
@@ -616,7 +601,7 @@ def train():
         print(shark_init_pos)
         print(obstacle_array)
         print("===============================")
-        text = input("mannual stop")
+        # text = input("mannual stop")
 
         # Initialize the starting state.
         state = em.reset()
@@ -661,7 +646,7 @@ def train():
 
         print("iteration: ", iteration)
         
-        text = input("mannual stop")
+        # text = input("mannual stop")
 
         for t in range(iteration):
             action = action_array[t]
@@ -703,9 +688,7 @@ def train():
                 new_next_state = (next_state[0], goal[0], next_state[2])
 
                 memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(new_next_state), reward))
-                # print("-")
-                # print(Experience(process_state_for_nn(state), action, process_state_for_nn(new_next_state), reward))
-            # print("==================")
+               
 
             state = next_state
             print("+++++++", t, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++", additional_reward)
@@ -720,27 +703,38 @@ def train():
                 # Pass batch of preprocessed states to policy network.
                 # return the q value for the given state-action pair by passing throught the policy net
                 current_q_values = QValues.get_current(policy_net_v, states, actions)
-
+            
                 next_q_values = QValues.get_next(target_net_v, next_states)
+
+                target_q_values_v = (next_q_values * gamma) + rewards
                 
-                target_q_values_v = (next_q_values[0] * gamma) + rewards
-                target_q_values_w = (next_q_values[1] * gamma) + rewards
+                """target_q_values_v = (next_q_values[0] * gamma) + rewards
+                target_q_values_w = (next_q_values[1] * gamma) + rewards"""
                 
                 # Calculate loss between output Q-values and target Q-values.
                 # mse_loss calculate the mean square error
                 
+                
+                # print("current q value")
+                # print(current_q_values)
+                # print("next q value")
+                # print(next_q_values.unsqueeze(1))
                 # print("target q value")
                 # print(target_q_values_v.unsqueeze(1))
-                # print("current q value")
-                # print(current_q_values[0])
+
+                loss_v = F.mse_loss(current_q_values, target_q_values_v.unsqueeze(1))
                 
-                loss_v = F.mse_loss(current_q_values[0], target_q_values_v.unsqueeze(1))
+                """loss_v = F.mse_loss(current_q_values[0], target_q_values_v.unsqueeze(1))"""
+
                 print("v loss: ", loss_v)
+                
 
-                loss_w = F.mse_loss(current_q_values[1], target_q_values_w.unsqueeze(1))
-                print("w loss: ", loss_w)
+                """loss_w = F.mse_loss(current_q_values[1], target_q_values_w.unsqueeze(1))
+                print("w loss: ", loss_w
 
-                loss_total = loss_v + loss_w
+                loss_total = loss_v + loss_w"""
+
+                loss_total = loss_v
 
                 loss_in_ep.append(loss_total.item())
             
@@ -783,7 +777,7 @@ def train():
         save_model()
 
         # time.sleep(1)
-        text = input("manual stop")
+        # text = input("manual stop")
 
     em.close()
     print(episode_durations)
@@ -849,7 +843,7 @@ def test_trained_model():
         print(shark_init_pos)
         print(obstacle_array)
         print("===============================")
-        text = input("mannual stop")
+        # text = input("mannual stop")
 
         state = em.reset()
 
