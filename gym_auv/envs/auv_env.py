@@ -280,7 +280,7 @@ class AuvEnv(gym.Env):
         return self.state
 
 
-    def render(self, mode='human'):
+    def render(self, mode='human', print_state = True):
         """
         Render the environment by
             - printing out auv and shark's current position
@@ -292,12 +292,13 @@ class AuvEnv(gym.Env):
         auv_pos = self.state[0]
         shark_pos = self.state[1]
         
-        print("==========================")
-        print("auv position: ")
-        print("x = ", auv_pos[0], " y = ", auv_pos[1], " z = ", auv_pos[2], " theta = ", auv_pos[3])
-        print("shark position: ")
-        print("x = ", shark_pos[0], " y = ", shark_pos[1], " z = ", shark_pos[2], " theta = ", shark_pos[3])
-        print("==========================")
+        if print_state: 
+            print("==========================")
+            print("auv position: ")
+            print("x = ", auv_pos[0], " y = ", auv_pos[1], " z = ", auv_pos[2], " theta = ", auv_pos[3])
+            print("shark position: ")
+            print("x = ", shark_pos[0], " y = ", shark_pos[1], " z = ", shark_pos[2], " theta = ", shark_pos[3])
+            print("==========================")
 
         # self.render_3D_plot(self.state[0], self.state[1])
         return self.state
