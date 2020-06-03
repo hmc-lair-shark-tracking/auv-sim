@@ -527,11 +527,9 @@ def train():
     memory_size = 100000
 
     # learning rate
-    # lr = 0.001
-    lr = 0.00025
+    lr = 0.001
 
     num_episodes = 100
-    # num_episodes = 1
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -547,10 +545,12 @@ def train():
     # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
     obstacle_array = []
     
+    # setup the environment
     em = AuvEnvManager(device, N, auv_init_pos, shark_init_pos, obstacle_array)
-    strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
 
+    strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
     agent = Agent(strategy, N, N, device)
+
     memory = ReplayMemory(memory_size)
 
     input_size = 8 + len(obstacle_array) * 4
@@ -569,10 +569,10 @@ def train():
 
     episode_durations = []
 
-    save_every = 20
+    determine when we should save the neural network model
+    save_every = 10
 
     max_step = 1000
-    # max_step = 10
 
     score = 0
 
@@ -636,7 +636,7 @@ def train():
 
             if em.done: 
                 episode_durations.append(timestep)
-                iteration = timestep
+                iteration = timestep + 1
                 # plot(episode_durations, 100)
                 break
         
@@ -645,7 +645,8 @@ def train():
         state = em.reset()
 
         print("iteration: ", iteration)
-        
+        # print(action_array)
+        # print(next_state_array)
         # text = input("mannual stop")
 
         for t in range(iteration):
@@ -659,8 +660,9 @@ def train():
             
             # Store experience in replay memory.
             memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
+            # print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
            
-            # sample the goals based on the "future" strategy:
+            """# sample the goals based on the "future" strategy:
             #    replay with k random states which come from the same episode as the transition being replayed and were observed after it
             future_goals_to_sample = next_state_array[t + 1:]
 
@@ -687,11 +689,12 @@ def train():
                 # print("reward: ", reward)
                 new_next_state = (next_state[0], goal[0], next_state[2])
 
-                memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(new_next_state), reward))
+                memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(new_next_state), reward))"""
                
 
             state = next_state
-            print("+++++++", t, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++", additional_reward)
+            """print("+++++++", t, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++", additional_reward)"""
+            print("+++++++", t, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++")
 
             if memory.can_provide_sample(batch_size):
                 # Sample random batch from replay memory.
@@ -771,10 +774,9 @@ def train():
             print("+++++++++++++++++++++++++++++")
 
 
-        # if episode % save_every == 0:
-        #     save_model()
+        if episode % save_every == 0:
+            save_model()
 
-        save_model()
 
         # time.sleep(1)
         # text = input("manual stop")
