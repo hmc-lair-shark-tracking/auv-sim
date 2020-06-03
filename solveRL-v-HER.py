@@ -426,15 +426,7 @@ class QValues():
         # policy_net(states) gives all the predicted q-values for all the action outcome for a given state
         # policy_net(states).gather(dim=1, index=actions[:,:1]) gives us
         #   a tensor of the q-value corresponds to the state and action(specified by index=actions[:,:1]) pair 
-        # print(policy_net(states))
-    
-        # print(states)
-        # print(states[0])
-        # print("all the predicted q-values for all the action outcome")
-        # print(policy_net(states)[0])
-        # print("first one")
-        # print(policy_net(states)[0][0])
-        # text = input("stop")
+        
         q_values_for_v = policy_net(states)[0].gather(dim=1, index=actions[:,:1])
         q_values_for_w = policy_net(states)[1].gather(dim=1, index=actions[:,1:2])
        
@@ -542,7 +534,7 @@ def train():
     # lr = 0.001
     lr = 0.00025
 
-    num_episodes = 100
+    num_episodes = 500
     # num_episodes = 1
 
     # use GPU if available, else use CPU
@@ -589,6 +581,8 @@ def train():
     score = 0
 
     num_goals_sampled_HER = 4
+
+    avg_loss_array = []
 
     def save_model():
         print("Model Save...")
@@ -748,8 +742,8 @@ def train():
 
                 loss_total = loss_v + loss_w
 
-                loss_in_ep.append(loss_total)
-
+                loss_in_ep.append(loss_total.item())
+            
                 # what if we ignore the loss for w for now because it doesn't matter whether we return w or not
                 # loss_total = loss_v
                 
@@ -765,16 +759,23 @@ def train():
                 optimizer.step()
 
             
-
         # After x time steps, weights in the target network are updated to the weights in the policy network.
         # in our case, it will be 10 episodes
         if episode % target_update == 0:
             print("UPDATE TARGET NETWORK")
             target_net_v.load_state_dict(policy_net_v.state_dict())
+        
+        if loss_in_ep != []:
+            avg_loss = np.mean(loss_in_ep)
+            avg_loss_array.append(avg_loss)
+            print("+++++++++++++++++++++++++++++")
+            print("Episode # ", episode, "end with reward: ", score, "average loss", avg_loss, " used time: ", timestep)
+            print("+++++++++++++++++++++++++++++")
+        else:
+            print("+++++++++++++++++++++++++++++")
+            print("Episode # ", episode, "end with reward: ", score, "average loss nan", " used time: ", timestep)
+            print("+++++++++++++++++++++++++++++")
 
-        print("+++++++++++++++++++++++++++++")
-        print("Episode # ", episode, "end with reward: ", score, " used time: ", timestep)
-        print("+++++++++++++++++++++++++++++")
 
         # if episode % save_every == 0:
         #     save_model()
@@ -786,6 +787,8 @@ def train():
 
     em.close()
     print(episode_durations)
+    print("average loss")
+    print(avg_loss_array)
 
 
 def test_trained_model():
