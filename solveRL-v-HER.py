@@ -529,7 +529,7 @@ def train():
     # learning rate
     lr = 0.001
 
-    num_episodes = 100
+    num_episodes = 1000
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -569,10 +569,10 @@ def train():
 
     episode_durations = []
 
-    determine when we should save the neural network model
+    # determine when we should save the neural network model
     save_every = 10
 
-    max_step = 1000
+    max_step = 2000
 
     score = 0
 
@@ -635,7 +635,7 @@ def train():
             state = next_state
 
             if em.done: 
-                episode_durations.append(timestep)
+                # episode_durations.append(timestep)
                 iteration = timestep + 1
                 # plot(episode_durations, 100)
                 break
@@ -645,6 +645,7 @@ def train():
         state = em.reset()
 
         print("iteration: ", iteration)
+        episode_durations.append(iteration)
         # print(action_array)
         # print(next_state_array)
         # text = input("mannual stop")
@@ -662,11 +663,10 @@ def train():
             memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
             # print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
            
-            """# sample the goals based on the "future" strategy:
+            # sample the goals based on the "future" strategy:
             #    replay with k random states which come from the same episode as the transition being replayed and were observed after it
             future_goals_to_sample = next_state_array[t + 1:]
 
-            # print(future_goals_to_sample)
             # Note: Might have repeated goals if the len(future_goals_to_sample) < num_goals_sampled_HER
             if future_goals_to_sample != []:
                 k = num_goals_sampled_HER
@@ -675,7 +675,8 @@ def train():
                 additional_goals = random.sample(future_goals_to_sample, k = k)
             else:
                 additional_goals = [next_state_array[-1]]
-            
+            # print("additional goals")
+            # print(additional_goals)
             additional_reward = 0
 
             for goal in additional_goals:
@@ -685,16 +686,22 @@ def train():
                 reward = em.get_binary_reward(next_state[0], goal[0])
                 if reward == 1:
                     additional_reward += reward
-
-                # print("reward: ", reward)
+                
+                new_curr_state = (state[0], goal[0], state[2])
+                
                 new_next_state = (next_state[0], goal[0], next_state[2])
 
-                memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(new_next_state), reward))"""
-               
+                # print("new curr state: ")
+                # print(new_curr_state)
+                # print()
+                # print("new next state: ")
+                # print(new_next_state)
+                
+                memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
+                # print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
 
             state = next_state
-            """print("+++++++", t, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++", additional_reward)"""
-            print("+++++++", t, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++")
+            print("+++++++", t, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++", additional_reward)
 
             if memory.can_provide_sample(batch_size):
                 # Sample random batch from replay memory.
