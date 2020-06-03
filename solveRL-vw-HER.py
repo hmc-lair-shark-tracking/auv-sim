@@ -15,15 +15,15 @@ import torchvision.transforms as T
 
 from motion_plan_state import Motion_plan_state
 
-# MIN_X = 6.0
-# MAX_X= 10.0
-# MIN_Y = 0.0
-# MAX_Y = 15.0
-
-MIN_X = 50.0
-MAX_X= 100.0
+MIN_X = 6.0
+MAX_X= 10.0
 MIN_Y = 0.0
-MAX_Y = 150.0
+MAX_Y = 15.0
+
+# MIN_X = 50.0
+# MAX_X= 100.0
+# MIN_Y = 0.0
+# MAX_Y = 150.0
 
 def process_state_for_nn(state):
     """
@@ -240,7 +240,7 @@ class Agent():
                 #   from the policy net
                 output_weight = policy_net(state).to(self.device)
                 # print("Q values check - v")
-                # print(output_weight)
+                # print(output_weight[0])
 
                 # print("Q values check - w")
                 # print(output_weight[1])
@@ -326,13 +326,13 @@ class AuvEnvManager():
         w_action_index = action[1].item()
         v_action = self.possible_actions[0][v_action_index]
         w_action = self.possible_actions[1][w_action_index]
-        # print("=========================")
-        # print("action v: ", v_action_index, " | ", v_action)  
-        # print("action w: ", w_action_index, " | ", w_action)  
         
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
         self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
+        # print("=========================")
+        # print("action v: ", v_action_index, " | ", v_action)  
+        # print("action w: ", w_action_index, " | ", w_action)  
         # print("new state: ")
         # print(self.current_state)
         # print("reward: ")
@@ -527,7 +527,7 @@ def train():
     # learning rate
     lr = 0.001
 
-    num_episodes = 2000
+    num_episodes = 500
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -688,12 +688,6 @@ def train():
                 new_curr_state = (state[0], goal[0], state[2])
                 
                 new_next_state = (next_state[0], goal[0], next_state[2])
-
-                # print("new curr state: ")
-                # print(new_curr_state)
-                # print()
-                # print("new next state: ")
-                # print(new_next_state)
                 
                 memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
                 # print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
@@ -720,9 +714,9 @@ def train():
                 # Calculate loss between output Q-values and target Q-values.
                 # mse_loss calculate the mean square error              
                 # print("current q value")
-                # print(current_q_values)
+                # print(current_q_values[0])
                 # print("next q value")
-                # print(next_q_values.unsqueeze(1))
+                # print(next_q_values[0].unsqueeze(1))
                 # print("target q value")
                 # print(target_q_values_v.unsqueeze(1))
 
