@@ -264,10 +264,10 @@ class AuvEnvManager():
         """
         Parameters: 
             device - what we want to PyTorch to use for tensor calculation
-            N - 
-            auv_init_pos - 
-            shark_init_pos -
-            obstacle_array - 
+            N - the number of options that v and w have
+            auv_init_pos - motion plan state object
+            shark_init_pos - motion plan state object
+            obstacle_array - an array of motion plan state objects
         """
         self.device = device
 
@@ -487,7 +487,11 @@ def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_p
 
     Parameters:
         new_obstacle - an array, represent the new position for the obstacle
-            format []
+            format: [obstacle_x, obstacle_y]
+        new_obs_size - int, represent the size of the obstacle (which is a sphere)
+        auv_init_pos - a motion plan state object
+        shark_init_pos - a motion plan state object
+
     """
     auv_overlaps = calculate_range([auv_init_pos.x, auv_init_pos.y], new_obstacle) <= new_obs_size
     shark_overlaps = calculate_range([shark_init_pos.x, shark_init_pos.y], new_obstacle) <= new_obs_size
@@ -533,14 +537,14 @@ def train():
     # learning rate
     lr = 0.001
 
-    num_episodes = 2000
+    num_episodes = 1000
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # parameter to discretize the action v and w
     # N specify the number of options that we get to have for v and w
-    N = 4
+    N = 2
 
     num_of_obstacles = 2
 

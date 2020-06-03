@@ -93,6 +93,7 @@ class AuvEnv(gym.Env):
         Parameters:
             auv_init_pos - an motion plan state object
             shark_init_pos - an motion plan state object
+            obstacle_array - 
         """
         self.auv_init_pos = auv_init_pos
         self.shark_init_pos = shark_init_pos
