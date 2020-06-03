@@ -572,7 +572,7 @@ def train():
     # determine when we should save the neural network model
     save_every = 10
 
-    max_step = 2000
+    max_step = 1000
 
     score = 0
 
