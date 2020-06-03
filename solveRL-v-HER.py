@@ -537,7 +537,7 @@ def train():
     # learning rate
     lr = 0.001
 
-    num_episodes = 1000
+    num_episodes = 2000
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

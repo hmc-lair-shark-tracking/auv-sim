@@ -125,7 +125,7 @@ class AuvEnv(gym.Env):
     def actions_range(self, N):
         v_options = np.linspace(-AUV_MAX_V, AUV_MAX_V, N)
         w_options = np.linspace(-AUV_MAX_W, AUV_MAX_W, N)
-        # w_options[0] = 0
+        w_options[0] = 0
         print((v_options, w_options))
         text = input("stop")
         # w_options = [0] * N
