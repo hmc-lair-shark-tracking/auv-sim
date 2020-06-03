@@ -6,7 +6,6 @@ import numpy as np
 import time
 import csv
 
-# import data representation class
 from sharkState import SharkState
 from sharkTrajectory import SharkTrajectory
 from live3DGraph import Live3DGraph
@@ -59,11 +58,10 @@ class RobotSim:
         # keep track of the current time that we are in
         # each iteration in the while loop will be assumed as 0.1 sec
         self.curr_time = 0
-        self.time_array = []
         
         # keep track when there will be new sensor data of sharks
         # start out as 20, so particle filter will get some data in the beginning
-        self.sensor_time = const.NUM_ITER_FOR_NEW_SENSOR_DATA
+        self.sensor_time = 20
 
         # index for which trajectory point that we should
         # keep track of
@@ -138,7 +136,7 @@ class RobotSim:
         # decide to sensor_time an integer because floating point addition is not as reliable
         # each iteration through the main navigation loop is 0.1 sec, so 
         #   we need 20 iterations to return a new set of sensor data
-        if self.sensor_time == const.NUM_ITER_FOR_NEW_SENSOR_DATA:
+        if self.sensor_time == 20:
             # iterate through all the sharks that we are tracking
             for shark_id in shark_state_dict: 
                 shark_data = shark_state_dict[shark_id]
@@ -172,16 +170,17 @@ class RobotSim:
             trajectory - a list of trajectory points, where each element is 
             a Motion_plan_state object that consist of time stamp, x, y, z,theta
         """
-        # determine how ahead should the trajectory point be compared to current time
-        #look_ahead_time = 5
-
         if new_trajectory:
             self.curr_traj_pt_index = 0
 
+
         # only increment the index if it hasn't reached the end of the trajectory list
         while (self.curr_traj_pt_index < len(trajectory)-1) and\
-            (self.curr_time + const.TRAJ_LOOK_AHEAD_TIME) > trajectory[self.curr_traj_pt_index].time_stamp: 
+            (self.curr_time + look_ahead_time) > trajectory[self.curr_traj_pt_index].time_stamp: 
                 self.curr_traj_pt_index += 1
+            
+                print ("time: ", trajectory[self.curr_traj_pt_index].time_stamp)
+                print ("position: ", trajectory[self.curr_traj_pt_index])
 
         return trajectory[self.curr_traj_pt_index]
     
@@ -241,7 +240,9 @@ class RobotSim:
     def send_trajectory_to_actuators(self, v, w):
         # TODO: For now this should just update AUV States?
 
-        self.calculate_new_auv_state(v, w, const.SIM_TIME_INTERVAL)
+        # set time step to 0.1 sec 
+        delta_t = 0.1
+        self.calculate_new_auv_state(v, w, delta_t)
         
 
     def log_data(self):
@@ -268,11 +269,11 @@ class RobotSim:
             obstacle_array - (optional) an array of motion_plan_states that represent the obstacles's
                 position and size
         """
-        # scale the arrow for the auv and the sharks properly for graph
-        self.live_graph.scale_quiver_arrow()
 
 
-        self.live_graph.plot_auv(self.x_list, self.y_list, self.z_list)
+        # plot the new auv position as a red "o"
+        self.live_graph.ax.plot(self.x_list, self.y_list, self.z_list,\
+            marker = 'o', linestyle = '-', color = 'red', label='auv')
 
 
         # plot the new positions for all the sharks that the robot is tracking
@@ -291,8 +292,14 @@ class RobotSim:
         if obstacle_array != []:
             self.live_graph.plot_obstacles(obstacle_array)
 
-        self.live_graph.ax.legend(self.live_graph.labels)
-        
+        # change grid spacing on graph 
+        # self.live_graph.ax.legend(self.live_graph.labels)
+        # self.live_graph.ax.yaxis.set_minor_locator(AutoMinorLocator(10))
+        # self.live_graph.ax.xaxis.set_minor_locator(AutoMinorLocator(10))
+
+        # self.live_graph.ax.yaxis.set_major_locator(MultipleLocator(100))
+        # self.live_graph.ax.xaxis.set_major_locator(MultipleLocator(100))        
+
         plt.draw()
 
         # pause so the plot can be updated
@@ -303,7 +310,6 @@ class RobotSim:
     def track_way_point(self, way_point):
         """
         Calculates the v&w to get to the next point along the trajectory
-
         way_point - a motion_plan_state object, represent the trajectory point that we are tracking
         """
         # K_P and v are stand in values
@@ -315,6 +321,7 @@ class RobotSim:
         
         return v, w
     
+
     def summary_graphs(self):
         """
         Generate summary plot(s) after the "End Simulation" button is clicked
@@ -345,6 +352,7 @@ class RobotSim:
         self.live_graph.plot_distance(auv_all_sharks_dist_dict, time_array)
 
         plt.show()
+
 
     def get_auv_trajectory(self, v, delta_t):
         """
@@ -519,7 +527,7 @@ class RobotSim:
             -> log and plot data
         """
         
-        while self.live_graph.run_sim:
+        while True:
             
             auv_sensor_data = self.get_auv_sensor_measurements()
             print("==================")
@@ -538,19 +546,14 @@ class RobotSim:
                     str(self.shark_sensor_data_dict))
 
             # test trackTrajectory
+
             # example of how to indicate the obstacles and plot them
             obstacle_array = [Motion_plan_state(5,7, size=2),Motion_plan_state(4,2, size=1)]
 
             # testing data for plotting RRT_traj
-            boundary = [Motion_plan_state(0,0), Motion_plan_state(10,10)]
+            boundary = [Motion_plan_state(0,0), Motion_plan_state(100,100)]
             
-            # testing data for plotting A_star_traj
-            #astar_solver = astar(start, goal, obstacle_list, boundary)
-            A_star_new_traj = [Motion_plan_state(0, 0)]
-            A_star_new_traj += [Motion_plan_state(0 + i, 0 + i) for i in range(50)]
-            #A_star_new_traj = self.create_trajectory_list(A_star_traj)
-            #tracking_pt = self.track_trajectory(A_star_new_traj)
-
+            # testing data for plotting RRT_traj
             if self.curr_time == 0 or self.curr_time - t_start >= self.replan_time:
                 RRT_traj = self.replan_trajectory("RRT", Motion_plan_state(0,0), Motion_plan_state(7,4), obstacle_array, boundary)
                 new_trajectory = True
@@ -559,6 +562,18 @@ class RobotSim:
                 new_trajectory = False
             
             tracking_pt = self.track_trajectory(RRT_traj, new_trajectory)
+
+            # testing data for plotting A_star_traj
+            start = (0,0)
+            goal = (70,50)
+            
+            astar_solver = astar(start, goal, obstacle_list, boundary)
+
+            A_star_traj = astar_solver.astar(obstacle_list, start, goal)
+           
+            A_star_new_traj = self.create_trajectory_list(A_star_traj)
+
+            tracking_pt = self.track_trajectory(A_star_new_traj)
 
             print("==================")
             print ("Currently tracking point: " + str(tracking_pt))
@@ -583,19 +598,18 @@ class RobotSim:
             
             particle_array += [[0 + np.random.randint(-5, 5, dtype='int'), 0 + np.random.randint(-5, 5, dtype='int'), 0, 0, 0] for i in range(50)]
 
+
             # In order to plot your planned trajectory, you have to wrap your trajectory in another array, where
             #   1st element: the planner's name (either "A *" or "RRT")
             #   2nd element: the list of Motion_plan_state returned by your planner
             # Use the "planned_traj_array" as an example
             self.update_live_graph(planned_traj_array, particle_array, obstacle_array)
             
-            self.time_array.append(self.curr_time)
             # increment the current time by 0.1 second
             self.curr_time += const.SIM_TIME_INTERVAL
         
         # "End Simulation" button is pressed, generate summary graphs for this simulation
         self.summary_graphs()
-
 
 def main():
     test_robot = RobotSim(0,0,-10,0.1)
