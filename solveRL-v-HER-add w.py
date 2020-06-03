@@ -65,11 +65,11 @@ class DQN(nn.Module):
         self.fc2_v = nn.Linear(in_features=24, out_features=32)      
         self.out_v = nn.Linear(in_features=32, out_features=output_size_v)
 
-        """
+        
         # branch for selecting w
         self.fc2_w = nn.Linear(in_features=24, out_features=32)
         self.out_w = nn.Linear(in_features=32, out_features=output_size_w)
-        """
+        
 
 
     def forward(self, t):
@@ -89,20 +89,17 @@ class DQN(nn.Module):
         t_v = self.fc2_v(t)
         t_v = F.relu(t_v)
 
-        """
+
         t_w = self.fc2_w(t)
         t_w = F.relu(t_w)
-        """
+  
 
         # pass through the last layer, the output layer
         # output is a tensor of Q-Values for all the optinons for v/w
         t_v = self.out_v(t_v)
+        t_w = self.out_w(t_w)
 
-        """t_w = self.out_w(t_w)
-
-
-        return torch.stack((t_v, t_w))"""
-        return t_v
+        return torch.stack((t_v, t_w))
 
 
 # namedtuple allows us to store Experiences as labeled tuples
@@ -134,6 +131,7 @@ class ReplayMemory():
             self.memory[self.push_count % self.capacity] = experience
         self.push_count += 1
 
+
     def sample(self, batch_size):
         """
         Randomly sample "batch_size" amount of experiences from replace memory
@@ -142,6 +140,7 @@ class ReplayMemory():
             batch_size - int, number of experiences that we want to sample from replace memory
         """
         return random.sample(self.memory, batch_size)
+
 
     def can_provide_sample(self, batch_size):
         """
@@ -217,14 +216,13 @@ class Agent():
         # print("exploration rate: ", rate)
         # as the number of steps increases, the exploration rate will decrease
         self.current_step += 1
-        w_action_index = 0
 
         if rate > random.random():
             # exploring the environment by randomly chosing an action
             # print("-----")
             # print("randomly picking")
             v_action_index = random.choice(range(self.actions_range_v))
-            """w_action_index = random.choice(range(self.actions_range_w))"""
+            w_action_index = random.choice(range(self.actions_range_w))
 
             return torch.tensor([v_action_index, w_action_index]).to(self.device) # explore
 
@@ -244,14 +242,13 @@ class Agent():
                 # print("Q values check - v")
                 # print(output_weight)
 
-                """print("Q values check - w")
-                print(output_weight[1])"""
+                # print("Q values check - w")
+                # print(output_weight[1])
 
                 # output_weight[0] is for the v_index, output_weight[1] is for w_index
                 # this is finding the index with the highest Q value
-                """v_action_index = torch.argmax(output_weight[0]).item()
-                w_action_index = torch.argmax(output_weight[1]).item()"""
-                v_action_index = torch.argmax(output_weight).item()
+                v_action_index = torch.argmax(output_weight[0]).item()
+                w_action_index = torch.argmax(output_weight[1]).item()
 
                 return torch.tensor([v_action_index, w_action_index]).to(self.device) # explore  
 
@@ -285,15 +282,18 @@ class AuvEnvManager():
         # values of v and w for the agent to chose from
         self.possible_actions = self.env.actions_range(N)
 
+
     def reset(self):
         """
         Reset the environment and return the initial state
         """
         return self.env.reset()
-        
+
+
     def close(self):
         self.env.close()
-    
+
+
     def render(self, mode='human', live_graph = False):
         """
         Render the environment both as text in terminal and as a 3D graph if necessary
@@ -307,11 +307,13 @@ class AuvEnvManager():
             self.env.render_3D_plot(state[0], state[1])
         return state
 
+
     def num_actions_available(self):
         """
         Return the number of options (values) to choose for v and w
         """
         return len(self.possible_actions[0])
+
 
     def take_action(self, action):
         """
@@ -419,12 +421,10 @@ class QValues():
         # policy_net(states).gather(dim=1, index=actions[:,:1]) gives us
         #   a tensor of the q-value corresponds to the state and action(specified by index=actions[:,:1]) pair 
         
-        q_values_for_v = policy_net(states).gather(dim=1, index=actions[:,:1])
-        """q_values_for_v = policy_net(states)[0].gather(dim=1, index=actions[:,:1])
+        q_values_for_v = policy_net(states)[0].gather(dim=1, index=actions[:,:1])
         q_values_for_w = policy_net(states)[1].gather(dim=1, index=actions[:,1:2])
        
-        return torch.stack((q_values_for_v, q_values_for_w), dim = 0)"""
-        return q_values_for_v
+        return torch.stack((q_values_for_v, q_values_for_w), dim = 0)
 
     
     @staticmethod        
@@ -451,12 +451,10 @@ class QValues():
         # values[non_final_state_locations] = target_net(non_final_states).max(dim=0)[0].detach()
         # return values
        
-        v_max_q_values = target_net(next_states).max(dim=1)[0].detach()
-        """v_max_q_values = target_net(next_states)[0].max(dim=1)[0].detach()
+        v_max_q_values = target_net(next_states)[0].max(dim=1)[0].detach()
         w_max_q_values = target_net(next_states)[1].max(dim=1)[0].detach()
        
-        return torch.stack((v_max_q_values, w_max_q_values), dim = 0)"""
-        return v_max_q_values
+        return torch.stack((v_max_q_values, w_max_q_values), dim = 0)
 
 
 def calculate_range(a_pos, b_pos):
@@ -484,9 +482,6 @@ def calculate_range(a_pos, b_pos):
 def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_pos, obstacle_array):
     """
     Helper function for checking whether the newly obstacle generated is valid or not
-
-    Parameters:
-        new_obstacle - an array
     """
     auv_overlaps = calculate_range([auv_init_pos.x, auv_init_pos.y], new_obstacle) <= new_obs_size
     shark_overlaps = calculate_range([shark_init_pos.x, shark_init_pos.y], new_obstacle) <= new_obs_size
@@ -718,16 +713,12 @@ def train():
                 current_q_values = QValues.get_current(policy_net_v, states, actions)
             
                 next_q_values = QValues.get_next(target_net_v, next_states)
-
-                target_q_values_v = (next_q_values * gamma) + rewards
                 
-                """target_q_values_v = (next_q_values[0] * gamma) + rewards
-                target_q_values_w = (next_q_values[1] * gamma) + rewards"""
+                target_q_values_v = (next_q_values[0] * gamma) + rewards
+                target_q_values_w = (next_q_values[1] * gamma) + rewards
                 
                 # Calculate loss between output Q-values and target Q-values.
-                # mse_loss calculate the mean square error
-                
-                
+                # mse_loss calculate the mean square error              
                 # print("current q value")
                 # print(current_q_values)
                 # print("next q value")
@@ -735,24 +726,17 @@ def train():
                 # print("target q value")
                 # print(target_q_values_v.unsqueeze(1))
 
-                loss_v = F.mse_loss(current_q_values, target_q_values_v.unsqueeze(1))
                 
-                """loss_v = F.mse_loss(current_q_values[0], target_q_values_v.unsqueeze(1))"""
+                loss_v = F.mse_loss(current_q_values[0], target_q_values_v.unsqueeze(1))
 
                 # print("v loss: ", loss_v)
-                
 
-                """loss_w = F.mse_loss(current_q_values[1], target_q_values_w.unsqueeze(1))
-                print("w loss: ", loss_w
+                loss_w = F.mse_loss(current_q_values[1], target_q_values_w.unsqueeze(1))
+                # print("w loss: ", loss_w)
 
-                loss_total = loss_v + loss_w"""
-
-                loss_total = loss_v
+                loss_total = loss_v + loss_w
 
                 loss_in_ep.append(loss_total.item())
-            
-                # what if we ignore the loss for w for now because it doesn't matter whether we return w or not
-                # loss_total = loss_v
                 
                 # Gradient descent updates weights in the policy network to minimize loss.
                 # sets the gradients of all the weights and biases in the policy network to zero
