@@ -254,8 +254,10 @@ class Agent():
                 # for the given "state"，the output will be Q values for each possible action (index for v and w)
                 #   from the policy net
                 output_weight = policy_net(state).to(self.device)
-                print("Q values check")
+                print("Q values check - v")
                 print(output_weight[0])
+                print("Q values check - w")
+                print(output_weight[1])
 
                 # output_weight[0] is for the v_index, output_weight[1] is for w_index
                 # this is finding the index with the highest Q value
@@ -426,13 +428,13 @@ class QValues():
         #   a tensor of the q-value corresponds to the state and action(specified by index=actions[:,:1]) pair 
         # print(policy_net(states))
     
-        print(states)
-        print(states[0])
-        print("all the predicted q-values for all the action outcome")
-        print(policy_net(states)[0])
-        print("first one")
-        print(policy_net(states)[0][0])
-        text = input("stop")
+        # print(states)
+        # print(states[0])
+        # print("all the predicted q-values for all the action outcome")
+        # print(policy_net(states)[0])
+        # print("first one")
+        # print(policy_net(states)[0][0])
+        # text = input("stop")
         q_values_for_v = policy_net(states)[0].gather(dim=1, index=actions[:,:1])
         q_values_for_w = policy_net(states)[1].gather(dim=1, index=actions[:,1:2])
        
@@ -492,6 +494,9 @@ def calculate_range(a_pos, b_pos):
 
 
 def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_pos, obstacle_array):
+    """
+    Helper function for checking whether the newly obstacle generated is valid or not
+    """
     auv_overlaps = calculate_range([auv_init_pos.x, auv_init_pos.y], new_obstacle) <= new_obs_size
     shark_overlaps = calculate_range([shark_init_pos.x, shark_init_pos.y], new_obstacle) <= new_obs_size
     obs_overlaps = False
@@ -501,7 +506,10 @@ def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_p
             break
     return auv_overlaps or shark_overlaps or obs_overlaps
 
+
 def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
+    """
+    """
     obstacle_array = []
     for i in range(num_of_obstacles):
         obs_x = np.random.uniform(MIN_X, MAX_X)
@@ -607,14 +615,14 @@ def train():
         # obstacle_array = []
 
         em.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
-        if episode > 20:
-            print("===============================")
-            print("Inital State")
-            print(auv_init_pos)
-            print(shark_init_pos)
-            print(obstacle_array)
-            print("===============================")
-            text = input("mannual stop")
+        
+        print("===============================")
+        print("Inital State")
+        print(auv_init_pos)
+        print(shark_init_pos)
+        print(obstacle_array)
+        print("===============================")
+        text = input("mannual stop")
 
         # Initialize the starting state.
         state = em.reset()
@@ -657,8 +665,8 @@ def train():
         state = em.reset()
 
         print("iteration: ", iteration)
-        if episode > 20:
-            text = input("mannual stop")
+        
+        text = input("mannual stop")
 
         for t in range(iteration):
             action = action_array[t]
@@ -726,10 +734,10 @@ def train():
                 # Calculate loss between output Q-values and target Q-values.
                 # mse_loss calculate the mean square error
                 
-                print("target q value")
-                print(target_q_values_v.unsqueeze(1))
-                print("current q value")
-                print(current_q_values[0])
+                # print("target q value")
+                # print(target_q_values_v.unsqueeze(1))
+                # print("current q value")
+                # print(current_q_values[0])
                 
                 loss_v = F.mse_loss(current_q_values[0], target_q_values_v.unsqueeze(1))
                 print("v loss: ", loss_v)
