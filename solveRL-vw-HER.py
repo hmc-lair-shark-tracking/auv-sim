@@ -15,15 +15,23 @@ import torchvision.transforms as T
 
 from motion_plan_state import Motion_plan_state
 
-MIN_X = 6.0
-MAX_X= 10.0
-MIN_Y = 0.0
-MAX_Y = 15.0
+# range 15m
+# MIN_X = 6.0
+# MAX_X= 10.0
+# MIN_Y = 0.0
+# MAX_Y = 15.0
 
+# range 100m
 # MIN_X = 50.0
 # MAX_X= 100.0
 # MIN_Y = 0.0
 # MAX_Y = 150.0
+
+# range 60m
+# MIN_X = 20.0
+# MAX_X= 40.0
+# MIN_Y = 0.0
+# MAX_Y = 60.0
 
 def process_state_for_nn(state):
     """
@@ -256,7 +264,7 @@ class Agent():
 Class Wrapper for the auv RL environment
 """
 class AuvEnvManager():
-    def __init__(self, device, N, auv_init_pos, shark_init_pos, obstacle_array = []):
+    def __init__(self, device, N_v, N_w, auv_init_pos, shark_init_pos, obstacle_array = []):
         """
         Parameters: 
             device - what we want to PyTorch to use for tensor calculation
@@ -279,7 +287,7 @@ class AuvEnvManager():
         # an array of the form:
         #   [[array of options for v], [array of options for w]]
         # values of v and w for the agent to chose from
-        self.possible_actions = self.env.actions_range(N)
+        self.possible_actions = self.env.actions_range(N_v, N_w)
 
 
     def reset(self):
@@ -526,14 +534,15 @@ def train():
     # learning rate
     lr = 0.001
 
-    num_episodes = 2000
+    num_episodes = 1000
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # parameter to discretize the action v and w
     # N specify the number of options that we get to have for v and w
-    N = 3
+    N_v = 5
+    N_w = 5
 
     num_of_obstacles = 2
 
@@ -543,21 +552,27 @@ def train():
     obstacle_array = []
     
     # setup the environment
-    em = AuvEnvManager(device, N, auv_init_pos, shark_init_pos, obstacle_array)
+    em = AuvEnvManager(device, N_v, N_w, auv_init_pos, shark_init_pos, obstacle_array)
 
     strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
-    agent = Agent(strategy, N, N, device)
+    agent = Agent(strategy, N_v, N_w, device)
 
     memory = ReplayMemory(memory_size)
 
     input_size = 8 + len(obstacle_array) * 4
 
     # to(device) puts the network on our defined device
-    policy_net_v = DQN(input_size, N, N).to(device)
-    target_net_v = DQN(input_size, N, N).to(device)
+    policy_net_v = DQN(input_size, N_v, N_w).to(device)
+    target_net_v = DQN(input_size, N_v, N_w).to(device)
 
+    
     # set the weight and bias in the target_net to be the same as the policy_net
     target_net_v.load_state_dict(policy_net_v.state_dict())
+
+    # if we want to load the already trained network
+    # policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
+    # target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
+
     # set the target_net in evaluation mode instead of training mode (bc we are only using it to 
     # estimate the next max Q value)
     target_net_v.eval()
@@ -777,18 +792,19 @@ def train():
 
 def test_trained_model():
     # discount factor for exploration rate decay
-    eps_start = 0.011
+    eps_start = 0.051
     eps_end = 0.05
     eps_decay = 0.001
 
-    num_trails = 20
+    num_trails = 10
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # parameter to discretize the action v and w
     # N specify the number of options that we get to have for v and w
-    N = 3
+    N_v = 5
+    N_w = 5
 
     num_of_obstacles = 2
 
@@ -798,16 +814,16 @@ def test_trained_model():
     obstacle_array = []
     
     # setup the environment
-    em = AuvEnvManager(device, N, auv_init_pos, shark_init_pos, obstacle_array)
+    em = AuvEnvManager(device, N_v, N_w, auv_init_pos, shark_init_pos, obstacle_array)
 
     strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
-    agent = Agent(strategy, N, N, device)
+    agent = Agent(strategy, N_v, N_w, device)
 
     input_size = 8 + len(obstacle_array) * 4
 
     # to(device) puts the network on our defined device
-    policy_net_v = DQN(input_size, N, N).to(device)
-    target_net_v = DQN(input_size, N, N).to(device)
+    policy_net_v = DQN(input_size, N_v, N_w).to(device)
+    target_net_v = DQN(input_size, N_v, N_w).to(device)
 
     episode_durations = []
 
@@ -839,12 +855,15 @@ def test_trained_model():
         episode_durations.append(max_step)
         for t in range(max_step):
             action = agent.select_action(state, policy_net_v)
-            em.render(print_state = False, live_graph=True)
+            
             em.take_action(action)
-           
-            state = em.get_state()
 
+            em.render(print_state = False, live_graph=True)
+
+            state = em.get_state()
+            # text = input("mannual stop")
             if em.done:
+                time.sleep(0.5)
                 episode_durations[i] = t
                 break
 

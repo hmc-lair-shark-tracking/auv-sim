@@ -4,6 +4,8 @@ from gym.utils import seeding
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.patches import Circle
+import mpl_toolkits.mplot3d.art3d as Art3d
 
 from live3DGraph import Live3DGraph
 
@@ -14,7 +16,8 @@ from live3DGraph import Live3DGraph
 ENV_SIZE = 500.0
 
 # auv's max speed (unit: m/s)
-AUV_MAX_V = 1.0
+AUV_MAX_V = 2.0
+AUV_MIN_V = 0.5
 # auv's max angular velocity (unit: rad/s)
 #   TODO: Currently, the track_way_point function has K_P == 1, so this is the range for w. Might change in the future?
 AUV_MAX_W = np.pi/4
@@ -108,7 +111,7 @@ class AuvEnv(gym.Env):
         #   a tuple of (v, w), linear velocity and angular velocity
         # range for v (unit: m/s): [-AUV_MAX_V, AUV_MAX_V]
         # range for w (unit: radians): [-AUV_MAX_W, AUV_MAX_W]
-        self.action_space = spaces.Box(low = np.array([-AUV_MAX_V, -AUV_MAX_W]), high = np.array([AUV_MAX_V, AUV_MAX_W]), dtype = np.float64)
+        self.action_space = spaces.Box(low = np.array([AUV_MIN_V, -AUV_MAX_W]), high = np.array([AUV_MAX_V, AUV_MAX_W]), dtype = np.float64)
 
         # observation: a tuple of 2 elements
         #   1. np array representing the auv's 
@@ -122,11 +125,11 @@ class AuvEnv(gym.Env):
         self.reset()
 
 
-    def actions_range(self, N):
-        v_options = np.linspace(-AUV_MAX_V, AUV_MAX_V, N)
-        w_options = np.linspace(-AUV_MAX_W, AUV_MAX_W, N)
+    def actions_range(self, N_v, N_w):
+        v_options = np.linspace(AUV_MIN_V, AUV_MAX_V, N_v)
+        w_options = np.linspace(-AUV_MAX_W, AUV_MAX_W, N_w)
         # guaranteed to have 0 as one of the angular velocity
-        w_options[N//2] = 0
+        w_options[N_w//2] = 0
         print((v_options, w_options))
         text = input("stop")
         # w_options = [0] * N
@@ -318,8 +321,16 @@ class AuvEnv(gym.Env):
 
         self.live_graph.plot_entity(self.shark_x_array_rl, self.shark_y_array_rl, self.shark_z_array_rl, label = 'shark', color = 'b', marker = 'o')
 
+        goal_region = Circle((shark_pos[0],shark_pos[1]), radius=END_GAME_RADIUS, color='b', fill=False)
+        self.live_graph.ax.add_patch(goal_region)
+        Art3d.pathpatch_2d_to_3d(goal_region, z = shark_pos[2], zdir='z')
+
         if self.obstacle_array_for_rendering != []:
             self.live_graph.plot_obstacles(self.obstacle_array_for_rendering)
+        
+        self.live_graph.ax.set_xlabel('X')
+        self.live_graph.ax.set_ylabel('Y')
+        self.live_graph.ax.set_zlabel('Z')
 
         self.live_graph.ax.legend()
         
