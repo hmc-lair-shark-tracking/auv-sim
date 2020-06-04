@@ -16,10 +16,10 @@ import torchvision.transforms as T
 from motion_plan_state import Motion_plan_state
 
 # range 15m
-# MIN_X = 6.0
-# MAX_X= 10.0
-# MIN_Y = 0.0
-# MAX_Y = 15.0
+MIN_X = 6.0
+MAX_X= 10.0
+MIN_Y = 0.0
+MAX_Y = 15.0
 
 # range 100m
 # MIN_X = 50.0
