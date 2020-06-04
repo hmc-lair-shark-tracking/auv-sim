@@ -96,7 +96,7 @@ class DQN(nn.Module):
 
         # pass through the last layer, the output layer
         # output is a tensor of Q-Values for all the optinons for v/w
-        t_v = self.out_v(t_v)
+        t_v = self.out_v(t_v)  
         t_w = self.out_w(t_w)
 
         return torch.stack((t_v, t_w))
@@ -241,7 +241,6 @@ class Agent():
                 # print("exploiting")
                 # print("Q values check - v")
                 # print(output_weight[0])
-
                 # print("Q values check - w")
                 # print(output_weight[1])
 
@@ -514,7 +513,7 @@ def train():
     # discount factor for exploration rate decay
     gamma = 0.999
     eps_start = 1
-    eps_end = 0.01
+    eps_end = 0.05
     eps_decay = 0.001
 
     # how frequently (in terms of episode) we will update the target policy network with 
@@ -527,7 +526,7 @@ def train():
     # learning rate
     lr = 0.001
 
-    num_episodes = 1000
+    num_episodes = 2000
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -586,9 +585,7 @@ def train():
     # For each episode:
     for episode in range(num_episodes):      
         # randomize the auv and shark position
-        # auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = 0.0, z = -5.0, theta = 0)
-        # shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = 0.0, z = -5.0, theta = 0) 
-        # obstacle_array = []
+        
         auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
         shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0) 
         obstacle_array = []
@@ -779,17 +776,12 @@ def train():
 
 
 def test_trained_model():
-    batch_size = 128
     # discount factor for exploration rate decay
-    gamma = 0.999
     eps_start = 0.011
-    eps_end = 0.01
+    eps_end = 0.05
     eps_decay = 0.001
 
-    # learning rate
-    lr = 0.001
-
-    num_trails = 10
+    num_trails = 20
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -819,7 +811,7 @@ def test_trained_model():
 
     episode_durations = []
 
-    max_step = 200
+    max_step = 1000
 
     # if we want to load the already trained network
     policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
@@ -828,8 +820,8 @@ def test_trained_model():
     policy_net_v.eval()
 
     for i in range(num_trails):
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = 0.0, z = -5.0, theta = 0)
-        shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = 0.0, z = -5.0, theta = 0) 
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
+        shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0)
         obstacle_array = []
 
         em.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
@@ -839,7 +831,7 @@ def test_trained_model():
         print(shark_init_pos)
         print(obstacle_array)
         print("===============================")
-        text = input("mannual stop")
+        # text = input("mannual stop")
 
         em.env.init_data_for_3D_plot(auv_init_pos, shark_init_pos)
         state = em.reset()
@@ -849,7 +841,9 @@ def test_trained_model():
             action = agent.select_action(state, policy_net_v)
             em.render(print_state = False, live_graph=True)
             em.take_action(action)
-            text = input("stop")
+           
+            state = em.get_state()
+
             if em.done:
                 episode_durations[i] = t
                 break
