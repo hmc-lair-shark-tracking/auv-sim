@@ -16,8 +16,8 @@ from live3DGraph import Live3DGraph
 ENV_SIZE = 500.0
 
 # auv's max speed (unit: m/s)
-AUV_MAX_V = 2.0
-AUV_MIN_V = 0.5
+AUV_MAX_V = 1.0
+AUV_MIN_V = 0.1
 # auv's max angular velocity (unit: rad/s)
 #   TODO: Currently, the track_way_point function has K_P == 1, so this is the range for w. Might change in the future?
 AUV_MAX_W = np.pi/4

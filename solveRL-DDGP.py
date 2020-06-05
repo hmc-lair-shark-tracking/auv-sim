@@ -22,7 +22,7 @@ from motion_plan_state import Motion_plan_state
 # MAX_Y = 15.0
 
 # range diy
-dist = 5.0
+dist = 10.0
 MIN_X = dist
 MAX_X= dist * 2
 MIN_Y = 0.0
@@ -78,26 +78,19 @@ class DQN(nn.Module):
             output_size_y - int, the number of possible options for w
         """
         super().__init__()
-        # in 24, out 32
-        self.hidden_layer_in = 24
-        self.hidden_layer_out = 32
 
         # 2 fully connected hidden layers
         # first layer will have "input_size" inputs
         #   Currently, auv 3D position and theta + shark 3D postion and theta
-        self.fc1 = nn.Linear(in_features=input_size, out_features=self.hidden_layer_in)
-        self.bn1 = nn.LayerNorm(self.hidden_layer_in)
-
+        self.fc1 = nn.Linear(in_features=input_size, out_features=24)  
         # branch for selecting v
-        self.fc2_v = nn.Linear(in_features=self.hidden_layer_in, out_features=self.hidden_layer_out) 
-        self.bn2_v = nn.LayerNorm(self.hidden_layer_out)     
-        self.out_v = nn.Linear(in_features=self.hidden_layer_out, out_features=output_size_v)
+        self.fc2_v = nn.Linear(in_features=24, out_features=32)      
+        self.out_v = nn.Linear(in_features=32, out_features=output_size_v)
 
         
         # branch for selecting w
-        self.fc2_w = nn.Linear(in_features=self.hidden_layer_in, out_features = self.hidden_layer_out)
-        self.bn2_w = nn.LayerNorm(self.hidden_layer_out)     
-        self.out_w = nn.Linear(in_features=self.hidden_layer_out, out_features=output_size_w)
+        self.fc2_w = nn.Linear(in_features=24, out_features=32)
+        self.out_w = nn.Linear(in_features=32, out_features=output_size_w)
         
 
 
@@ -111,33 +104,16 @@ class DQN(nn.Module):
         # pass through the layers then have relu applied to it
         # relu is the activation function that will turn any negative value to 0,
         #   and keep any positive value
-
-        # print("pre-process")
-        # print(t)
-        
-        # print("unsqueeze")
-        # print(t)
         t = self.fc1(t)
         t = F.relu(t)
-        # print("first pass")
-        # print(t)
-        
-        # print(t)
-        # text = input("stop")
-        t = self.bn1(t)
-        # print("bn")
-        # print(t)
-        # text = input("stop")
 
         # the neural network is separated into 2 separate branch
         t_v = self.fc2_v(t)
         t_v = F.relu(t_v)
-        t_v = self.bn2_v(t_v)
 
 
         t_w = self.fc2_w(t)
         t_w = F.relu(t_w)
-        t_w = self.bn2_w(t_w)
   
 
         # pass through the last layer, the output layer
@@ -572,7 +548,7 @@ def train():
     # learning rate
     lr = 0.001
 
-    num_episodes = 2000
+    num_episodes = 1000
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -608,8 +584,8 @@ def train():
     target_net_v.load_state_dict(policy_net_v.state_dict())
 
     # if we want to load the already trained network
-    # policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
-    # target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
+    policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
+    target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
 
     # set the target_net in evaluation mode instead of training mode (bc we are only using it to 
     # estimate the next max Q value)
@@ -861,6 +837,7 @@ def test_trained_model():
 
     # to(device) puts the network on our defined device
     policy_net_v = DQN(input_size, N_v, N_w).to(device)
+    target_net_v = DQN(input_size, N_v, N_w).to(device)
 
     episode_durations = []
 
@@ -868,6 +845,7 @@ def test_trained_model():
 
     # if we want to load the already trained network
     policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
+    target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
     
     policy_net_v.eval()
 
