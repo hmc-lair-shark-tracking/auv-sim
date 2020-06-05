@@ -22,7 +22,7 @@ from motion_plan_state import Motion_plan_state
 # MAX_Y = 15.0
 
 # range diy
-dist = 5.0
+dist = 20.0
 MIN_X = dist
 MAX_X= dist * 2
 MIN_Y = 0.0
@@ -124,7 +124,7 @@ class DQN(nn.Module):
         
         # print(t)
         # text = input("stop")
-        t = self.bn1(t)
+        # t = self.bn1(t)
         # print("bn")
         # print(t)
         # text = input("stop")
@@ -132,12 +132,12 @@ class DQN(nn.Module):
         # the neural network is separated into 2 separate branch
         t_v = self.fc2_v(t)
         t_v = F.relu(t_v)
-        t_v = self.bn2_v(t_v)
+        # t_v = self.bn2_v(t_v)
 
 
         t_w = self.fc2_w(t)
         t_w = F.relu(t_w)
-        t_w = self.bn2_w(t_w)
+        # t_w = self.bn2_w(t_w)
   
 
         # pass through the last layer, the output layer
@@ -572,7 +572,7 @@ def train():
     # learning rate
     lr = 0.001
 
-    num_episodes = 2000
+    num_episodes = 5000
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

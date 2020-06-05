@@ -15,37 +15,14 @@ import torchvision.transforms as T
 
 from motion_plan_state import Motion_plan_state
 
-# range 15m
-# MIN_X = 6.0
-# MAX_X= 10.0
-# MIN_Y = 0.0
-# MAX_Y = 15.0
 
-# range diy
-dist = 10.0
+# Define the distance between the auv and the goal
+dist = 20.0
 MIN_X = dist
 MAX_X= dist * 2
 MIN_Y = 0.0
 MAX_Y = dist * 3
 
-
-# range 45m
-# MIN_X = 15.0
-# MAX_X= 30.0
-# MIN_Y = 0.0
-# MAX_Y = 45.0
-
-# range 60m
-# MIN_X = 20.0
-# MAX_X= 40.0
-# MIN_Y = 0.0
-# MAX_Y = 60.0
-
-# range 100m
-# MIN_X = 50.0
-# MAX_X= 100.0
-# MIN_Y = 0.0
-# MAX_Y = 150.0
 
 def process_state_for_nn(state):
     """
@@ -64,37 +41,124 @@ def process_state_for_nn(state):
     return torch.cat((auv_tensor, shark_tensor, obstacle_tensor)).float()
     
 
+
+def init_weight_by_fanin(size, fanin=None):
+    fanin = fanin or size[0]
+    v = 1. / np.sqrt(fanin)
+    return torch.Tensor(size).uniform_(-v, v)
+
+
+
 """
 Class for building policy and target neural network
 """
-class DQN(nn.Module):
-    def __init__(self, input_size, output_size_v, output_size_w):
+class Actor(nn.Module):
+    def __init__(self, state_size, action_size, hidden1 = 400, hidden2 = 300, init_w = 3e-3):
         """
         Initialize the Q neural network with input
 
         Parameter:
-            input_size - int, the size of observation space
-            output_size_v - int, the number of possible options for v
-            output_size_y - int, the number of possible options for w
+            
         """
         super().__init__()
+    
+        # input layer
+        self.fc1 = nn.Linear(in_features = state_size, out_features = hidden1)
+        self.bn1 = nn.LayerNorm(hidden1)
 
-        # 2 fully connected hidden layers
-        # first layer will have "input_size" inputs
-        #   Currently, auv 3D position and theta + shark 3D postion and theta
-        self.fc1 = nn.Linear(in_features=input_size, out_features=24)  
         # branch for selecting v
-        self.fc2_v = nn.Linear(in_features=24, out_features=32)      
-        self.out_v = nn.Linear(in_features=32, out_features=output_size_v)
+        # TODO: for now, maybe let's not try branching?
+        # myabe the action_size means how many differnt action we have to take
+        # in DDPG paper, it mentions to include action at the 2nd hidden layer of Q
+        self.fc2 = nn.Linear(in_features = hidden1, out_features = hidden2) 
+        self.bn2 = nn.LayerNorm(hidden2)  
+        self.out = nn.Linear(in_features = hidden2, out_features = action_size)
 
-        
+        self.init_weight(init_w)
         # branch for selecting w
-        self.fc2_w = nn.Linear(in_features=24, out_features=32)
-        self.out_w = nn.Linear(in_features=32, out_features=output_size_w)
+        # self.fc2_w = nn.Linear(in_features = hidden1, out_features = hidden2)
+        # self.bn2_w = nn.LayerNorm(hidden2)     
+        # self.out_w = nn.Linear(in_features = , out_features=action_size)
+    
+
+    def init_weight(self, init_w):
+        # initialize the rest of the layers with a unifrom distribution of "1/sqrt(f)"
+        #   where f is the fan-in of the layer
+        self.fc1.weight.data = init_weight_by_fanin(self.fc1.weight.data.size())
+        self.fc2.weight.data = init_weight_by_fanin(self.fc2.weight.data.size())
+        # initialize the final layer with a uniform distribution of "init_w"
+        self.out.weight.data.uniform_(-init_w, init_w)
+
+
+    def forward(self, state):
+        """
+        Define the forward pass through the neural network
+
+        Parameters:
+            
+        """
+        # pass through the layers then have relu applied to it
+        # relu is the activation function that will turn any negative value to 0,
+        #   and keep any positive value
+        action = self.fc1(state)
+        action = F.relu(action)
+        action = self.bn1(action)             # batch normalization
         
+        action = self.fc2(action)
+        action = F.relu(action)
+        action = self.bn2(action)       # batch normalization
+
+        action = self.out(action)
+        # TODO: not sure if tanh is the best (using it to bound action)
+        action = torch.tanh(action)
+
+        return action
 
 
-    def forward(self, t):
+
+"""
+Neural Net to map state-action pairs to Q-values
+"""
+class Critic(nn.Module):
+    def __init__(self, state_size, action_size, hidden1 = 400, hidden2 = 300, init_w = 3e-3):
+        """
+        Initialize the Q neural network with input
+
+        Parameter:
+            
+        """
+        super().__init__()
+    
+        # input layer
+        self.fc1 = nn.Linear(in_features = state_size, out_features = hidden1)
+        self.bn1 = nn.LayerNorm(hidden1)
+
+        # branch for selecting v
+        # TODO: for now, maybe let's not try branching?
+        # myabe the action_size means how many differnt action we have to take
+        # in DDPG paper, it mentions to include action at the 2nd hidden layer of Q
+        self.fc2 = nn.Linear(in_features = hidden1 + action_size, out_features = hidden2) 
+        self.bn2 = nn.LayerNorm(hidden2)  
+        self.out = nn.Linear(in_features = hidden2, out_features = 1)
+
+        self.init_weight(init_w)
+
+        # branch for selecting w
+        # self.fc2_w = nn.Linear(in_features = hidden1, out_features = hidden2)
+        # self.bn2_w = nn.LayerNorm(hidden2)     
+        # self.out_w = nn.Linear(in_features = , out_features=action_size)
+    
+
+    def init_weight(self, init_w):
+        # initialize the rest of the layers with a unifrom distribution of "1/sqrt(f)"
+        #   where f is the fan-in of the layer
+        self.fc1.weight.data = init_weight_by_fanin(self.fc1.weight.data.size())
+        self.fc2.weight.data = init_weight_by_fanin(self.fc2.weight.data.size())
+        # initialize the final layer with a uniform distribution of "init_w"
+        self.out.weight.data.uniform_(-init_w, init_w)
+
+
+    def forward(self, state, action):
         """
         Define the forward pass through the neural network
 
@@ -104,24 +168,19 @@ class DQN(nn.Module):
         # pass through the layers then have relu applied to it
         # relu is the activation function that will turn any negative value to 0,
         #   and keep any positive value
-        t = self.fc1(t)
-        t = F.relu(t)
+        q_val = self.fc1(state)
+        q_val = F.relu(q_val)
+        q_val = self.bn1(q_val)             # batch normalization
+        
+        # introduce action into the hidden layer
+        q_val = torch.cat((q_val, action), dim=1)
+        q_val = self.fc2(q_val)
+        q_val = F.relu(q_val)
+        q_val = self.bn2(q_val)       # batch normalization
 
-        # the neural network is separated into 2 separate branch
-        t_v = self.fc2_v(t)
-        t_v = F.relu(t_v)
+        q_val = self.out(q_val)
 
-
-        t_w = self.fc2_w(t)
-        t_w = F.relu(t_w)
-  
-
-        # pass through the last layer, the output layer
-        # output is a tensor of Q-Values for all the optinons for v/w
-        t_v = self.out_v(t_v)  
-        t_w = self.out_w(t_w)
-
-        return torch.stack((t_v, t_w))
+        return q_val
 
 
 # namedtuple allows us to store Experiences as labeled tuples
@@ -172,31 +231,6 @@ class ReplayMemory():
             batch_size - int, number of experiences that we want to sample from replace memory
         """
         return len(self.memory) >= batch_size
-
-
-"""
-For implementing epsilon greedy strategy in choosing an action
-(exploration vs exploitation)
-"""
-class EpsilonGreedyStrategy():
-    def __init__(self, start, end, decay):
-        """
-        Parameter:
-            start - the start value of epsilon
-            end - the end value of epsilon
-            decay - the decay value of epsilon 
-        """
-        self.start = start
-        self.end = end
-        self.decay = decay
-
-    def get_exploration_rate(self, current_step):
-        """
-        Calculate the exploration rate to determine whether the agent should
-            explore or exploit in the environment
-        """
-        return self.end + (self.start - self.end) * \
-            math.exp(-1. * current_step * self.decay)
 
 
 """
@@ -530,6 +564,10 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
     return obstacle_array
 
 
+class DDPG():
+    def __init__(self, state_size, action_size)
+
+
 def train():
     batch_size = 128
     # discount factor for exploration rate decay
@@ -548,7 +586,7 @@ def train():
     # learning rate
     lr = 0.001
 
-    num_episodes = 1000
+    num_episodes = 5000
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -584,8 +622,8 @@ def train():
     target_net_v.load_state_dict(policy_net_v.state_dict())
 
     # if we want to load the already trained network
-    policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
-    target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
+    # policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
+    # target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
 
     # set the target_net in evaluation mode instead of training mode (bc we are only using it to 
     # estimate the next max Q value)
@@ -837,7 +875,6 @@ def test_trained_model():
 
     # to(device) puts the network on our defined device
     policy_net_v = DQN(input_size, N_v, N_w).to(device)
-    target_net_v = DQN(input_size, N_v, N_w).to(device)
 
     episode_durations = []
 
@@ -845,7 +882,6 @@ def test_trained_model():
 
     # if we want to load the already trained network
     policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
-    target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
     
     policy_net_v.eval()
 
