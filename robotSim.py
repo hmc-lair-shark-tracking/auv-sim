@@ -20,8 +20,6 @@ from rrt_dubins import RRT
 #   const.SIM_TIME_INTERVAL
 import constants as const
 
-show_animation = False
-
 
 def angle_wrap(ang):
     """
@@ -301,6 +299,33 @@ class RobotSim:
         print("AUV [x, y, z, theta]:  [", self.x, ", " , self.y, ", ", self.z, ", ", self.theta, "]")
 
 
+    def plot(self, show_live_graph = True, planned_traj_array = [], particle_array = [], obstacle_array = []):
+        """
+        Wrapper function for plotting and updating shark position
+
+        If we are not showing live graph, it will call the update_shark_location function to 
+            update the shark's location without plotting
+
+        Parameters:
+            show_live_graph - boolean, determine wheter the live 3d graph should be drawn or not
+             planned_traj_array - (optional) an array of trajectories that we want to plot
+                each element is an array on its own, where
+                    1st element: the planner's name (either "A *" or "RRT")
+                    2nd element: the list of Motion_plan_state returned by the planner
+            particle_array - (optional) an array of particles
+                each element has this format:
+                    [x_p, y_p, v_p, theta_p, weight_p]
+            obstacle_array - (optional) an array of motion_plan_states that represent the obstacles's
+                position and size
+        """
+        if show_live_graph:
+            self.update_live_graph(planned_traj_array, particle_array, obstacle_array)
+        else:
+            for shark in self.live_graph.shark_array:
+                # only update the shark's position without plotting them
+                self.live_graph.update_shark_location(shark, self.curr_time)
+
+
     def update_live_graph(self, planned_traj_array = [], particle_array = [], obstacle_array = []):
         """
         Plot the position of the robot, the sharks, and any planned trajectories
@@ -319,9 +344,7 @@ class RobotSim:
         # scale the arrow for the auv and the sharks properly for graph
         self.live_graph.scale_quiver_arrow()
 
-
         self.live_graph.plot_auv(self.x_list, self.y_list, self.z_list)
-
 
         # plot the new positions for all the sharks that the robot is tracking
         self.live_graph.plot_sharks(self.curr_time)
@@ -341,6 +364,11 @@ class RobotSim:
 
         self.live_graph.ax.legend(self.live_graph.labels)
         
+        # re-add the labels because they will get erased
+        self.live_graph.ax.set_xlabel('X')
+        self.live_graph.ax.set_ylabel('Y')
+        self.live_graph.ax.set_zlabel('Z')
+
         plt.draw()
 
         # pause so the plot can be updated
@@ -366,17 +394,12 @@ class RobotSim:
                 dist_array.append(math.sqrt(delta_x**2 + delta_y**2))
             
             auv_all_sharks_dist_dict[shark.id] = dist_array
-
-        # create an array of time-stamp where time interval is defined as "const.SIM_TIME_INTERVAL"
-        time_array = [0]
-        for i in range(len(self.x_list)-3):
-            time_array.append(time_array[-1] + const.SIM_TIME_INTERVAL)
         
-        # close the 3D simulation plot
+        # close the 3D simulation plot (if there's any)
         plt.close()
 
         # plot the distance between auv and sharks over time graph
-        self.live_graph.plot_distance(auv_all_sharks_dist_dict, time_array)
+        self.live_graph.plot_distance(auv_all_sharks_dist_dict, self.time_array)
 
         plt.show()
 
@@ -389,7 +412,8 @@ class RobotSim:
         """
         # K_P and v are stand in values
         K_P = 0.5
-        v = 12
+        # v = 12
+        v = 30  # TODO: currently change it to a very unrealistic value to show the final plot faster
        
         angle_to_traj_point = math.atan2(way_point.y - self.y, way_point.x - self.x) 
         w = K_P * angle_wrap(angle_to_traj_point - self.theta) #proportional control
@@ -507,14 +531,47 @@ class RobotSim:
             shark_id_array))
         
         self.live_graph.load_shark_labels()
-       
+    
 
-    def main_navigation_loop(self):
+    def check_terminate_cond(self):
+        """
+        Check if the main navigation loop should terminate automatically
+        2 possible terminating condition
+            - if the auv and one of the shark is with in the TERMINATE_DISTANCE range
+            - if the simulator reaches the MAX_TIME
+
+        Return:
+            True - if the main navigation loop should terminate
+        """
+        reach_any_shark = False
+        reach_max_time = False
+
+        if self.curr_time > const.MAX_TIME:
+            reach_max_time = True
+            return reach_max_time
+
+        for shark in self.live_graph.shark_array:
+            delta_x = shark.x_pos_array[-1] - self.x_list[-1]
+            delta_y = shark.y_pos_array[-1] - self.y_list[-1]
+
+            distance = math.sqrt(delta_x**2 + delta_y**2)
+            
+            if distance <= const.TERMINATE_DISTANCE:
+                reach_any_shark = True
+                break
+        
+        return reach_any_shark or reach_max_time
+
+
+    def main_navigation_loop(self, show_live_graph = True):
         """ 
         Wrapper function for the robot simulator
         The loop follows this process:
             getting data -> get trajectory -> send trajectory to actuators
             -> log and plot data
+
+        Parameter:
+            show_live_graph - boolean (option), True if the simulator should show the 3D graph
         """
         #set start time
         t_start = self.curr_time
@@ -595,23 +652,35 @@ class RobotSim:
             #   1st element: the planner's name (either "A *" or "RRT")
             #   2nd element: the list of Motion_plan_state returned by your planner
             # Use the "planned_traj_array" as an example
-            self.update_live_graph(planned_traj_array, particle_array, obstacle_array)
+            self.plot(show_live_graph, planned_traj_array, particle_array, obstacle_array)
             
             self.time_array.append(self.curr_time)
             # increment the current time by 0.1 second
             self.curr_time += const.SIM_TIME_INTERVAL
 
-        # "End Simulation" button is pressed, generate summary graphs for this simulation
-        self.summary_graphs()
+            terminate_loop = self.check_terminate_cond()
 
+            if terminate_loop:
+                self.live_graph.run_sim = False
+                break
+
+        
+        obstacle_array = [Motion_plan_state(757,243, size=10), Motion_plan_state(763,226, size=15)]
+
+        self.live_graph.plot_2d_sim_graph(self.x_list, self.y_list, obstacle_array)
+
+        # "End Simulation" button is pressed, generate summary graphs for this simulation
+        # self.summary_plots()
 
 
 def main():
-    test_robot = RobotSim(735,285,0,0.1)
+    test_robot = RobotSim(700,270,0,0.1)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
     test_robot.setup("./data/sharkTrackingData.csv", [1,2])
-    test_robot.main_navigation_loop()
+
+    # to not show that live_graph, you can pass in "False"
+    test_robot.main_navigation_loop(False)
 
 
 
