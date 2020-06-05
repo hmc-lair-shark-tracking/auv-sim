@@ -233,10 +233,37 @@ class ReplayMemory():
         return len(self.memory) >= batch_size
 
 
+
+"""
+Based on the Ornstein-Uhlenbeck process
+Provide a noise process to our actor policy (solve the problem of exploration vs exploitation)
+
+from https://github.com/ikostrikov/pytorch-ddpg-naf/blob/master/ounoise.py
+"""
+class OU_Noise():
+    def __init__(self, action_dimension, scale = 0.1, mu = 0.0, theta = 0.15, sigma = 0.2):
+        self.action_dimension = action_dimension
+        self.scale = scale
+        self.mu = mu
+        self.theta = theta
+        self.sigma = sigma
+        self.state = np.ones(self.action_dimension) * self.mu
+
+    def reset(self):
+        self.state = np.ones(self.action_dimension) * self.mu
+
+    def noise(self):
+        x = self.state
+        dx = self.theta * (self.mu - x) + self.sigma * np.random.randn(len(x))
+        self.state = x + dx
+        return self.state * self.scale
+
+
+
 """
 Class to represent the agent and decide its action in the environment
 """
-class Agent():
+class Agent_Might_Change_This():
     def __init__(self, strategy, actions_range_v, actions_range_w, device):
         """
         Parameter: 
@@ -312,7 +339,7 @@ class Agent():
 Class Wrapper for the auv RL environment
 """
 class AuvEnvManager():
-    def __init__(self, device, N_v, N_w, auv_init_pos, shark_init_pos, obstacle_array = []):
+    def __init__(self, device):
         """
         Parameters: 
             device - what we want to PyTorch to use for tensor calculation
@@ -326,16 +353,8 @@ class AuvEnvManager():
         # have access to behind-the-scenes dynamics of the environment 
         self.env = gym.make('gym_auv:auv-v0').unwrapped
 
-        # initialize the environment's state
-        self.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
-
         self.current_state = None
         self.done = False
-
-        # an array of the form:
-        #   [[array of options for v], [array of options for w]]
-        # values of v and w for the agent to chose from
-        self.possible_actions = self.env.actions_range(N_v, N_w)
 
 
     def reset(self):
@@ -396,6 +415,7 @@ class AuvEnvManager():
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
+
 
     def get_state(self):
         """
@@ -563,9 +583,54 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
 
     return obstacle_array
 
+# Most of the hyperparameters come from the DDPG paper
+# learning rate
+LR_ACTOR = 1e-4
+LR_CRITIC = 1e-3
+# size of the replay memory
+MEMORY_SIZE = 1e6
+BATCH_SIZE = 64
 
-class DDPG():
-    def __init__(self, state_size, action_size)
+# use GPU if available, else use CPU
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+class Agent():
+    def __init__(self, state_size, action_size):
+        # initialize the actor and critic network
+        self.actor = Actor(state_size, action_size)
+        self.critic = Critic(state_size, action_size)
+        # initialize the optimizer of the actor and critic network with the corresponding learning rate
+        self.actor_optimizer = optim.Adam(params = self.actor.parameters(), lr = LR_ACTOR)
+        self.critic_optimizer = optim.Adam(params = self.critic.parameters(), lr = LR_CRITIC)
+
+        # intialize the target networks for the actor-critic network
+        self.actor_target = Actor(state_size, action_size)
+        self.critic_target= Critic(state_size, action_size)
+        # the target networks will start out with the same weights as the actor-critic network
+        self.hard_update(self.actor_target, self.actor)
+        self.hard_update(self.critic_target, self.critic)
+
+        self.memory = ReplayMemory(MEMORY_SIZE)
+
+        # set up the environment
+        self.em = AuvEnvManager
+
+        # set up the noise process
+        self.noise = OU_Noise(action_dimension = action_size)
+    
+
+    def hard_update(self, target, source):
+        """
+        Make sure that the target have the same parameters as the source
+            Used to initialize the target networks for the actor and critic
+        """
+        for target_param, param in zip(target.parameters(), source.parameters()):
+            target_param.data.copy_(param.data)
+
+
+    def train(num_episodes, max_step):
+        for eps in range(num_episodes):
+
 
 
 def train():
