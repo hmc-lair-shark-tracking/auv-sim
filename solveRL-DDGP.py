@@ -594,7 +594,7 @@ BATCH_SIZE = 64
 # use GPU if available, else use CPU
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-class Agent():
+class DDPG():
     def __init__(self, state_size, action_size):
         # initialize the actor and critic network
         self.actor = Actor(state_size, action_size)
@@ -628,9 +628,25 @@ class Agent():
             target_param.data.copy_(param.data)
 
 
+    def select_action(self, state, add_noise = True):
+        # TODO: verify that this helper function still works in DDGP
+        # convert the state to a tensor so it can get passed into the neural net
+        state = process_state_for_nn(state)
+
+        # set the actor nn to evaluation mode
+        self.actor.eval()
+
+        with torch.no_grad():
+            action = self.actor(state).to(self.device)
+
     def train(num_episodes, max_step):
         for eps in range(num_episodes):
-
+            # Initialize a random noise process N for action exploration 
+            self.noise.reset()
+            # Receive initial observation state s1 
+            state = self.em.reset()
+            for t in range(1, max_step):
+                # Select action according to the current policy and exploration noise
 
 
 def train():
