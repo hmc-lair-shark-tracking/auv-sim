@@ -438,35 +438,6 @@ class AuvEnvManager():
         return torch.tensor([reward], device=self.device).float()
 
 
-# Ultility functions for plotting (from the rl tutorial)
-# def get_moving_average(period, values):
-#     values = torch.tensor(values, dtype=torch.float)
-#     if len(values) >= period:
-#         moving_avg = values.unfold(dimension=0, size=period, step=1) \
-#             .mean(dim=0).flatten(start_dim=0)
-#         moving_avg = torch.cat((torch.zeros(period-1), moving_avg))
-#         return moving_avg.numpy()
-#     else:
-#         moving_avg = torch.zeros(len(values))
-#         return moving_avg.numpy()
-
-
-# TODO: modify this to plot a more relevant plot
-# def plot(values, moving_avg_period):
-#     plt.figure(2)
-#     plt.clf()        
-#     plt.title('Training...')
-#     plt.xlabel('Episode')
-#     plt.ylabel('Duration')
-#     plt.plot(values)
-
-#     moving_avg = get_moving_average(moving_avg_period, values)
-#     plt.plot(moving_avg)    
-#     plt.pause(0.001)
-#     print("Episode", len(values), "\n", \
-#         moving_avg_period, "episode moving avg:", moving_avg[-1])
-
-
 def extract_tensors(experiences):
     """
     Convert batches of experiences sampled from the replay memeory to tuples of tensors
@@ -587,12 +558,16 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
 # learning rate
 LR_ACTOR = 1e-4
 LR_CRITIC = 1e-3
+
 # size of the replay memory
 MEMORY_SIZE = 1e6
 BATCH_SIZE = 64
 
 # use GPU if available, else use CPU
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# number of additional goals to be added to the replay memory
+NUM_GOALS_SAMPLED_HER = 4
 
 class DDPG():
     def __init__(self, state_size, action_size):
@@ -613,7 +588,7 @@ class DDPG():
         self.memory = ReplayMemory(MEMORY_SIZE)
 
         # set up the environment
-        self.em = AuvEnvManager
+        self.em = AuvEnvManager(DEVICE)
 
         # set up the noise process
         self.noise = OU_Noise(action_dimension = action_size)
@@ -628,6 +603,14 @@ class DDPG():
             target_param.data.copy_(param.data)
 
 
+    def load_trained_network(self):
+        """
+        Load already trained neural network
+        """
+        self.actor.load_state_dict(torch.load('checkpoint_policy.pth'))
+        self.critic.load_state_dict(torch.load('checkpoint_target.pth'))
+
+
     def select_action(self, state, add_noise = True):
         # TODO: verify that this helper function still works in DDGP
         # convert the state to a tensor so it can get passed into the neural net
@@ -637,16 +620,96 @@ class DDPG():
         self.actor.eval()
 
         with torch.no_grad():
-            action = self.actor(state).to(self.device)
+            action = self.actor(state).to(DEVICE)
 
-    def train(num_episodes, max_step):
+        # set the actor nn back to train mode
+        self.actor.train()
+
+        if add_noise:
+            action = action + self.noise.noise()
+    
+        # TODO: not sure about if we need to modify the form yet
+        return action
+
+    
+    def possible_extra_goals(self, time_step, next_state_array):
+        # currently, we use the "future" strategy mentioned in the HER paper
+        #   replay with k random states which come from the same episode as the transition being replayed and were observed after it
+        possible_goals_to_sample = next_state_array[time_step+1: ]
+
+        additional_goals = []
+
+        # only sample additional goals if there are enough to sample
+        # TODO: slightly modified from our previous implementation of HER, maybe this is better?
+        if len(possible_goals_to_sample) >= NUM_GOALS_SAMPLED_HER:
+            additional_goals = random.sample(future_goals_to_sample, k = k)
+        
+        return additional_goals
+
+
+    def generate_extra_goals_HER(self, state, next_state, additional_goals):
+        
+
+
+    def train(self, num_episodes, max_step, load_prev_training=False):
+        # keep track of how many steps the auv takes in each episode
+        self.episode_durations = []
+
+        if load_prev_training:
+            # if we want to continue training an already trained network
+            self.load_trained_network()
+        
         for eps in range(num_episodes):
             # Initialize a random noise process N for action exploration 
             self.noise.reset()
             # Receive initial observation state s1 
             state = self.em.reset()
+
+            score = 0
+
+            action_array = []
+            next_state_array = []
+
+            # determine how many steps we should run HER
+            # by default, it will be "max_step"
+            iteration = max_step
+
             for t in range(1, max_step):
                 # Select action according to the current policy and exploration noise
+                action = self.select_action(state)
+                # store the action for HER algorithm
+                action_array.append(action)
+
+                # Execute action and observe reward + new state
+                self.em.take_action(action)
+                
+                next_state = self.em.get_state()
+                next_state_array.append(next_state)
+
+                state = next_state
+
+                if self.em.done:
+                    # if the auv has reached the goal
+                    # modify how many steps we should run HER
+                    iteration = t + 1
+                    break
+
+            # restart the starting state to prepare for HER algorithm
+            state = self.em.reset()
+
+            for t in range(iteration):
+                action = action_array[t]
+                next_state = next_state_array[t]
+
+                # next_state[0] - the auv position after it has taken an action
+                # next_state[1] - the actual goal
+                reward = self.em.get_binary_reward(next_state[0], next_state[1])
+
+                # store the actual experience in the memory
+                self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
+
+                self.generate_extra_goals_HER()
+
 
 
 def train():

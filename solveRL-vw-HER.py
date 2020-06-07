@@ -22,7 +22,7 @@ from motion_plan_state import Motion_plan_state
 # MAX_Y = 15.0
 
 # range diy
-dist = 20.0
+dist = 25.0
 MIN_X = dist
 MAX_X= dist * 2
 MIN_Y = 0.0
@@ -572,13 +572,13 @@ def train():
     # learning rate
     lr = 0.001
 
-    num_episodes = 5000
+    num_episodes = 1090
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # parameter to discretize the action v and w
-    # N specify the number of options that we get to have for v and w
+    # N specify the n         umber of options that we get to have for v and w
     N_v = 5
     N_w = 5
 
@@ -608,8 +608,8 @@ def train():
     target_net_v.load_state_dict(policy_net_v.state_dict())
 
     # if we want to load the already trained network
-    # policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
-    # target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
+    policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
+    target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
 
     # set the target_net in evaluation mode instead of training mode (bc we are only using it to 
     # estimate the next max Q value)
@@ -630,6 +630,7 @@ def train():
 
     avg_loss_array = []
 
+
     def save_model():
         print("Model Save...")
         torch.save(policy_net_v.state_dict(), 'checkpoint_policy.pth')
@@ -642,6 +643,8 @@ def train():
         auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
         shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0) 
         obstacle_array = []
+
+
         # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
 
         em.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
@@ -834,7 +837,7 @@ def test_trained_model():
     eps_end = 0.05
     eps_decay = 0.001
 
-    num_trails = 10
+    num_trails = 1000
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -863,6 +866,7 @@ def test_trained_model():
     policy_net_v = DQN(input_size, N_v, N_w).to(device)
 
     episode_durations = []
+    distance_array = []
 
     max_step = 1000
 
@@ -875,6 +879,10 @@ def test_trained_model():
         auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
         shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0)
         obstacle_array = []
+
+
+        dist = calculate_range([auv_init_pos.x, auv_init_pos.y], [shark_init_pos.x, shark_init_pos.y])
+        distance_array.append(dist)
 
         em.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
         print("===============================")
@@ -889,12 +897,13 @@ def test_trained_model():
         state = em.reset()
 
         episode_durations.append(max_step)
+
         for t in range(max_step):
             action = agent.select_action(state, policy_net_v)
             
             em.take_action(action)
 
-            em.render(print_state = False, live_graph=True)
+            # em.render(print_state = False, live_graph=True)
 
             state = em.get_state()
             # text = input("mannual stop")
@@ -915,11 +924,16 @@ def test_trained_model():
     print("average time")
     print(np.mean(episode_durations))
 
+    print("all the starting distances")
+    print(distance_array)
+    print("average distance")
+    print(np.mean(distance_array))
+
 
     
 def main():
-    train()
-    # test_trained_model()
+    # train()
+    test_trained_model()
 
 if __name__ == "__main__":
     main()
