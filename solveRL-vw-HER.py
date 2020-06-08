@@ -22,7 +22,7 @@ from motion_plan_state import Motion_plan_state
 # MAX_Y = 15.0
 
 # range diy
-dist = 25.0
+dist = 5.0
 MIN_X = dist
 MAX_X= dist * 2
 MIN_Y = 0.0

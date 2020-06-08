@@ -16,13 +16,54 @@ import torchvision.transforms as T
 from motion_plan_state import Motion_plan_state
 
 
+# namedtuple allows us to store Experiences as labeled tuples
+Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'))
+
+"""
+============================================================================
+
+    Parameters
+
+============================================================================
+"""
+
 # Define the distance between the auv and the goal
-dist = 20.0
+dist = 5.0
 MIN_X = dist
 MAX_X= dist * 2
 MIN_Y = 0.0
 MAX_Y = dist * 3
 
+# Most of the hyperparameters come from the DDPG paper
+# learning rate
+LR_ACTOR = 1e-4
+LR_CRITIC = 1e-3
+
+# size of the replay memory
+MEMORY_SIZE = 1e6
+BATCH_SIZE = 64
+
+# use GPU if available, else use CPU
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# number of additional goals to be added to the replay memory
+NUM_GOALS_SAMPLED_HER = 4
+
+# discount factor for calculating target q values
+GAMMA = 0.99
+TAU = 0.001
+
+SAVE_EVERY = 10
+
+DEBUG = True
+
+"""
+============================================================================
+
+    Helper Functions
+
+============================================================================
+"""
 
 def process_state_for_nn(state):
     """
@@ -47,6 +88,90 @@ def init_weight_by_fanin(size, fanin=None):
     v = 1. / np.sqrt(fanin)
     return torch.Tensor(size).uniform_(-v, v)
 
+
+
+def extract_tensors(experiences):
+    """
+    Convert batches of experiences sampled from the replay memeory to tuples of tensors
+    """
+    batch = Experience(*zip(*experiences))
+   
+    t1 = torch.stack(batch.state)
+    t2 = torch.stack(batch.action)
+    t3 = torch.cat(batch.reward)
+    t4 = torch.stack(batch.next_state)
+
+    return (t1,t2,t3,t4)
+
+
+
+def save_model(actor, actor_target, critic, critic_target):
+    print("Model Save...")
+    torch.save(actor.state_dict(), 'checkpoint_actor.pth')
+    torch.save(actor_target.state_dict(), 'checkpoint_actor_target.pth')
+    torch.save(critic.state_dict(), 'checkpoint_critic.pth')
+    torch.save(critic_target.state_dict(), 'checkpoint_critic_target.pth')
+
+
+def calculate_range(a_pos, b_pos):
+        """
+        Calculate the range (distance) between point a and b, specified by their coordinates
+
+        Parameters:
+            a_pos - an array / a numpy array
+            b_pos - an array / a numpy array
+                both have the format: [x_pos, y_pos, z_pos, theta]
+
+        TODO: include z pos in future range calculation?
+        """
+        a_x = a_pos[0]
+        a_y = a_pos[1]
+        b_x = b_pos[0]
+        b_y = b_pos[1]
+
+        delta_x = b_x - a_x
+        delta_y = b_y - a_y
+
+        return np.sqrt(delta_x**2 + delta_y**2)
+
+
+def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_pos, obstacle_array):
+    """
+    Helper function for checking whether the newly obstacle generated is valid or not
+    """
+    auv_overlaps = calculate_range([auv_init_pos.x, auv_init_pos.y], new_obstacle) <= new_obs_size
+    shark_overlaps = calculate_range([shark_init_pos.x, shark_init_pos.y], new_obstacle) <= new_obs_size
+    obs_overlaps = False
+    for obs in obstacle_array:
+        if calculate_range([obs.x, obs.y], new_obstacle) <= (new_obs_size + obs.size):
+            obs_overlaps = True
+            break
+    return auv_overlaps or shark_overlaps or obs_overlaps
+
+
+def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
+    """
+    """
+    obstacle_array = []
+    for i in range(num_of_obstacles):
+        obs_x = np.random.uniform(MIN_X, MAX_X)
+        obs_y = np.random.uniform(MIN_Y, MAX_Y)
+        obs_size = np.random.randint(1,5)
+        while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array):
+            obs_x = np.random.uniform(MIN_X, MAX_X)
+            obs_y = np.random.uniform(MIN_Y, MAX_Y)
+        obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, z=-5, size = obs_size))
+
+    return obstacle_array
+
+
+"""
+============================================================================
+
+    Classes
+
+============================================================================
+"""
 
 
 """
@@ -75,6 +200,7 @@ class Actor(nn.Module):
         self.out = nn.Linear(in_features = hidden2, out_features = action_size)
 
         self.init_weight(init_w)
+
         # branch for selecting w
         # self.fc2_w = nn.Linear(in_features = hidden1, out_features = hidden2)
         # self.bn2_w = nn.LayerNorm(hidden2)     
@@ -183,9 +309,6 @@ class Critic(nn.Module):
         return q_val
 
 
-# namedtuple allows us to store Experiences as labeled tuples
-Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'))
-
 
 """
     Class to define replay memeory for training the neural network
@@ -261,81 +384,6 @@ class OU_Noise():
 
 
 """
-Class to represent the agent and decide its action in the environment
-"""
-class Agent_Might_Change_This():
-    def __init__(self, strategy, actions_range_v, actions_range_w, device):
-        """
-        Parameter: 
-            strategy - Epsilon Greedy Strategy class (decide whether we should explore the environment or if we should use the DQN)
-            actions_range_v - int, the number of possible values for v that the agent can take
-            actions_range_w - int, the number of possible values for w that the agent can take
-            device - what we want to PyTorch to use for tensor calculation
-        """
-        # the agent's current step in the environment
-        self.current_step = 0
-        
-        self.strategy = strategy
-        
-        self.actions_range_v = actions_range_v
-        self.actions_range_w = actions_range_w
-       
-        self.device = device
-
-
-    def select_action(self, state, policy_net):
-        """
-        Pick an action (index to select from array of options for v and from array of options for w)
-
-        Parameters:
-            state - tuples for auv position, shark (goal) position, and obstacles position
-            policy_net - the neural network to determine the action
-
-        Returns:
-            a tensor representing the index for v action and the index for w action
-                format: tensor([v_index, w_index])
-        """
-        rate = self.strategy.get_exploration_rate(self.current_step)
-        # print("exploration rate: ", rate)
-        # as the number of steps increases, the exploration rate will decrease
-        self.current_step += 1
-
-        if rate > random.random():
-            # exploring the environment by randomly chosing an action
-            # print("-----")
-            # print("randomly picking")
-            v_action_index = random.choice(range(self.actions_range_v))
-            w_action_index = random.choice(range(self.actions_range_w))
-
-            return torch.tensor([v_action_index, w_action_index]).to(self.device) # explore
-
-        else:
-            # turn off gradient tracking bc we are using the model for inference instead of training
-            # we don't need to keep track the gradient because we are not doing backpropagation to figure out the weight 
-            # of each node yet
-            with torch.no_grad():
-                # convert the state to a flat tensor to prepare for passing into the neural network
-                state = process_state_for_nn(state)
-
-                # for the given "state"，the output will be Q values for each possible action (index for v and w)
-                #   from the policy net
-                output_weight = policy_net(state).to(self.device)
-                # print("-----")
-                # print("exploiting")
-                # print("Q values check - v")
-                # print(output_weight[0])
-                # print("Q values check - w")
-                # print(output_weight[1])
-
-                # output_weight[0] is for the v_index, output_weight[1] is for w_index
-                # this is finding the index with the highest Q value
-                v_action_index = torch.argmax(output_weight[0]).item()
-                w_action_index = torch.argmax(output_weight[1]).item()
-
-                return torch.tensor([v_action_index, w_action_index]).to(self.device) # explore  
-
-
-"""
 Class Wrapper for the auv RL environment
 """
 class AuvEnvManager():
@@ -404,14 +452,16 @@ class AuvEnvManager():
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
         self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
-        # print("=========================")
-        # print("action v: ", v_action_index, " | ", v_action)  
-        # print("action w: ", w_action_index, " | ", w_action)  
-        # print("new state: ")
-        # print(self.current_state)
-        # print("reward: ")
-        # print(reward)
-        # print("=========================")
+
+        if DEBUG:
+            print("=========================")
+            print("action v: ", v_action_index, " | ", v_action)  
+            print("action w: ", w_action_index, " | ", w_action)  
+            print("new state: ")
+            print(self.current_state)
+            print("reward: ")
+            print(reward)
+            print("=========================")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
@@ -438,136 +488,6 @@ class AuvEnvManager():
         return torch.tensor([reward], device=self.device).float()
 
 
-def extract_tensors(experiences):
-    """
-    Convert batches of experiences sampled from the replay memeory to tuples of tensors
-    """
-    batch = Experience(*zip(*experiences))
-   
-    t1 = torch.stack(batch.state)
-    t2 = torch.stack(batch.action)
-    t3 = torch.cat(batch.reward)
-    t4 = torch.stack(batch.next_state)
-
-    return (t1,t2,t3,t4)
-
-
-"""
-Use QValues class's 
-"""
-class QValues():
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    @staticmethod
-    def get_current(policy_net, states, actions):
-        # actions is a tensor with this format: [[v_action_index1, w_action_index1], [v_action_index2, w_action_index2] ]
-        # actions[:,:1] gets only the first element in the [v_action_index, w_action_index], 
-        #   so we get all the v_action_index as a tensor
-        # policy_net(states) gives all the predicted q-values for all the action outcome for a given state
-        # policy_net(states).gather(dim=1, index=actions[:,:1]) gives us
-        #   a tensor of the q-value corresponds to the state and action(specified by index=actions[:,:1]) pair 
-        
-        q_values_for_v = policy_net(states)[0].gather(dim=1, index=actions[:,:1])
-        q_values_for_w = policy_net(states)[1].gather(dim=1, index=actions[:,1:2])
-       
-        return torch.stack((q_values_for_v, q_values_for_w), dim = 0)
-
-    
-    @staticmethod        
-    def get_next(target_net, next_states):  
-        # for each next state, we want to obtain the max q-value predicted by the target_net among all the possible next actions              
-        # we want to know where the final states are bc we shouldn't pass them into the target net
-
-        # check individual next state's max value
-        # if max value is 0 (.eq(0)), set to be true
-        # final_state_locations = next_states.flatten(start_dim=1) \
-        #     .max(dim=1)[0].eq(0).type(torch.bool)
-        # flip the non final_state 
-        # non_final_state_locations = (final_state_locations == False)
-
-        # non_final_states = next_states[non_final_state_locations]
-
-        # batch_size = next_states.shape[0]
-        # # create a tensor of zero
-        # values = torch.zeros(batch_size).to(QValues.device)
-
-        # # a tensor of 
-        # #   zero - if it's a final state
-        # #   target_net's maximum predicted q-value - if it's a non-final state.
-        # values[non_final_state_locations] = target_net(non_final_states).max(dim=0)[0].detach()
-        # return values
-       
-        v_max_q_values = target_net(next_states)[0].max(dim=1)[0].detach()
-        w_max_q_values = target_net(next_states)[1].max(dim=1)[0].detach()
-       
-        return torch.stack((v_max_q_values, w_max_q_values), dim = 0)
-
-
-def calculate_range(a_pos, b_pos):
-        """
-        Calculate the range (distance) between point a and b, specified by their coordinates
-
-        Parameters:
-            a_pos - an array / a numpy array
-            b_pos - an array / a numpy array
-                both have the format: [x_pos, y_pos, z_pos, theta]
-
-        TODO: include z pos in future range calculation?
-        """
-        a_x = a_pos[0]
-        a_y = a_pos[1]
-        b_x = b_pos[0]
-        b_y = b_pos[1]
-
-        delta_x = b_x - a_x
-        delta_y = b_y - a_y
-
-        return np.sqrt(delta_x**2 + delta_y**2)
-
-
-def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_pos, obstacle_array):
-    """
-    Helper function for checking whether the newly obstacle generated is valid or not
-    """
-    auv_overlaps = calculate_range([auv_init_pos.x, auv_init_pos.y], new_obstacle) <= new_obs_size
-    shark_overlaps = calculate_range([shark_init_pos.x, shark_init_pos.y], new_obstacle) <= new_obs_size
-    obs_overlaps = False
-    for obs in obstacle_array:
-        if calculate_range([obs.x, obs.y], new_obstacle) <= (new_obs_size + obs.size):
-            obs_overlaps = True
-            break
-    return auv_overlaps or shark_overlaps or obs_overlaps
-
-
-def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
-    """
-    """
-    obstacle_array = []
-    for i in range(num_of_obstacles):
-        obs_x = np.random.uniform(MIN_X, MAX_X)
-        obs_y = np.random.uniform(MIN_Y, MAX_Y)
-        obs_size = np.random.randint(1,5)
-        while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array):
-            obs_x = np.random.uniform(MIN_X, MAX_X)
-            obs_y = np.random.uniform(MIN_Y, MAX_Y)
-        obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, z=-5, size = obs_size))
-
-    return obstacle_array
-
-# Most of the hyperparameters come from the DDPG paper
-# learning rate
-LR_ACTOR = 1e-4
-LR_CRITIC = 1e-3
-
-# size of the replay memory
-MEMORY_SIZE = 1e6
-BATCH_SIZE = 64
-
-# use GPU if available, else use CPU
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# number of additional goals to be added to the replay memory
-NUM_GOALS_SAMPLED_HER = 4
 
 class DDPG():
     def __init__(self, state_size, action_size):
@@ -601,6 +521,14 @@ class DDPG():
         """
         for target_param, param in zip(target.parameters(), source.parameters()):
             target_param.data.copy_(param.data)
+
+    
+    def soft_update(self, local_model, target_model, tau):
+        """
+        From https://github.com/tobiassteidle/Reinforcement-Learning/blob/master/OpenAI/MountainCarContinuous-v0/Agent.py
+        """
+        for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
+            target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
 
 
     def load_trained_network(self):
@@ -642,13 +570,74 @@ class DDPG():
         # only sample additional goals if there are enough to sample
         # TODO: slightly modified from our previous implementation of HER, maybe this is better?
         if len(possible_goals_to_sample) >= NUM_GOALS_SAMPLED_HER:
-            additional_goals = random.sample(future_goals_to_sample, k = k)
+            additional_goals = random.sample(possible_goals_to_sample, k = NUM_GOALS_SAMPLED_HER)
         
         return additional_goals
 
 
-    def generate_extra_goals_HER(self, state, next_state, additional_goals):
-        
+    def store_extra_goals_HER(self, action, state, next_state, additional_goals):
+        for goal in additional_goals:
+            # build new current state and new next state based on the new goal
+            new_curr_state = (state[0], goal[0], state[2])
+
+            new_next_state = (next_state[0], goal[0], new_next_state[2])
+
+            reward = self.em.get_binary_reward(new_next_state[0], new_next_state[1])
+
+            self.memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
+
+
+    def update_neural_nets(self):
+        if self.memory.can_provide_sample(BATCH_SIZE):
+            # sample a random minibatch of "BATCH_SIZE" experiences
+            experiences_batch = self.memory.sample(BATCH_SIZE)
+
+            # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
+            states_batch, actions_batch, rewards_batch, next_states_batch = extract_tensors(experiences_batch)
+            
+            # --------------------- Update the Critic Network ---------------------
+
+            # get the predicted actions based on next states
+            next_actions_batch = self.actor_target(next_states_batch)
+
+            # get the predicted Q-values based on the next states and actions pairs
+            next_target_q_val_batch = self.critic_target(next_states_batch, next_actions_batch)
+
+            # compute the current Q values using the Bellman equation
+            target_q_val_batch = rewards_batch + GAMMA * next_target_q_val_batch
+            
+            # compute the expected q value based on the critic neural net
+            expected_q_val_batch = self.critic(states_batch, actions_batch)
+            
+            # calculate the loss for the critic neural net by using mean square error
+            critic_loss = F.mse_loss(expected_q_val_batch, target_q_val_batch)
+
+            # update the critic neural net based on the loss
+            
+            # set the gradients of all the weights and bias in the critic neural net to zero
+            #   need to zero out the gradients, so we don't accumulate gradients across all back propogation
+            self.critic_optimizer.zero_grad()   
+            # computes the gradient of critic loss with respect to all the weights and biases in critic neural net
+            critic_loss.backward()
+            # updates the weights and biases in the cirtic neural net with the gradients that we just calculated
+            self.critic_optimizer.step()
+
+            # --------------------- Update the Actor Neural Network ---------------------
+            predicted_actions_batch = self.actor(states_batch)
+
+            actor_loss = -self.critic(states_batch, predicted_actions_batch).mean()
+
+            self.actor_optimizer.zero_grad()
+            actor_loss.backward()
+            self.actor_optimizer.step()
+
+            # --------------------- Update the Target Networks ---------------------
+            self.soft_update(self.critic, self.critic_target, TAU)
+            self.soft_update(self.actor, self.actor_target, TAU)
+
+            
+            self.actor_loss_in_ep.append(actor_loss)
+            self.critic_loss_in_ep.append(critic_loss)
 
 
     def train(self, num_episodes, max_step, load_prev_training=False):
@@ -669,6 +658,9 @@ class DDPG():
 
             action_array = []
             next_state_array = []
+
+            self.actor_loss_in_ep = []
+            self.critic_loss_in_ep = []
 
             # determine how many steps we should run HER
             # by default, it will be "max_step"
@@ -708,282 +700,28 @@ class DDPG():
                 # store the actual experience in the memory
                 self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
 
-                self.generate_extra_goals_HER()
+                additional_goals = self.possible_extra_goals(t, next_state_array)
+                self.store_extra_goals_HER(action, state, next_state, additional_goals)
+
+                state = next_state
+
+                self.update_neural_nets()    
+
+            if eps % SAVE_EVERY == 0:
+                save_model(self.actor, self.actor_target, self.critic, self.critic_target)
+
+            print("+++++++++++++++++++++++++++++++++++++++++")
+            print("Episode # ", eps, " used time: ", self.episode_durations[-1])
+            if self.actor_loss_in_ep != []:
+                print("average actor loss: ", np.mean(self.actor_loss_in_ep))
+            if self.critic_loss_in_ep != []:
+                print("average critic loss: ", np.mean(self.critic_loss_in_ep))
+            print("+++++++++++++++++++++++++++++++++++++++++")
 
 
 
 def train():
-    batch_size = 128
-    # discount factor for exploration rate decay
-    gamma = 0.999
-    eps_start = 1
-    eps_end = 0.05
-    eps_decay = 0.001
-
-    # how frequently (in terms of episode) we will update the target policy network with 
-    #   weights from the policy network
-    target_update = 10
-
-    # capacity of replay memory
-    memory_size = 100000
-
-    # learning rate
-    lr = 0.001
-
-    num_episodes = 5000
-
-    # use GPU if available, else use CPU
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # parameter to discretize the action v and w
-    # N specify the number of options that we get to have for v and w
-    N_v = 5
-    N_w = 5
-
-    num_of_obstacles = 2
-
-    auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MIN_Y), z = -5.0, theta = 0)
-    shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MIN_Y), z = -5.0, theta = 0)
-    # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
-    obstacle_array = []
     
-    # setup the environment
-    em = AuvEnvManager(device, N_v, N_w, auv_init_pos, shark_init_pos, obstacle_array)
-
-    strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
-    agent = Agent(strategy, N_v, N_w, device)
-
-    memory = ReplayMemory(memory_size)
-
-    input_size = 8 + len(obstacle_array) * 4
-
-    # to(device) puts the network on our defined device
-    policy_net_v = DQN(input_size, N_v, N_w).to(device)
-    target_net_v = DQN(input_size, N_v, N_w).to(device)
-
-    
-    # set the weight and bias in the target_net to be the same as the policy_net
-    target_net_v.load_state_dict(policy_net_v.state_dict())
-
-    # if we want to load the already trained network
-    # policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
-    # target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
-
-    # set the target_net in evaluation mode instead of training mode (bc we are only using it to 
-    # estimate the next max Q value)
-    target_net_v.eval()
-
-    optimizer = optim.Adam(params=policy_net_v.parameters(), lr=lr)
-
-    episode_durations = []
-
-    # determine when we should save the neural network model
-    save_every = 10
-
-    max_step = 2000
-
-    score = 0
-
-    num_goals_sampled_HER = 4
-
-    avg_loss_array = []
-
-    def save_model():
-        print("Model Save...")
-        torch.save(policy_net_v.state_dict(), 'checkpoint_policy.pth')
-        torch.save(target_net_v.state_dict(), 'checkpoint_target.pth')
-
-    # For each episode:
-    for episode in range(num_episodes):      
-        # randomize the auv and shark position
-        
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
-        shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0) 
-        obstacle_array = []
-        # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
-
-        em.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
-        
-        print("===============================")
-        print("Inital State")
-        print(auv_init_pos)
-        print(shark_init_pos)
-        print(obstacle_array)
-        print("===============================")
-        # text = input("mannual stop")
-
-        # Initialize the starting state.
-        state = em.reset()
-        
-        score = 0
-
-        action_array = []
-        next_state_array = []
-        loss_in_ep = []
-
-        iteration = max_step
-
-        for timestep in range(max_step): 
-            # For each time step:
-            # Select an action (Via exploration or exploitation)
-    
-            action = agent.select_action(state, policy_net_v)
-            
-            action_array.append(action)
-
-            # Execute selected action in an emulator.
-            # Observe reward and next state.
-            score = em.take_action(action)
-
-            # em.render(live_graph=False)
-
-            next_state = em.get_state()
-
-            next_state_array.append(next_state)
-            
-            state = next_state
-
-            if em.done: 
-                # episode_durations.append(timestep)
-                iteration = timestep + 1
-                # plot(episode_durations, 100)
-                break
-        
-        
-        # reset the starting state
-        state = em.reset()
-
-        # print("iteration: ", iteration)
-        episode_durations.append(iteration)
-        # print(action_array)
-        # print(next_state_array)
-        # text = input("mannual stop")
-
-        for t in range(iteration):
-            action = action_array[t]
-
-            next_state = next_state_array[t]
-            
-            # next_state[0] the auv's position after it has taken an action
-            # next_state[1] the actual goal (real shark position)
-            reward = em.get_binary_reward(next_state[0], next_state[1])
-            
-            # Store experience in replay memory.
-            memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
-            # print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
-           
-            # sample the goals based on the "future" strategy:
-            #    replay with k random states which come from the same episode as the transition being replayed and were observed after it
-            future_goals_to_sample = next_state_array[t + 1:]
-
-            # Note: Might have repeated goals if the len(future_goals_to_sample) < num_goals_sampled_HER
-            if future_goals_to_sample != []:
-                k = num_goals_sampled_HER
-                if len(future_goals_to_sample) < k:
-                    k = len(future_goals_to_sample)
-                additional_goals = random.sample(future_goals_to_sample, k = k)
-            else:
-                additional_goals = [next_state_array[-1]]
-            # print("additional goals")
-            # print(additional_goals)
-            additional_reward = 0
-
-            for goal in additional_goals:
-                # next_state[0] the auv's position after it has taken an action
-                # goal[0] the additional goal (real shark position)
-                
-                reward = em.get_binary_reward(next_state[0], goal[0])
-                if reward == 1:
-                    additional_reward += reward
-                
-                new_curr_state = (state[0], goal[0], state[2])
-                
-                new_next_state = (next_state[0], goal[0], next_state[2])
-                
-                memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
-                # print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
-
-            state = next_state
-            # print("+++++++", t, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++", additional_reward)
-
-            if memory.can_provide_sample(batch_size):
-                # Sample random batch from replay memory.
-                experiences = memory.sample(batch_size)
-                
-                # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
-                states, actions, rewards, next_states = extract_tensors(experiences)
-
-                # Pass batch of preprocessed states to policy network.
-                # return the q value for the given state-action pair by passing throught the policy net
-                current_q_values = QValues.get_current(policy_net_v, states, actions)
-            
-                next_q_values = QValues.get_next(target_net_v, next_states)
-                
-                target_q_values_v = (next_q_values[0] * gamma) + rewards
-                target_q_values_w = (next_q_values[1] * gamma) + rewards
-                
-                # Calculate loss between output Q-values and target Q-values.
-                # mse_loss calculate the mean square error              
-                # print("current q value")
-                # print(current_q_values[0])
-                # print("next q value")
-                # print(next_q_values[0].unsqueeze(1))
-                # print("target q value")
-                # print(target_q_values_v.unsqueeze(1))
-
-                
-                loss_v = F.mse_loss(current_q_values[0], target_q_values_v.unsqueeze(1))
-
-                # print("v loss: ", loss_v)
-
-                loss_w = F.mse_loss(current_q_values[1], target_q_values_w.unsqueeze(1))
-                # print("w loss: ", loss_w)
-
-                loss_total = loss_v + loss_w
-
-                loss_in_ep.append(loss_total.item())
-                
-                # Gradient descent updates weights in the policy network to minimize loss.
-                # sets the gradients of all the weights and biases in the policy network to zero
-                # so that we can do back propagation 
-                optimizer.zero_grad()
-
-                # use backward propagation to calculate the gradient of loss with respect to all the weights and biases in the policy net
-                loss_total.backward()
-
-                # updates the weights and biases of all the nodes based on the gradient
-                optimizer.step()
-
-            
-        # After x time steps, weights in the target network are updated to the weights in the policy network.
-        # in our case, it will be 10 episodes
-        if episode % target_update == 0:
-            print("UPDATE TARGET NETWORK")
-            target_net_v.load_state_dict(policy_net_v.state_dict())
-        
-        if loss_in_ep != []:
-            avg_loss = np.mean(loss_in_ep)
-            avg_loss_array.append(avg_loss)
-            print("+++++++++++++++++++++++++++++")
-            print("Episode # ", episode, "end with reward: ", score, "average loss", avg_loss, " used time: ", timestep)
-            print("+++++++++++++++++++++++++++++")
-        else:
-            print("+++++++++++++++++++++++++++++")
-            print("Episode # ", episode, "end with reward: ", score, "average loss nan", " used time: ", timestep)
-            print("+++++++++++++++++++++++++++++")
-
-
-        if episode % save_every == 0:
-            save_model()
-
-
-        # time.sleep(1)
-        # text = input("manual stop")
-    save_model()
-    em.close()
-    print(episode_durations)
-    print("average loss")
-    print(avg_loss_array)
 
 
 def test_trained_model():
