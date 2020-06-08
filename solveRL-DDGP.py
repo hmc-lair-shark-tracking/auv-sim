@@ -16,7 +16,7 @@ import torchvision.transforms as T
 from motion_plan_state import Motion_plan_state
 
 # namedtuple allows us to store Experiences as labeled tuples
-Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'))
+Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward', 'done'))
 
 """
 ============================================================================
@@ -656,8 +656,8 @@ class DDPG():
 
 
     def store_extra_goals_HER(self, action, state, next_state, additional_goals):
-        # print("------------------------")
-        # print("additional experiences HER")
+        print("------------------------")
+        print("additional experiences HER")
         for goal in additional_goals:
             # build new current state and new next state based on the new goal
             new_curr_state = (state[0], goal[0], state[2])
@@ -666,8 +666,12 @@ class DDPG():
 
             reward = self.em.get_binary_reward(new_next_state[0], new_next_state[1])
 
-            self.memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
-            # print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
+            done = False
+                if reward.item() == 1:
+                    done = True
+
+            self.memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward, done))
+            print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
 
 
     def update_neural_nets(self):
@@ -679,7 +683,9 @@ class DDPG():
             text = input("stop")
 
             # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
-            states_batch, actions_batch, rewards_batch, next_states_batch = extract_tensors(experiences_batch)
+            states_batch, actions_batch, rewards_batch, next_states_batch, done_batch = extract_tensors(experiences_batch)
+            
+            print(states_batch)
             
             # --------------------- Update the Critic Network ---------------------
 
@@ -791,8 +797,12 @@ class DDPG():
                 # next_state[1] - the actual goal
                 reward = self.em.get_binary_reward(next_state[0], next_state[1])
 
+                done = False
+                if reward.item() == 1:
+                    done = True
+
                 # store the actual experience in the memory
-                self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
+                self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
 
                 if DEBUG:
                     print("----------------------------")

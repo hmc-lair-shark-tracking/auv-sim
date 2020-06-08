@@ -255,7 +255,7 @@ class AuvEnv(gym.Env):
         if self.check_reached_target(auv_pos, goal_pos):
             return 1
         else:
-            return -1
+            return 1
     
 
     def check_collision(self, auv_pos):
