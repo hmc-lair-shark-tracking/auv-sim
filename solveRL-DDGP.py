@@ -15,7 +15,6 @@ import torchvision.transforms as T
 
 from motion_plan_state import Motion_plan_state
 
-
 # namedtuple allows us to store Experiences as labeled tuples
 Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'))
 
@@ -34,6 +33,14 @@ MAX_X= dist * 2
 MIN_Y = 0.0
 MAX_Y = dist * 3
 
+NUM_OF_OBSTACLES = 0
+
+STATE_SIZE = 8 + 4 * NUM_OF_OBSTACLES
+ACTION_SIZE = 2
+
+NUM_OF_EPISODES = 10
+MAX_STEP = 10
+
 # Most of the hyperparameters come from the DDPG paper
 # learning rate
 LR_ACTOR = 1e-4
@@ -41,7 +48,7 @@ LR_CRITIC = 1e-3
 
 # size of the replay memory
 MEMORY_SIZE = 1e6
-BATCH_SIZE = 64
+BATCH_SIZE = 2 #64
 
 # use GPU if available, else use CPU
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -405,6 +412,23 @@ class AuvEnvManager():
         self.done = False
 
 
+    def init_env_randomly(self):
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
+        shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0) 
+        obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES)
+
+        if DEBUG:
+            print("===============================")
+            print("Starting Positions")
+            print(auv_init_pos)
+            print(shark_init_pos)
+            print(obstacle_array)
+            print("===============================")
+            text = input("stop")
+
+        return self.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
+
+
     def reset(self):
         """
         Reset the environment and return the initial state
@@ -444,24 +468,23 @@ class AuvEnvManager():
                 use the index from the action and take a step in environment
                 based on the chosen values for v and w
         """
-        v_action_index = action[0].item()
-        w_action_index = action[1].item()
-        v_action = self.possible_actions[0][v_action_index]
-        w_action = self.possible_actions[1][w_action_index]
-        
+        v_action = action[0].item()
+        w_action = action[1].item()
+       
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
         self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
 
         if DEBUG:
             print("=========================")
-            print("action v: ", v_action_index, " | ", v_action)  
-            print("action w: ", w_action_index, " | ", w_action)  
+            print("action v: ", v_action)  
+            print("action w: ", w_action)  
             print("new state: ")
             print(self.current_state)
             print("reward: ")
             print(reward)
             print("=========================")
+            text = input("stop")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
@@ -543,12 +566,18 @@ class DDPG():
         # TODO: verify that this helper function still works in DDGP
         # convert the state to a tensor so it can get passed into the neural net
         state = process_state_for_nn(state)
+        print("processed state")
+        print(state)
+        text = input("stop")
 
         # set the actor nn to evaluation mode
         self.actor.eval()
 
         with torch.no_grad():
             action = self.actor(state).to(DEVICE)
+
+        print(action)
+        text = input("stop")
 
         # set the actor nn back to train mode
         self.actor.train()
@@ -649,10 +678,12 @@ class DDPG():
             self.load_trained_network()
         
         for eps in range(num_episodes):
-            # Initialize a random noise process N for action exploration 
+            # initialize a random noise process N for action exploration 
             self.noise.reset()
-            # Receive initial observation state s1 
-            state = self.em.reset()
+
+            # initialize the starting point of the shark and the auv randomly
+            # receive initial observation state s1 
+            state = self.em.init_env_randomly()
 
             score = 0
 
@@ -669,6 +700,9 @@ class DDPG():
             for t in range(1, max_step):
                 # Select action according to the current policy and exploration noise
                 action = self.select_action(state)
+
+                text = input("stop")
+
                 # store the action for HER algorithm
                 action_array.append(action)
 
@@ -718,10 +752,16 @@ class DDPG():
                 print("average critic loss: ", np.mean(self.critic_loss_in_ep))
             print("+++++++++++++++++++++++++++++++++++++++++")
 
+            if DEBUG:
+                text = input("stop")
+
 
 
 def train():
-    
+    ddpg = DDPG(STATE_SIZE, ACTION_SIZE)
+    ddpg.train(NUM_OF_EPISODES, MAX_STEP)
+
+
 
 
 def test_trained_model():

@@ -122,7 +122,7 @@ class AuvEnv(gym.Env):
 
         self.init_data_for_3D_plot(auv_init_pos, shark_init_pos)
         
-        self.reset()
+        return self.reset()
 
 
     def actions_range(self, N_v, N_w):
