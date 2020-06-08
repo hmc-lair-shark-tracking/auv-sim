@@ -105,10 +105,11 @@ def extract_tensors(experiences):
    
     t1 = torch.stack(batch.state)
     t2 = torch.stack(batch.action)
-    t3 = torch.cat(batch.reward)
+    t3 = torch.stack(batch.reward)
     t4 = torch.stack(batch.next_state)
+    t5 = torch.stack(batch.done)
 
-    return (t1,t2,t3,t4)
+    return (t1, t2, t3, t4, t5)
 
 
 
@@ -118,6 +119,7 @@ def save_model(actor, actor_target, critic, critic_target):
     torch.save(actor_target.state_dict(), 'checkpoint_actor_target.pth')
     torch.save(critic.state_dict(), 'checkpoint_critic.pth')
     torch.save(critic_target.state_dict(), 'checkpoint_critic_target.pth')
+
 
 
 def calculate_range(a_pos, b_pos):
@@ -142,6 +144,7 @@ def calculate_range(a_pos, b_pos):
         return np.sqrt(delta_x**2 + delta_y**2)
 
 
+
 def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_pos, obstacle_array):
     """
     Helper function for checking whether the newly obstacle generated is valid or not
@@ -154,6 +157,7 @@ def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_p
             obs_overlaps = True
             break
     return auv_overlaps or shark_overlaps or obs_overlaps
+
 
 
 def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
@@ -334,17 +338,67 @@ class Critic(nn.Module):
         # pass through the layers then have relu applied to it
         # relu is the activation function that will turn any negative value to 0,
         #   and keep any positive value
-        q_val = self.fc1(state)
-        q_val = F.relu(q_val)
-        q_val = self.bn1(q_val)             # batch normalization
+
+        # print("input state")
+        # print(state)
         
+        q_val = self.fc1(state)
+
+        # print("first layer")
+        # print(q_val)
+        # text = input("stop")
+
+        q_val = F.relu(q_val)
+
+        # print("first layer relu")
+        # print(q_val)
+        # text = input("stop")
+
+        q_val = self.bn1(q_val)             # batch normalization
+
+        # print("first layer bn")
+        # print(q_val)
+        # print(q_val.size())
+        # print(q_val.type())
+        # print("input action")
+        # print(action)
+        # print(action.size())
+        # print(action.type())
+        # text = input("stop")
+
         # introduce action into the hidden layer
         q_val = torch.cat((q_val, action), dim=1)
+        # print("dimension")
+        # print(q_val.size())
+        # text = input("stop")
+
+        # print("combine action and q_val")
+        # print(q_val)
+        # text = input("stop")
+
         q_val = self.fc2(q_val)
+
+        # print("second layer")
+        # print(q_val)
+        # text = input("stop")
+
         q_val = F.relu(q_val)
+
+        # print("second layer relu")
+        # print(q_val)
+        # text = input("stop")
+
         q_val = self.bn2(q_val)       # batch normalization
 
+        # print("second layer bn")
+        # print(q_val)
+        # text = input("stop")
+
         q_val = self.out(q_val)
+
+        # print("output layer")
+        # print(q_val)
+        # text = input("stop")
 
         return q_val
 
@@ -633,31 +687,29 @@ class DDPG():
         if add_noise:
             action = action + self.noise.noise()
         
-        # TODO: not sure about if we need to modify the form yet
-        return action
+        # apparently, this is giving as double while everything else is as float
+        # cast the action to float to make pytorch happy
+        return action.float()
 
     
     def possible_extra_goals(self, time_step, next_state_array):
         # currently, we use the "future" strategy mentioned in the HER paper
         #   replay with k random states which come from the same episode as the transition being replayed and were observed after it
         possible_goals_to_sample = next_state_array[time_step+1: ]
-        print("possible goals to sample")
-        print(possible_goals_to_sample)
+       
         additional_goals = []
 
         # only sample additional goals if there are enough to sample
         # TODO: slightly modified from our previous implementation of HER, maybe this is better?
         if len(possible_goals_to_sample) >= NUM_GOALS_SAMPLED_HER:
             additional_goals = random.sample(possible_goals_to_sample, k = NUM_GOALS_SAMPLED_HER)
-        print("--")
-        print(additional_goals)
-        text = input("stop")
+        
         return additional_goals
 
 
     def store_extra_goals_HER(self, action, state, next_state, additional_goals):
-        print("------------------------")
-        print("additional experiences HER")
+        """print("------------------------")
+        print("additional experiences HER")"""
         for goal in additional_goals:
             # build new current state and new next state based on the new goal
             new_curr_state = (state[0], goal[0], state[2])
@@ -666,43 +718,99 @@ class DDPG():
 
             reward = self.em.get_binary_reward(new_next_state[0], new_next_state[1])
 
-            done = False
-                if reward.item() == 1:
-                    done = True
+            done = torch.tensor([False], device=DEVICE)
+            if reward.item() == 1:
+                done = torch.tensor([True], device=DEVICE)
 
             self.memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward, done))
-            print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
+            """print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward, done))"""
 
 
     def update_neural_nets(self):
         if self.memory.can_provide_sample(BATCH_SIZE):
             # sample a random minibatch of "BATCH_SIZE" experiences
             experiences_batch = self.memory.sample(BATCH_SIZE)
-
+            
+            """
+            print("--------------------")
+            print("sampled experiences")
             print(experiences_batch)
             text = input("stop")
+            """
 
             # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
             states_batch, actions_batch, rewards_batch, next_states_batch, done_batch = extract_tensors(experiences_batch)
             
+            """
+            print("----")
+            print("states")
             print(states_batch)
-            
+            print("----")
+            print("actions")
+            print(actions_batch)
+            print("----")
+            print("rewards")
+            print(rewards_batch)
+            print("----")
+            print("next states")
+            print(next_states_batch)
+            print("----")
+            print("done")
+            print(done_batch)
+
+            text = input("stop")"""
+     
             # --------------------- Update the Critic Network ---------------------
 
             # get the predicted actions based on next states
             next_actions_batch = self.actor_target(next_states_batch)
 
+            """
+            print("****************************")
+            print("next action batch")
+            print(next_actions_batch)
+            text = input("stop")
+            """
+
             # get the predicted Q-values based on the next states and actions pairs
             next_target_q_val_batch = self.critic_target(next_states_batch, next_actions_batch)
 
+            """
+            print("****************************")
+            print("next target q val batch based on next state-action pair")
+            print(next_target_q_val_batch)
+            text = input("stop")
+            """
+
             # compute the current Q values using the Bellman equation
-            target_q_val_batch = rewards_batch + GAMMA * next_target_q_val_batch
+            target_q_val_batch = (rewards_batch + GAMMA * next_target_q_val_batch)
+
+            """
+            print("****************************")
+            print("current q val batch")
+            print(target_q_val_batch)
+            text = input("stop")
+            """
             
             # compute the expected q value based on the critic neural net
             expected_q_val_batch = self.critic(states_batch, actions_batch)
+
+            """
+            print("****************************")
+            print("expected q value based on the critic")
+            print(expected_q_val_batch)
+            text = input("stop")
+            """
             
             # calculate the loss for the critic neural net by using mean square error
             critic_loss = F.mse_loss(expected_q_val_batch, target_q_val_batch)
+
+            """
+            print("****************************")
+            print("critic loss")
+            print(critic_loss)
+            text = input("stop")
+            """
 
             # update the critic neural net based on the loss
             
@@ -715,9 +823,22 @@ class DDPG():
             self.critic_optimizer.step()
 
             # --------------------- Update the Actor Neural Network ---------------------
+            """print("=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+")
+            print("=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+")"""
+
             predicted_actions_batch = self.actor(states_batch)
 
+            """print("****************************")
+            print("predicted action based on actor")
+            print(predicted_actions_batch)
+            text = input("stop")"""
+
             actor_loss = -self.critic(states_batch, predicted_actions_batch).mean()
+
+            """print("****************************")
+            print("actor loss")
+            print(actor_loss)
+            text = input("stop")"""
 
             self.actor_optimizer.zero_grad()
             actor_loss.backward()
@@ -728,8 +849,8 @@ class DDPG():
             self.soft_update(self.actor, self.actor_target, TAU)
 
             
-            self.actor_loss_in_ep.append(actor_loss)
-            self.critic_loss_in_ep.append(critic_loss)
+            self.actor_loss_in_ep.append(actor_loss.item())
+            self.critic_loss_in_ep.append(critic_loss.item())
 
 
     def train(self, num_episodes, max_step, load_prev_training=False):
@@ -773,6 +894,8 @@ class DDPG():
                 next_state = self.em.get_state()
                 next_state_array.append(next_state)
 
+                self.em.render(print_state = False, live_graph=True)
+
                 state = next_state
 
                 if self.em.done:
@@ -797,29 +920,30 @@ class DDPG():
                 # next_state[1] - the actual goal
                 reward = self.em.get_binary_reward(next_state[0], next_state[1])
 
-                done = False
+                done = torch.tensor([False], device=DEVICE)
                 if reward.item() == 1:
-                    done = True
+                    done = torch.tensor([True], device=DEVICE)
 
                 # store the actual experience in the memory
                 self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
 
-                if DEBUG:
-                    print("----------------------------")
-                    print("timestep: ", t)
-                    print("actual experience stored")
-                    print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
-                    print("----------------------------")
-                    text = input("stop")
+                """
+                print("----------------------------")
+                print("timestep: ", t)
+                print("actual experience stored")
+                print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
+                print("----------------------------")
+                text = input("stop")
+                """
 
                 additional_goals = self.possible_extra_goals(t, next_state_array)
                 self.store_extra_goals_HER(action, state, next_state, additional_goals)
 
                 state = next_state
 
-                # self.update_neural_nets()    
+                self.update_neural_nets()    
 
-            if eps % SAVE_EVERY == 0:
+            if eps % SAVE_EVERY == 0 or self.em.done:
                 save_model(self.actor, self.actor_target, self.critic, self.critic_target)
 
             print("+++++++++++++++++++++++++++++++++++++++++")
