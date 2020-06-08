@@ -233,17 +233,50 @@ class Actor(nn.Module):
         # pass through the layers then have relu applied to it
         # relu is the activation function that will turn any negative value to 0,
         #   and keep any positive value
+        
         action = self.fc1(state)
+
+        # print("first layer")
+        # print(action)
+        # text = input("stop")
+
         action = F.relu(action)
-        action = self.bn1(action)             # batch normalization
+
+        # print("first layer relu")
+        # print(action)
+        # text = input("stop")
+
+        action = self.bn1(action)      # batch normalization
+        
+        # print("first layer batch norm")      
+        # print(action)
+        # text = input("stop")
         
         action = self.fc2(action)
+
+        # print("second layer")
+        # print(action)
+        # text = input("stop")
+
         action = F.relu(action)
+
+        # print("second layer relu")
+        # print(action)
+        # text = input("stop")
+
         action = self.bn2(action)       # batch normalization
 
+        # print("second layer batch norm")
+        # print(action)
+        # text = input("stop")
+        
+        # TODO: debating whether to clip the output here
+        # I worry that by clipping the output, it will affect back propagation
         action = self.out(action)
-        # TODO: not sure if tanh is the best (using it to bound action)
-        action = torch.tanh(action)
+
+        # print("output layer")
+        # print(action)
+        # text = input("stop")
 
         return action
 
@@ -411,6 +444,9 @@ class AuvEnvManager():
         self.current_state = None
         self.done = False
 
+        self.min_v, self.min_w = self.env.action_space.low
+        self.max_v, self.max_w = self.env.action_space.high
+
 
     def init_env_randomly(self):
         auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
@@ -460,6 +496,16 @@ class AuvEnvManager():
         """
         return len(self.possible_actions[0])
 
+    
+    def clip_value_to_range(self, value, target_min, target_max):
+        """
+        From: https://stackoverflow.com/questions/49911206/how-to-restrict-output-of-a-neural-net-to-a-specific-range
+        """
+        # tanh gives you range between -1 and 1, so this gives you range between 0, 2
+        new_value = np.tanh(value) + 1 
+        scale = (target_max - target_min) / 2.0
+        return new_value * scale + target_min
+
 
     def take_action(self, action):
         """
@@ -468,8 +514,17 @@ class AuvEnvManager():
                 use the index from the action and take a step in environment
                 based on the chosen values for v and w
         """
-        v_action = action[0].item()
-        w_action = action[1].item()
+        v_action_raw = action[0].item()
+        w_action_raw = action[1].item()
+
+        # clip the action so that they are within the range
+        # TODO: using clip might have potential problem
+        #   (when it starts out, it might stay at the min for a long time even though the neural net output is changing slightly)
+        # v_action = np.clip(v_action_raw, self.min_v, self.max_v)
+        # w_action = np.clip(w_action_raw, self.min_w, self.max_w)
+
+        v_action = self.clip_value_to_range(v_action_raw, self.min_v, self.max_v)
+        w_action = self.clip_value_to_range(w_action_raw, self.min_w, self.max_w)
        
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
@@ -477,14 +532,13 @@ class AuvEnvManager():
 
         if DEBUG:
             print("=========================")
-            print("action v: ", v_action)  
-            print("action w: ", w_action)  
+            print("action v: ", v_action_raw, " | ", v_action)  
+            print("action w: ", w_action_raw, " | ", w_action)  
             print("new state: ")
             print(self.current_state)
             print("reward: ")
             print(reward)
             print("=========================")
-            text = input("stop")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
@@ -566,9 +620,6 @@ class DDPG():
         # TODO: verify that this helper function still works in DDGP
         # convert the state to a tensor so it can get passed into the neural net
         state = process_state_for_nn(state)
-        print("processed state")
-        print(state)
-        text = input("stop")
 
         # set the actor nn to evaluation mode
         self.actor.eval()
@@ -576,15 +627,12 @@ class DDPG():
         with torch.no_grad():
             action = self.actor(state).to(DEVICE)
 
-        print(action)
-        text = input("stop")
-
         # set the actor nn back to train mode
         self.actor.train()
 
         if add_noise:
             action = action + self.noise.noise()
-    
+        
         # TODO: not sure about if we need to modify the form yet
         return action
 
@@ -593,33 +641,42 @@ class DDPG():
         # currently, we use the "future" strategy mentioned in the HER paper
         #   replay with k random states which come from the same episode as the transition being replayed and were observed after it
         possible_goals_to_sample = next_state_array[time_step+1: ]
-
+        print("possible goals to sample")
+        print(possible_goals_to_sample)
         additional_goals = []
 
         # only sample additional goals if there are enough to sample
         # TODO: slightly modified from our previous implementation of HER, maybe this is better?
         if len(possible_goals_to_sample) >= NUM_GOALS_SAMPLED_HER:
             additional_goals = random.sample(possible_goals_to_sample, k = NUM_GOALS_SAMPLED_HER)
-        
+        print("--")
+        print(additional_goals)
+        text = input("stop")
         return additional_goals
 
 
     def store_extra_goals_HER(self, action, state, next_state, additional_goals):
+        # print("------------------------")
+        # print("additional experiences HER")
         for goal in additional_goals:
             # build new current state and new next state based on the new goal
             new_curr_state = (state[0], goal[0], state[2])
 
-            new_next_state = (next_state[0], goal[0], new_next_state[2])
+            new_next_state = (next_state[0], goal[0], next_state[2])
 
             reward = self.em.get_binary_reward(new_next_state[0], new_next_state[1])
 
             self.memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
+            # print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
 
 
     def update_neural_nets(self):
         if self.memory.can_provide_sample(BATCH_SIZE):
             # sample a random minibatch of "BATCH_SIZE" experiences
             experiences_batch = self.memory.sample(BATCH_SIZE)
+
+            print(experiences_batch)
+            text = input("stop")
 
             # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
             states_batch, actions_batch, rewards_batch, next_states_batch = extract_tensors(experiences_batch)
@@ -694,14 +751,12 @@ class DDPG():
             self.critic_loss_in_ep = []
 
             # determine how many steps we should run HER
-            # by default, it will be "max_step"
-            iteration = max_step
+            # by default, it will be "max_step" - 1 because in the first loop, we start at t=1
+            iteration = max_step - 1
 
             for t in range(1, max_step):
                 # Select action according to the current policy and exploration noise
                 action = self.select_action(state)
-
-                text = input("stop")
 
                 # store the action for HER algorithm
                 action_array.append(action)
@@ -717,12 +772,17 @@ class DDPG():
                 if self.em.done:
                     # if the auv has reached the goal
                     # modify how many steps we should run HER
-                    iteration = t + 1
+                    iteration = t
                     break
 
             # restart the starting state to prepare for HER algorithm
             state = self.em.reset()
 
+            self.episode_durations.append(iteration)
+
+            if DEBUG:
+                step = input("stop")
+            
             for t in range(iteration):
                 action = action_array[t]
                 next_state = next_state_array[t]
@@ -734,12 +794,20 @@ class DDPG():
                 # store the actual experience in the memory
                 self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
 
+                if DEBUG:
+                    print("----------------------------")
+                    print("timestep: ", t)
+                    print("actual experience stored")
+                    print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
+                    print("----------------------------")
+                    text = input("stop")
+
                 additional_goals = self.possible_extra_goals(t, next_state_array)
                 self.store_extra_goals_HER(action, state, next_state, additional_goals)
 
                 state = next_state
 
-                self.update_neural_nets()    
+                # self.update_neural_nets()    
 
             if eps % SAVE_EVERY == 0:
                 save_model(self.actor, self.actor_target, self.critic, self.critic_target)
@@ -760,96 +828,6 @@ class DDPG():
 def train():
     ddpg = DDPG(STATE_SIZE, ACTION_SIZE)
     ddpg.train(NUM_OF_EPISODES, MAX_STEP)
-
-
-
-
-def test_trained_model():
-    # discount factor for exploration rate decay
-    eps_start = 0.051
-    eps_end = 0.05
-    eps_decay = 0.001
-
-    num_trails = 10
-
-    # use GPU if available, else use CPU
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # parameter to discretize the action v and w
-    # N specify the number of options that we get to have for v and w
-    N_v = 5
-    N_w = 5
-
-    num_of_obstacles = 2
-
-    auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MIN_Y), z = -5.0, theta = 0)
-    shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_Y, MIN_Y), z = -5.0, theta = 0)
-    # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
-    obstacle_array = []
-    
-    # setup the environment
-    em = AuvEnvManager(device, N_v, N_w, auv_init_pos, shark_init_pos, obstacle_array)
-
-    strategy = EpsilonGreedyStrategy(eps_start, eps_end, eps_decay)
-    agent = Agent(strategy, N_v, N_w, device)
-
-    input_size = 8 + len(obstacle_array) * 4
-
-    # to(device) puts the network on our defined device
-    policy_net_v = DQN(input_size, N_v, N_w).to(device)
-
-    episode_durations = []
-
-    max_step = 1000
-
-    # if we want to load the already trained network
-    policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
-    
-    policy_net_v.eval()
-
-    for i in range(num_trails):
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
-        shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0)
-        obstacle_array = []
-
-        em.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
-        print("===============================")
-        print("Inital State")
-        print(auv_init_pos)
-        print(shark_init_pos)
-        print(obstacle_array)
-        print("===============================")
-        # text = input("mannual stop")
-
-        em.env.init_data_for_3D_plot(auv_init_pos, shark_init_pos)
-        state = em.reset()
-
-        episode_durations.append(max_step)
-        for t in range(max_step):
-            action = agent.select_action(state, policy_net_v)
-            
-            em.take_action(action)
-
-            em.render(print_state = False, live_graph=True)
-
-            state = em.get_state()
-            # text = input("mannual stop")
-            if em.done:
-                # time.sleep(0.5)
-                episode_durations[i] = t
-                break
-
-        print("+++++++++++++++++++++++++++++")
-        print("Episode # ", i, " used time: ", episode_durations[i])
-        print("+++++++++++++++++++++++++++++")
-        
-
-    em.close()
-
-    print("final sums of time")
-    print(episode_durations)
-    print("average time")
-    print(np.mean(episode_durations))
 
 
     

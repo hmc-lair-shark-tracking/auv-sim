@@ -16,11 +16,11 @@ from live3DGraph import Live3DGraph
 ENV_SIZE = 500.0
 
 # auv's max speed (unit: m/s)
-AUV_MAX_V = 1.0
+AUV_MAX_V = 2.0
 AUV_MIN_V = 0.1
 # auv's max angular velocity (unit: rad/s)
 #   TODO: Currently, the track_way_point function has K_P == 1, so this is the range for w. Might change in the future?
-AUV_MAX_W = np.pi/4
+AUV_MAX_W = np.pi/6
 
 # time step (unit: sec)
 DELTA_T = 1
@@ -66,7 +66,12 @@ class AuvEnv(gym.Env):
         Warning: 
             Need to immediately call init_env function to actually initialize the environment
         """
-        self.action_space = None
+        # action: 
+        #   a tuple of (v, w), linear velocity and angular velocity
+        # range for v (unit: m/s): [-AUV_MAX_V, AUV_MAX_V]
+        # range for w (unit: radians): [-AUV_MAX_W, AUV_MAX_W]
+        self.action_space = spaces.Box(low = np.array([AUV_MIN_V, -AUV_MAX_W]), high = np.array([AUV_MAX_V, AUV_MAX_W]), dtype = np.float64)
+
         self.observation_space = None
 
         self.auv_init_pos = None
@@ -107,11 +112,6 @@ class AuvEnv(gym.Env):
             self.obstacle_array.append([obs.x, obs.y, obs.z, obs.size])
         self.obstacle_array = np.array(self.obstacle_array)
 
-        # action: 
-        #   a tuple of (v, w), linear velocity and angular velocity
-        # range for v (unit: m/s): [-AUV_MAX_V, AUV_MAX_V]
-        # range for w (unit: radians): [-AUV_MAX_W, AUV_MAX_W]
-        self.action_space = spaces.Box(low = np.array([AUV_MIN_V, -AUV_MAX_W]), high = np.array([AUV_MAX_V, AUV_MAX_W]), dtype = np.float64)
 
         # observation: a tuple of 2 elements
         #   1. np array representing the auv's 
@@ -157,7 +157,7 @@ class AuvEnv(gym.Env):
         # print("old position: ")
         # print(x, ", ", y, ", ", z, ", ", theta)
 
-        old_range = self.calculate_range(self.state[0], self.state[1])
+        # old_range = self.calculate_range(self.state[0], self.state[1])
 
         # calculate the new position and orientation of the auv
         new_x = x + v * np.cos(theta) * DELTA_T
