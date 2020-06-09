@@ -298,16 +298,16 @@ class Actor(nn.Module):
         # TODO: debating whether to clip the output here
         # I worry that by clipping the output, it will affect back propagation
         action = self.out(action)
-        # print("---------------------")
-        # print("before being tanh")
-        # print(action)
-        # print("---------------------")
+        print("---------------------")
+        print("before being tanh")
+        print(action)
+        print("---------------------")
 
-        # action = torch.tanh(action)
+        action = torch.tanh(action)
 
-        # print("output layer")
-        # print(action)
-        # text = input("stop")
+        print("output layer")
+        print(action)
+        text = input("stop")
 
         return action
 
@@ -600,7 +600,7 @@ class AuvEnvManager():
         """
         # v_action_raw = action[0].item()
         # w_action_raw = action[1].item()
-        theta_action_raw = action.item()
+        theta_action = action.item()
 
         # clip the action so that they are within the range
         # TODO: using clip might have potential problem
@@ -611,7 +611,7 @@ class AuvEnvManager():
         # v_action = self.clip_value_to_range(v_action_raw, self.min_v, self.max_v)
         # w_action = self.clip_value_to_range(w_action_raw, self.min_w, self.max_w)
 
-        theta_action = angle_wrap(theta_action_raw)
+        # theta_action = angle_wrap(theta_action_raw)
        
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
@@ -621,7 +621,7 @@ class AuvEnvManager():
             print("=========================")
             # print("action v: ", v_action_raw, " | ", v_action)  
             # print("action w: ", w_action_raw, " | ", w_action)  
-            print("action theta: ", theta_action_raw, " | ", theta_action)
+            print("action theta: ", theta_action)
             print("new state: ")
             print(self.current_state)
             print("reward: ")
@@ -734,14 +734,19 @@ class DDPG():
     def possible_extra_goals(self, time_step, next_state_array):
         # currently, we use the "future" strategy mentioned in the HER paper
         #   replay with k random states which come from the same episode as the transition being replayed and were observed after it
-        possible_goals_to_sample = next_state_array[time_step+1: ]
+        her_strategy = "final"
        
         additional_goals = []
 
-        # only sample additional goals if there are enough to sample
-        # TODO: slightly modified from our previous implementation of HER, maybe this is better?
-        if len(possible_goals_to_sample) >= NUM_GOALS_SAMPLED_HER:
-            additional_goals = random.sample(possible_goals_to_sample, k = NUM_GOALS_SAMPLED_HER)
+        if her_strategy == "future":
+            possible_goals_to_sample = next_state_array[time_step+1: ]
+
+            # only sample additional goals if there are enough to sample
+            # TODO: slightly modified from our previous implementation of HER, maybe this is better?
+            if len(possible_goals_to_sample) >= NUM_GOALS_SAMPLED_HER:
+                additional_goals = random.sample(possible_goals_to_sample, k = NUM_GOALS_SAMPLED_HER)
+        elif her_strategy == "final":
+            additional_goals.append(next_state_array[-1])
         
         return additional_goals
 
