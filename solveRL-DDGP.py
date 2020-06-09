@@ -747,13 +747,14 @@ class DDPG():
                 additional_goals = random.sample(possible_goals_to_sample, k = NUM_GOALS_SAMPLED_HER)
         elif her_strategy == "final":
             additional_goals.append(next_state_array[-1])
-        
+       
         return additional_goals
 
 
     def store_extra_goals_HER(self, action, state, next_state, additional_goals):
-        """print("------------------------")
-        print("additional experiences HER")"""
+        print("------------------------")
+        print(additional_goals)
+        print("additional experiences HER")
         for goal in additional_goals:
             # build new current state and new next state based on the new goal
             new_curr_state = (state[0], goal[0], state[2])
@@ -767,7 +768,7 @@ class DDPG():
                 done = torch.tensor([True], device=DEVICE)
 
             self.memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward, done))
-            """print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward, done))"""
+            print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward, done))
 
 
     def update_neural_nets(self):
@@ -920,6 +921,7 @@ class DDPG():
 
             action_array = []
             next_state_array = []
+            useful_next_states = []
 
             self.actor_loss_in_ep = []
             self.critic_loss_in_ep = []
@@ -927,6 +929,8 @@ class DDPG():
             # determine how many steps we should run HER
             # by default, it will be "max_step" - 1 because in the first loop, we start at t=1
             iteration = max_step - 1
+
+            prev_range = calculate_range(state[0], state[1])
 
             for t in range(1, max_step):
                 # Select action according to the current policy and exploration noise
@@ -940,6 +944,14 @@ class DDPG():
                 
                 next_state = self.em.get_state()
                 next_state_array.append(next_state)
+
+                curr_range = calculate_range(next_state[0], next_state[1])
+                if curr_range < prev_range:
+                    useful_next_states.append([t, next_state])
+                    prev_range = curr_range
+                    print("update useful next states")
+                    print(useful_next_states)
+                    text = input("stop")
 
                 self.em.render(print_state = False, live_graph=True)
 
@@ -959,6 +971,8 @@ class DDPG():
             if DEBUG:
                 step = input("stop")
             
+            index = 0
+
             for t in range(iteration):
                 action = action_array[t]
                 next_state = next_state_array[t]
@@ -983,8 +997,15 @@ class DDPG():
                 text = input("stop")
                 """
 
-                additional_goals = self.possible_extra_goals(t, next_state_array)
+
+                while t >= useful_next_states[index][0] and index < len(useful_next_states):
+                    index += 1
+
+                additional_goals = useful_next_states[index: ]
+
+                # additional_goals = self.possible_extra_goals(t, next_state_array)
                 self.store_extra_goals_HER(action, state, next_state, additional_goals)
+                text = input("stop")
 
                 state = next_state
 
