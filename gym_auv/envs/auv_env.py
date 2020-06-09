@@ -159,9 +159,9 @@ class AuvEnv(gym.Env):
         x, y, z, old_theta = self.state[0]
       
         # calculate the new position and orientation of the auv
-        new_x = x + v * np.cos(theta) * DELTA_T
-        new_y = y + v * np.sin(theta) * DELTA_T
-        new_theta = angle_wrap(theta)
+        new_theta = angle_wrap(old_theta + theta)
+        new_x = x + v * np.cos(new_theta) * DELTA_T
+        new_y = y + v * np.sin(new_theta) * DELTA_T
        
         # TODO: For now, the shark's position does not change. Might get updated in the future 
         new_shark_pos = self.state[1]

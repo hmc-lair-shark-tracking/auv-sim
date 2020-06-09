@@ -305,9 +305,10 @@ class Actor(nn.Module):
 
         action = torch.tanh(action)
 
-        print("output layer")
-        print(action)
-        text = input("stop")
+        # print("---------------------")
+        # print("output layer")
+        # print(action)
+        # print("---------------------")
 
         return action
 
@@ -753,6 +754,7 @@ class DDPG():
 
     def store_extra_goals_HER(self, action, state, next_state, additional_goals):
         print("------------------------")
+        print("additional goals")
         print(additional_goals)
         print("additional experiences HER")
         for goal in additional_goals:
@@ -949,9 +951,9 @@ class DDPG():
                 if curr_range < prev_range:
                     useful_next_states.append([t, next_state])
                     prev_range = curr_range
-                    print("update useful next states")
-                    print(useful_next_states)
-                    text = input("stop")
+                    # print("update useful next states")
+                    # print(useful_next_states)
+                    # text = input("stop")
 
                 self.em.render(print_state = False, live_graph=True)
 
@@ -997,15 +999,15 @@ class DDPG():
                 text = input("stop")
                 """
 
+                if useful_next_states != []:
+                    while index < len(useful_next_states) and t >= useful_next_states[index][0]:
+                        index += 1
 
-                while t >= useful_next_states[index][0] and index < len(useful_next_states):
-                    index += 1
+                    additional_goals = [x[1] for x in useful_next_states[index: ]]
 
-                additional_goals = useful_next_states[index: ]
-
-                # additional_goals = self.possible_extra_goals(t, next_state_array)
-                self.store_extra_goals_HER(action, state, next_state, additional_goals)
-                text = input("stop")
+                    # additional_goals = self.possible_extra_goals(t, next_state_array)
+                    self.store_extra_goals_HER(action, state, next_state, additional_goals)
+                # text = input("stop")
 
                 state = next_state
 
