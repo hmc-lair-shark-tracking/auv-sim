@@ -38,8 +38,8 @@ NUM_OF_OBSTACLES = 0
 STATE_SIZE = 8 + 4 * NUM_OF_OBSTACLES
 ACTION_SIZE = 2
 
-NUM_OF_EPISODES = 10
-MAX_STEP = 10
+NUM_OF_EPISODES = 250
+MAX_STEP = 250
 
 # Most of the hyperparameters come from the DDPG paper
 # learning rate
@@ -48,7 +48,7 @@ LR_CRITIC = 1e-3
 
 # size of the replay memory
 MEMORY_SIZE = 1e6
-BATCH_SIZE = 2 #64
+BATCH_SIZE = 64
 
 # use GPU if available, else use CPU
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -277,6 +277,12 @@ class Actor(nn.Module):
         # TODO: debating whether to clip the output here
         # I worry that by clipping the output, it will affect back propagation
         action = self.out(action)
+        # print("---------------------")
+        # print("before being tanh")
+        # print(action)
+        # print("---------------------")
+
+        # action = torch.tanh(action)
 
         # print("output layer")
         # print(action)
@@ -514,7 +520,7 @@ class AuvEnvManager():
             print(shark_init_pos)
             print(obstacle_array)
             print("===============================")
-            text = input("stop")
+            # text = input("stop")
 
         return self.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
 
@@ -556,6 +562,7 @@ class AuvEnvManager():
         From: https://stackoverflow.com/questions/49911206/how-to-restrict-output-of-a-neural-net-to-a-specific-range
         """
         # tanh gives you range between -1 and 1, so this gives you range between 0, 2
+        # new_value = value + 1
         new_value = np.tanh(value) + 1 
         scale = (target_max - target_min) / 2.0
         return new_value * scale + target_min
@@ -683,6 +690,10 @@ class DDPG():
 
         # set the actor nn back to train mode
         self.actor.train()
+
+        if DEBUG:
+            print("action without noise: ")
+            print(action)
 
         if add_noise:
             action = action + self.noise.noise()
@@ -856,6 +867,8 @@ class DDPG():
     def train(self, num_episodes, max_step, load_prev_training=False):
         # keep track of how many steps the auv takes in each episode
         self.episode_durations = []
+        self.actor_loss_in_training = []
+        self.critic_loss_in_training = []
 
         if load_prev_training:
             # if we want to continue training an already trained network
@@ -909,8 +922,8 @@ class DDPG():
 
             self.episode_durations.append(iteration)
 
-            if DEBUG:
-                step = input("stop")
+            # if DEBUG:
+            #     # step = input("stop")
             
             for t in range(iteration):
                 action = action_array[t]
@@ -948,15 +961,33 @@ class DDPG():
 
             print("+++++++++++++++++++++++++++++++++++++++++")
             print("Episode # ", eps, " used time: ", self.episode_durations[-1])
+
             if self.actor_loss_in_ep != []:
-                print("average actor loss: ", np.mean(self.actor_loss_in_ep))
+                avg_actor_loss = np.mean(self.actor_loss_in_ep)
+                self.actor_loss_in_training.append(avg_actor_loss)
+                print("average actor loss: ", avg_actor_loss)
+            else:
+                self.actor_loss_in_training.append(1000)
+            
             if self.critic_loss_in_ep != []:
-                print("average critic loss: ", np.mean(self.critic_loss_in_ep))
+                avg_critic_loss =  np.mean(self.critic_loss_in_ep)
+                self.critic_loss_in_training.append(avg_critic_loss)
+                print("average critic loss: ", avg_critic_loss)
+            else:
+                self.critic_loss_in_training.append(1000)
+
             print("+++++++++++++++++++++++++++++++++++++++++")
 
-            if DEBUG:
-                text = input("stop")
+            # if DEBUG:
+            #     text = input("stop")
 
+        print("steps in each episode")
+        print(self.episode_durations)
+        print("actor loss")
+        print(self.actor_loss_in_training)
+        print("critic loss")
+        print(self.critic_loss_in_training)
+        
 
 
 def train():
