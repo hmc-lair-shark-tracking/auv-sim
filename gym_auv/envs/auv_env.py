@@ -20,7 +20,7 @@ AUV_MAX_V = 2.0
 AUV_MIN_V = 0.1
 # auv's max angular velocity (unit: rad/s)
 #   TODO: Currently, the track_way_point function has K_P == 1, so this is the range for w. Might change in the future?
-AUV_MAX_W = np.pi/6
+AUV_MAX_W = np.pi
 
 # time step (unit: sec)
 DELTA_T = 1
@@ -70,7 +70,7 @@ class AuvEnv(gym.Env):
         #   a tuple of (v, w), linear velocity and angular velocity
         # range for v (unit: m/s): [-AUV_MAX_V, AUV_MAX_V]
         # range for w (unit: radians): [-AUV_MAX_W, AUV_MAX_W]
-        self.action_space = spaces.Box(low = np.array([AUV_MIN_V, -AUV_MAX_W]), high = np.array([AUV_MAX_V, AUV_MAX_W]), dtype = np.float64)
+        self.action_space = spaces.Box(low = np.array([-AUV_MAX_W]), high = np.array([AUV_MAX_W]), dtype = np.float64)
 
         self.observation_space = None
 
@@ -150,22 +150,19 @@ class AuvEnv(gym.Env):
             done - float, whether the episode has ended
             info - dictionary, can provide debugging info (TODO: right now, it's just an empty one)
         """
-        v, w = action
+        # v, w = action
+        theta = action
+        v = 2
+        w = 0
         
         # get the old position and orientation data for the auv
-        x, y, z, theta = self.state[0]
-        # print("old position: ")
-        # print(x, ", ", y, ", ", z, ", ", theta)
-
-        # old_range = self.calculate_range(self.state[0], self.state[1])
-
+        x, y, z, old_theta = self.state[0]
+      
         # calculate the new position and orientation of the auv
         new_x = x + v * np.cos(theta) * DELTA_T
         new_y = y + v * np.sin(theta) * DELTA_T
-        new_theta = angle_wrap(theta + w * DELTA_T)
-        # print("new position: ")
-        # print(new_x, ", ", new_y, ", ", z, ", ", new_theta)
-
+        new_theta = angle_wrap(theta)
+       
         # TODO: For now, the shark's position does not change. Might get updated in the future 
         new_shark_pos = self.state[1]
         

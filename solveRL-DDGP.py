@@ -36,7 +36,7 @@ MAX_Y = dist * 3
 NUM_OF_OBSTACLES = 0
 
 STATE_SIZE = 8 + 4 * NUM_OF_OBSTACLES
-ACTION_SIZE = 2
+ACTION_SIZE = 1
 
 NUM_OF_EPISODES = 250
 MAX_STEP = 250
@@ -174,6 +174,27 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
         obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, z=-5, size = obs_size))
 
     return obstacle_array
+
+
+
+def angle_wrap(ang):
+    """
+    Takes an angle in radians & sets it between the range of -pi to pi
+
+    Parameter:
+        ang - floating point number, angle in radians
+
+    Note: 
+        Because Python does not encourage importing files from the parent module, we have to place this angle wrap here. If we don't want to do this, we can possibly organize this so auv_env is in the parent folder?
+    """
+    if -np.pi <= ang <= np.pi:
+        return ang
+    elif ang > np.pi: 
+        ang += (-2 * np.pi)
+        return angle_wrap(ang)
+    elif ang < -np.pi: 
+        ang += (2 * np.pi)
+        return angle_wrap(ang)
 
 
 """
@@ -504,8 +525,10 @@ class AuvEnvManager():
         self.current_state = None
         self.done = False
 
-        self.min_v, self.min_w = self.env.action_space.low
-        self.max_v, self.max_w = self.env.action_space.high
+        # self.min_v, self.min_w = self.env.action_space.low
+        # self.max_v, self.max_w = self.env.action_space.high
+        self.min_theta = self.env.action_space.low
+        self.max_theta = self.env.action_space.high
 
 
     def init_env_randomly(self):
@@ -520,7 +543,7 @@ class AuvEnvManager():
             print(shark_init_pos)
             print(obstacle_array)
             print("===============================")
-            # text = input("stop")
+            text = input("stop")
 
         return self.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
 
@@ -575,8 +598,9 @@ class AuvEnvManager():
                 use the index from the action and take a step in environment
                 based on the chosen values for v and w
         """
-        v_action_raw = action[0].item()
-        w_action_raw = action[1].item()
+        # v_action_raw = action[0].item()
+        # w_action_raw = action[1].item()
+        theta_action_raw = action.item()
 
         # clip the action so that they are within the range
         # TODO: using clip might have potential problem
@@ -584,22 +608,26 @@ class AuvEnvManager():
         # v_action = np.clip(v_action_raw, self.min_v, self.max_v)
         # w_action = np.clip(w_action_raw, self.min_w, self.max_w)
 
-        v_action = self.clip_value_to_range(v_action_raw, self.min_v, self.max_v)
-        w_action = self.clip_value_to_range(w_action_raw, self.min_w, self.max_w)
+        # v_action = self.clip_value_to_range(v_action_raw, self.min_v, self.max_v)
+        # w_action = self.clip_value_to_range(w_action_raw, self.min_w, self.max_w)
+
+        theta_action = angle_wrap(theta_action_raw)
        
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
-        self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
+        self.current_state, reward, self.done, _ = self.env.step(theta_action)
 
         if DEBUG:
             print("=========================")
-            print("action v: ", v_action_raw, " | ", v_action)  
-            print("action w: ", w_action_raw, " | ", w_action)  
+            # print("action v: ", v_action_raw, " | ", v_action)  
+            # print("action w: ", w_action_raw, " | ", w_action)  
+            print("action theta: ", theta_action_raw, " | ", theta_action)
             print("new state: ")
             print(self.current_state)
             print("reward: ")
             print(reward)
             print("=========================")
+            # text = input("stop")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
@@ -769,8 +797,9 @@ class DDPG():
             print("done")
             print(done_batch)
 
-            text = input("stop")"""
-     
+            text = input("stop")
+            """
+            
             # --------------------- Update the Critic Network ---------------------
 
             # get the predicted actions based on next states
@@ -922,8 +951,8 @@ class DDPG():
 
             self.episode_durations.append(iteration)
 
-            # if DEBUG:
-            #     # step = input("stop")
+            if DEBUG:
+                step = input("stop")
             
             for t in range(iteration):
                 action = action_array[t]
@@ -978,8 +1007,8 @@ class DDPG():
 
             print("+++++++++++++++++++++++++++++++++++++++++")
 
-            # if DEBUG:
-            #     text = input("stop")
+            if DEBUG:
+                text = input("stop")
 
         print("steps in each episode")
         print(self.episode_durations)
