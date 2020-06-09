@@ -39,7 +39,7 @@ STATE_SIZE = 8 + 4 * NUM_OF_OBSTACLES
 ACTION_SIZE = 1
 
 NUM_OF_EPISODES = 250
-MAX_STEP = 250
+MAX_STEP = 100
 
 # Most of the hyperparameters come from the DDPG paper
 # learning rate
@@ -210,7 +210,7 @@ def angle_wrap(ang):
 Class for building policy and target neural network
 """
 class Actor(nn.Module):
-    def __init__(self, state_size, action_size, hidden1 = 400, hidden2 = 300, init_w = 3e-3):
+    def __init__(self, state_size, action_size, hidden1 = 400=, hidden2 = 300, init_w = 3e-3):
         """
         Initialize the Q neural network with input
 
@@ -250,53 +250,23 @@ class Actor(nn.Module):
 
     def forward(self, state):
         """
-        Define the forward pass through the neural network
+        Define the forward pass through the actor neural network
 
         Parameters:
             
         """
         # pass through the layers then have relu applied to it
         # relu is the activation function that will turn any negative value to 0,
-        #   and keep any positive value
-        
+        #   and keep any positive value 
         action = self.fc1(state)
-
-        # print("first layer")
-        # print(action)
-        # text = input("stop")
-
         action = F.relu(action)
-
-        # print("first layer relu")
-        # print(action)
-        # text = input("stop")
-
         action = self.bn1(action)      # batch normalization
         
-        # print("first layer batch norm")      
-        # print(action)
-        # text = input("stop")
-        
+
         action = self.fc2(action)
-
-        # print("second layer")
-        # print(action)
-        # text = input("stop")
-
         action = F.relu(action)
-
-        # print("second layer relu")
-        # print(action)
-        # text = input("stop")
-
         action = self.bn2(action)       # batch normalization
 
-        # print("second layer batch norm")
-        # print(action)
-        # text = input("stop")
-        
-        # TODO: debating whether to clip the output here
-        # I worry that by clipping the output, it will affect back propagation
         action = self.out(action)
         print("---------------------")
         print("before being tanh")
@@ -304,11 +274,6 @@ class Actor(nn.Module):
         print("---------------------")
 
         action = torch.tanh(action) * np.pi
-
-        # print("---------------------")
-        # print("output layer")
-        # print(action)
-        # print("---------------------")
 
         return action
 
@@ -371,62 +336,16 @@ class Critic(nn.Module):
         # print(state)
         
         q_val = self.fc1(state)
-
-        # print("first layer")
-        # print(q_val)
-        # text = input("stop")
-
         q_val = F.relu(q_val)
-
-        # print("first layer relu")
-        # print(q_val)
-        # text = input("stop")
-
         q_val = self.bn1(q_val)             # batch normalization
-
-        # print("first layer bn")
-        # print(q_val)
-        # print(q_val.size())
-        # print(q_val.type())
-        # print("input action")
-        # print(action)
-        # print(action.size())
-        # print(action.type())
-        # text = input("stop")
 
         # introduce action into the hidden layer
         q_val = torch.cat((q_val, action), dim=1)
-        # print("dimension")
-        # print(q_val.size())
-        # text = input("stop")
-
-        # print("combine action and q_val")
-        # print(q_val)
-        # text = input("stop")
-
         q_val = self.fc2(q_val)
-
-        # print("second layer")
-        # print(q_val)
-        # text = input("stop")
-
         q_val = F.relu(q_val)
-
-        # print("second layer relu")
-        # print(q_val)
-        # text = input("stop")
-
         q_val = self.bn2(q_val)       # batch normalization
 
-        # print("second layer bn")
-        # print(q_val)
-        # text = input("stop")
-
         q_val = self.out(q_val)
-
-        # print("output layer")
-        # print(q_val)
-        # text = input("stop")
 
         return q_val
 
@@ -853,12 +772,12 @@ class DDPG():
             # calculate the loss for the critic neural net by using mean square error
             critic_loss = F.mse_loss(expected_q_val_batch, target_q_val_batch)
 
-            """
+            
             print("****************************")
             print("critic loss")
             print(critic_loss)
-            text = input("stop")
-            """
+            # text = input("stop")
+            
 
             # update the critic neural net based on the loss
             
@@ -883,10 +802,10 @@ class DDPG():
  
             actor_loss = -self.critic(states_batch, predicted_actions_batch).mean()
 
-            """print("****************************")
+            print("****************************")
             print("actor loss")
             print(actor_loss)
-            text = input("stop")"""
+            # text = input("stop")
 
             self.actor_optimizer.zero_grad()
             actor_loss.backward()
@@ -901,7 +820,7 @@ class DDPG():
             self.critic_loss_in_ep.append(critic_loss.item())
 
 
-    def train(self, num_episodes, max_step, load_prev_training=False):
+    def train(self, num_episodes, max_step, load_prev_training=False, use_HER =True):
         # keep track of how many steps the auv takes in each episode
         self.episode_durations = []
         self.actor_loss_in_training = []
@@ -946,7 +865,7 @@ class DDPG():
                 
                 next_state = self.em.get_state()
                 next_state_array.append(next_state)
-
+                
                 curr_range = calculate_range(next_state[0], next_state[1])
                 if curr_range < prev_range:
                     useful_next_states.append([t, next_state])
@@ -999,15 +918,16 @@ class DDPG():
                 text = input("stop")
                 """
 
-                if useful_next_states != []:
-                    while index < len(useful_next_states) and t >= useful_next_states[index][0]:
-                        index += 1
+                if use_HER:
+                    if useful_next_states != []:
+                        while index < len(useful_next_states) and t >= useful_next_states[index][0]:
+                            index += 1
 
-                    additional_goals = [x[1] for x in useful_next_states[index: ]]
+                        additional_goals = [x[1] for x in useful_next_states[index: ]]
 
-                    # additional_goals = self.possible_extra_goals(t, next_state_array)
-                    self.store_extra_goals_HER(action, state, next_state, additional_goals)
-                # text = input("stop")
+                        # additional_goals = self.possible_extra_goals(t, next_state_array)
+                        self.store_extra_goals_HER(action, state, next_state, additional_goals)
+                
 
                 state = next_state
 
@@ -1044,12 +964,103 @@ class DDPG():
         print(self.actor_loss_in_training)
         print("critic loss")
         print(self.critic_loss_in_training)
+    
+
+    def train_no_HER(self, num_episodes, max_step, load_prev_training=False):
+        # keep track of how many steps the auv takes in each episode
+        self.episode_durations = []
+        self.actor_loss_in_training = []
+        self.critic_loss_in_training = []
+
+        if load_prev_training:
+            # if we want to continue training an already trained network
+            self.load_trained_network()
         
+        for eps in range(num_episodes):
+            # initialize a random noise process N for action exploration 
+            self.noise.reset()
+
+            # initialize the starting point of the shark and the auv randomly
+            # receive initial observation state s1 
+            state = self.em.init_env_randomly()
+
+            score = 0
+
+            action_array = []
+            next_state_array = []
+            useful_next_states = []
+
+            self.actor_loss_in_ep = []
+            self.critic_loss_in_ep = []
+
+            # determine how many steps we should run HER
+            # by default, it will be "max_step" - 1 because in the first loop, we start at t=1
+            iteration = max_step - 1
+
+            for t in range(1, max_step):
+                # Select action according to the current policy and exploration noise
+                action = self.select_action(state)
+
+                # Execute action and observe reward + new state
+                reward = self.em.take_action(action)
+                score += reward
+                
+                next_state = self.em.get_state()
+
+                self.em.render(print_state = False, live_graph=True)
+
+                self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, torch.tensor([True], device=DEVICE)))
+
+                state = next_state
+
+                self.update_neural_nets()    
+
+                if self.em.done:
+                    # if the auv has reached the goal
+                    # modify how many steps we should run HER
+                    iteration = t
+                    break
+
+            self.episode_durations.append(iteration)
+              
+
+            if eps % SAVE_EVERY == 0 or self.em.done:
+                save_model(self.actor, self.actor_target, self.critic, self.critic_target)
+
+            print("+++++++++++++++++++++++++++++++++++++++++")
+            print("Episode # ", eps, " used time: ", self.episode_durations[-1], " reward: ", score)
+
+            if self.actor_loss_in_ep != []:
+                avg_actor_loss = np.mean(self.actor_loss_in_ep)
+                self.actor_loss_in_training.append(avg_actor_loss)
+                print("average actor loss: ", avg_actor_loss)
+            else:
+                self.actor_loss_in_training.append(1000)
+            
+            if self.critic_loss_in_ep != []:
+                avg_critic_loss =  np.mean(self.critic_loss_in_ep)
+                self.critic_loss_in_training.append(avg_critic_loss)
+                print("average critic loss: ", avg_critic_loss)
+            else:
+                self.critic_loss_in_training.append(1000)
+
+            print("+++++++++++++++++++++++++++++++++++++++++")
+
+            # if DEBUG:
+            #     text = input("stop")
+
+        print("steps in each episode")
+        print(self.episode_durations)
+        print("actor loss")
+        print(self.actor_loss_in_training)
+        print("critic loss")
+        print(self.critic_loss_in_training)
+
 
 
 def train():
     ddpg = DDPG(STATE_SIZE, ACTION_SIZE)
-    ddpg.train(NUM_OF_EPISODES, MAX_STEP)
+    ddpg.train_no_HER(NUM_OF_EPISODES, MAX_STEP)
 
 
     

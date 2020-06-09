@@ -121,6 +121,8 @@ class AuvEnv(gym.Env):
         self.observation_space = spaces.Box(low = np.array([auv_init_pos.x - ENV_SIZE, auv_init_pos.y - ENV_SIZE, -ENV_SIZE, 0.0]), high = np.array([auv_init_pos.x + ENV_SIZE, auv_init_pos.y + ENV_SIZE, 0.0, 0.0]), dtype = np.float64)
 
         self.init_data_for_3D_plot(auv_init_pos, shark_init_pos)
+
+        self.old_range = self.calculate_range([auv_init_pos.x, auv_init_pos.y], [shark_init_pos.x, shark_init_pos.y])
         
         return self.reset()
 
@@ -159,7 +161,7 @@ class AuvEnv(gym.Env):
         x, y, z, old_theta = self.state[0]
       
         # calculate the new position and orientation of the auv
-        new_theta = theta
+        new_theta = angle_wrap(theta)
         new_x = x + v * np.cos(new_theta) * DELTA_T
         new_y = y + v * np.sin(new_theta) * DELTA_T
        
@@ -175,8 +177,8 @@ class AuvEnv(gym.Env):
         done = self.check_reached_target(self.state[0], self.state[1]) or\
             self.check_collision(self.state[0])
 
-        # reward = self.get_reward(old_range, self.state[0], self.state[1])
-        reward = self.get_binary_reward(self.state[0], self.state[1])
+        reward = self.get_reward(self.state[0], self.state[1])
+        # reward = self.get_binary_reward(self.state[0], self.state[1])
 
         return self.state, reward, done, {}
 
@@ -217,7 +219,7 @@ class AuvEnv(gym.Env):
             return False
 
 
-    def get_reward(self, old_range, auv_pos, shark_pos):
+    def get_reward(self, auv_pos, shark_pos):
         """
         Return the reward that the auv gets at this state
         Specifically,
@@ -234,11 +236,14 @@ class AuvEnv(gym.Env):
             new_range = self.calculate_range(auv_pos, shark_pos)
             # if auv has gotten closer to the shark, will receive positive reward
             #   else, receive negative reward
-            range_diff = old_range - new_range
+            range_diff = self.old_range - new_range
             if range_diff <= 0: 
                 reward = R_AWAY * range_diff
             else:
                 reward = R_RANGE * range_diff
+            
+            self.old_range = new_range
+            
             return reward
 
 
