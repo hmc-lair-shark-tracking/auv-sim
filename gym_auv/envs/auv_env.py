@@ -159,7 +159,7 @@ class AuvEnv(gym.Env):
         x, y, z, old_theta = self.state[0]
       
         # calculate the new position and orientation of the auv
-        new_theta = angle_wrap(old_theta + theta)
+        new_theta = theta
         new_x = x + v * np.cos(new_theta) * DELTA_T
         new_y = y + v * np.sin(new_theta) * DELTA_T
        

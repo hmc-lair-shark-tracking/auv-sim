@@ -303,7 +303,7 @@ class Actor(nn.Module):
         print(action)
         print("---------------------")
 
-        action = torch.tanh(action)
+        action = torch.tanh(action) * np.pi
 
         # print("---------------------")
         # print("output layer")
@@ -544,7 +544,7 @@ class AuvEnvManager():
             print(shark_init_pos)
             print(obstacle_array)
             print("===============================")
-            text = input("stop")
+            # text = input("stop")
 
         return self.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
 
@@ -880,7 +880,7 @@ class DDPG():
             print("predicted action based on actor")
             print(predicted_actions_batch)
             text = input("stop")"""
-
+ 
             actor_loss = -self.critic(states_batch, predicted_actions_batch).mean()
 
             """print("****************************")
@@ -951,8 +951,8 @@ class DDPG():
                 if curr_range < prev_range:
                     useful_next_states.append([t, next_state])
                     prev_range = curr_range
-                    # print("update useful next states")
-                    # print(useful_next_states)
+                    print("update useful next states")
+                    print(useful_next_states)
                     # text = input("stop")
 
                 self.em.render(print_state = False, live_graph=True)
@@ -970,8 +970,8 @@ class DDPG():
 
             self.episode_durations.append(iteration)
 
-            if DEBUG:
-                step = input("stop")
+            # if DEBUG:
+            #     step = input("stop")
             
             index = 0
 
@@ -1035,8 +1035,8 @@ class DDPG():
 
             print("+++++++++++++++++++++++++++++++++++++++++")
 
-            if DEBUG:
-                text = input("stop")
+            # if DEBUG:
+            #     text = input("stop")
 
         print("steps in each episode")
         print(self.episode_durations)
