@@ -312,22 +312,22 @@ class Actor(nn.Module):
         # pass through the layers then have relu applied to it
         # relu is the activation function that will turn any negative value to 0,
         #   and keep any positive value 
-        print("actor input state: ")
-        print(state)
+        # print("actor input state: ")
+        # print(state)
         action = self.fc1(state)
-        print(action)
+        # print(action)
         action = F.relu(action)
-        print(action)
+        # print(action)
         action = self.bn1(action)      # batch normalization
-        print(action)
+        # print(action)
 
         action = self.fc2(action)
-        print(action)
+        # print(action)
         action = F.relu(action)
-        print(action)
+        # print(action)
         action = self.bn2(action)       # batch normalization
-        print("before passing through the last layer")
-        print(action)
+        # print("before passing through the last layer")
+        # print(action)
         action = self.out(action)
 
         # print("---------------------")
@@ -394,10 +394,10 @@ class Critic(nn.Module):
         # relu is the activation function that will turn any negative value to 0,
         #   and keep any positive value
 
-        # print("input state")
-        # print(state)
-        print("-------")
+        print("input state")
         print(state)
+        # print("-------")
+        # print(state)
         q_val = self.fc1(state)
         q_val = F.relu(q_val)
         q_val = self.bn1(q_val)             # batch normalization
@@ -405,11 +405,11 @@ class Critic(nn.Module):
         print("before introducing")
         print(q_val)
         print(q_val.size())
-        # introduce action into the hidden layer
-        q_val = torch.cat((q_val, action))
-        print("introduce action into the hidden layer")
         print(action)
         print(action.size())
+        # introduce action into the hidden layer
+        q_val = torch.cat((q_val, action), dim = 1)
+        print("introduce action into the hidden layer")
         print(q_val)
         print(q_val.size())
         q_val = self.fc2(q_val)
@@ -526,7 +526,8 @@ class AuvEnvManager():
         # auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
         # shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0)
         print("random choice: ", np.random.randint(1, 5))
-        quadrant = input("pick a quadrant: ")
+        # quadrant = input("pick a quadrant: ")
+        quadrant = 1
         auv_init_pos, shark_init_pos = generate_rand_init_position(DIST, quadrant)
         
         obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES)
@@ -538,7 +539,7 @@ class AuvEnvManager():
             print(shark_init_pos)
             print(obstacle_array)
             print("===============================")
-            text = input("stop")
+            # text = input("stop")
 
         return self.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
 
@@ -622,7 +623,7 @@ class AuvEnvManager():
             print("reward: ")
             print(reward)
             print("=========================")
-            text = input("stop")
+            # text = input("stop")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
@@ -731,7 +732,7 @@ class DDPG():
         self.critic.eval()
 
         with torch.no_grad():
-            predict_q_value = self.critic(state, action.float()).to(DEVICE)
+            predict_q_value = self.critic(state.unsqueeze(0), action.unsqueeze(0).float()).to(DEVICE)
         
         print("predicted Q value for this given action")
         print(predict_q_value)
@@ -840,7 +841,7 @@ class DDPG():
             print(next_target_q_val_batch)
             text = input("stop")
             """
-
+            
             # compute the current Q values using the Bellman equation
             target_q_val_batch = (rewards_batch + GAMMA * next_target_q_val_batch)
 
