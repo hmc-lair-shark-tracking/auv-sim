@@ -27,11 +27,11 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 """
 
 # Define the distance between the auv and the goal
-dist = 5.0
-MIN_X = dist
-MAX_X= dist * 2
+DIST = 5.0
+MIN_X = DIST
+MAX_X= DIST * 2
 MIN_Y = 0.0
-MAX_Y = dist * 3
+MAX_Y = DIST * 3
 
 NUM_OF_OBSTACLES = 0
 
@@ -39,7 +39,11 @@ STATE_SIZE = 8 + 4 * NUM_OF_OBSTACLES
 ACTION_SIZE = 1
 
 NUM_OF_EPISODES = 250
-MAX_STEP = 100
+MAX_STEP = 20
+
+EPSILON_MAX = 1.0
+EPSILON_MIN = 0.1
+EPSILON_DECAY = 1e-6
 
 # Most of the hyperparameters come from the DDPG paper
 # learning rate
@@ -197,6 +201,56 @@ def angle_wrap(ang):
         return angle_wrap(ang)
 
 
+def generate_rand_init_position(distance, quadrant):
+    if quadrant == "1":
+        min_auv_x = 0.0
+        max_auv_x = distance
+        min_auv_y = 0.0
+        max_auv_y = distance
+
+        min_goal_x = 0.0
+        max_goal_x = distance * 2.0
+        min_goal_y = 0.0
+        max_goal_y = distance * 2.0
+
+    elif quadrant == "2":
+        min_auv_x = - distance
+        max_auv_x = 0.0
+        min_auv_y = 0.0
+        max_auv_y = distance
+
+        min_goal_x = - distance * 2.0
+        max_goal_x = 0.0
+        min_goal_y = 0.0
+        max_goal_y = distance * 2.0
+
+    elif quadrant == "3":
+        min_auv_x = - distance
+        max_auv_x = 0.0
+        min_auv_y = - distance
+        max_auv_y = 0.0
+
+        min_goal_x = - distance * 2.0
+        max_goal_x = 0.0
+        min_goal_y = - distance * 2.0
+        max_goal_y = 0.0
+
+    else:
+        min_auv_x = 0.0
+        max_auv_x = distance
+        min_auv_y = - distance
+        max_auv_y = 0.0
+
+        min_goal_x = 0.0
+        max_goal_x = distance * 2.0
+        min_goal_y = - distance * 2.0
+        max_goal_y = 0.0
+
+    auv_init_pos = Motion_plan_state(x = np.random.uniform(min_auv_x, max_auv_x), y = np.random.uniform(min_auv_y,max_auv_y), z = -5.0, theta = 0)
+    shark_init_pos = Motion_plan_state(x = np.random.uniform(min_goal_x, max_goal_x), y = np.random.uniform(min_goal_y, max_goal_y), z = -5.0, theta = 0)
+
+    return auv_init_pos, shark_init_pos
+
 """
 ============================================================================
 
@@ -210,7 +264,7 @@ def angle_wrap(ang):
 Class for building policy and target neural network
 """
 class Actor(nn.Module):
-    def __init__(self, state_size, action_size, hidden1 = 400=, hidden2 = 300, init_w = 3e-3):
+    def __init__(self, state_size, action_size, hidden1 = 40, hidden2 = 30, init_w = 3e-3):
         """
         Initialize the Q neural network with input
 
@@ -258,22 +312,30 @@ class Actor(nn.Module):
         # pass through the layers then have relu applied to it
         # relu is the activation function that will turn any negative value to 0,
         #   and keep any positive value 
+        print("actor input state: ")
+        print(state)
         action = self.fc1(state)
+        print(action)
         action = F.relu(action)
+        print(action)
         action = self.bn1(action)      # batch normalization
-        
+        print(action)
 
         action = self.fc2(action)
-        action = F.relu(action)
-        action = self.bn2(action)       # batch normalization
-
-        action = self.out(action)
-        print("---------------------")
-        print("before being tanh")
         print(action)
-        print("---------------------")
+        action = F.relu(action)
+        print(action)
+        action = self.bn2(action)       # batch normalization
+        print("before passing through the last layer")
+        print(action)
+        action = self.out(action)
 
-        action = torch.tanh(action) * np.pi
+        # print("---------------------")
+        # print("before being tanh")
+        # print(action)
+        # print("---------------------")
+
+        # action = torch.tanh(action) * np.pi
 
         return action
 
@@ -283,7 +345,7 @@ class Actor(nn.Module):
 Neural Net to map state-action pairs to Q-values
 """
 class Critic(nn.Module):
-    def __init__(self, state_size, action_size, hidden1 = 400, hidden2 = 300, init_w = 3e-3):
+    def __init__(self, state_size, action_size, hidden1 = 40, hidden2 = 30, init_w = 3e-3):
         """
         Initialize the Q neural network with input
 
@@ -334,13 +396,22 @@ class Critic(nn.Module):
 
         # print("input state")
         # print(state)
-        
+        print("-------")
+        print(state)
         q_val = self.fc1(state)
         q_val = F.relu(q_val)
         q_val = self.bn1(q_val)             # batch normalization
 
+        print("before introducing")
+        print(q_val)
+        print(q_val.size())
         # introduce action into the hidden layer
-        q_val = torch.cat((q_val, action), dim=1)
+        q_val = torch.cat((q_val, action))
+        print("introduce action into the hidden layer")
+        print(action)
+        print(action.size())
+        print(q_val)
+        print(q_val.size())
         q_val = self.fc2(q_val)
         q_val = F.relu(q_val)
         q_val = self.bn2(q_val)       # batch normalization
@@ -452,8 +523,12 @@ class AuvEnvManager():
 
 
     def init_env_randomly(self):
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
-        shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0) 
+        # auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
+        # shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0)
+        print("random choice: ", np.random.randint(1, 5))
+        quadrant = input("pick a quadrant: ")
+        auv_init_pos, shark_init_pos = generate_rand_init_position(DIST, quadrant)
+        
         obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES)
 
         if DEBUG:
@@ -463,7 +538,7 @@ class AuvEnvManager():
             print(shark_init_pos)
             print(obstacle_array)
             print("===============================")
-            # text = input("stop")
+            text = input("stop")
 
         return self.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
 
@@ -547,7 +622,7 @@ class AuvEnvManager():
             print("reward: ")
             print(reward)
             print("=========================")
-            # text = input("stop")
+            text = input("stop")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
@@ -598,6 +673,7 @@ class DDPG():
 
         # set up the noise process
         self.noise = OU_Noise(action_dimension = action_size)
+        self.epsilon = EPSILON_MAX
     
 
     def hard_update(self, target, source):
@@ -636,6 +712,12 @@ class DDPG():
         with torch.no_grad():
             action = self.actor(state).to(DEVICE)
 
+        if DEBUG:
+            print("without clipping: ")
+            print(action)
+
+        action = torch.tanh(action) * np.pi
+
         # set the actor nn back to train mode
         self.actor.train()
 
@@ -644,7 +726,17 @@ class DDPG():
             print(action)
 
         if add_noise:
-            action = action + self.noise.noise()
+            action += self.epsilon + self.noise.noise()
+        
+        self.critic.eval()
+
+        with torch.no_grad():
+            predict_q_value = self.critic(state, action.float()).to(DEVICE)
+        
+        print("predicted Q value for this given action")
+        print(predict_q_value)
+
+        self.critic.train()
         
         # apparently, this is giving as double while everything else is as float
         # cast the action to float to make pytorch happy
@@ -778,6 +870,10 @@ class DDPG():
             print(critic_loss)
             # text = input("stop")
             
+            """old_state_dict = {}
+            for key in self.critic.state_dict():
+                old_state_dict[key] =self.critic.state_dict()[key].clone()
+            """
 
             # update the critic neural net based on the loss
             
@@ -789,9 +885,22 @@ class DDPG():
             # updates the weights and biases in the cirtic neural net with the gradients that we just calculated
             self.critic_optimizer.step()
 
+            """new_state_dict = {}
+            for key in self.critic.state_dict():
+                new_state_dict[key] = self.critic.state_dict()[key].clone()
+
+            for key in old_state_dict:
+                if not (old_state_dict[key] == new_state_dict[key]).all():
+                    print('Diff in {}'.format(key))
+                    print(old_state_dict[key])
+                    print(new_state_dict[key])
+                else:
+                    print('NO Diff in {}'.format(key))
+            text = input("stop")"""
+
             # --------------------- Update the Actor Neural Network ---------------------
-            """print("=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+")
-            print("=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+")"""
+            print("=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+")
+            print("=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+=+")
 
             predicted_actions_batch = self.actor(states_batch)
 
@@ -807,17 +916,43 @@ class DDPG():
             print(actor_loss)
             # text = input("stop")
 
+            """old_state_dict = {}
+            for key in self.actor.state_dict():
+                old_state_dict[key] =self.actor.state_dict()[key].clone()
+            """
+
             self.actor_optimizer.zero_grad()
             actor_loss.backward()
             self.actor_optimizer.step()
 
+            """
+            new_state_dict = {}
+            for key in self.actor.state_dict():
+                new_state_dict[key] = self.actor.state_dict()[key].clone()
+
+            for key in old_state_dict:
+                if not (old_state_dict[key] == new_state_dict[key]).all():
+                    print('Diff in {}'.format(key))
+                    print(old_state_dict[key])
+                    print(new_state_dict[key])
+                else:
+                    print('NO Diff in {}'.format(key))
+            text = input("stop")
+            """
+
             # --------------------- Update the Target Networks ---------------------
             self.soft_update(self.critic, self.critic_target, TAU)
             self.soft_update(self.actor, self.actor_target, TAU)
-
-            
+       
             self.actor_loss_in_ep.append(actor_loss.item())
             self.critic_loss_in_ep.append(critic_loss.item())
+
+            if self.epsilon - EPSILON_DECAY > EPSILON_MIN:
+                self.epsilon -= EPSILON_DECAY
+            else:
+                self.epsilon = EPSILON_MIN
+
+            self.noise.reset()
 
 
     def train(self, num_episodes, max_step, load_prev_training=False, use_HER =True):
@@ -985,10 +1120,6 @@ class DDPG():
             state = self.em.init_env_randomly()
 
             score = 0
-
-            action_array = []
-            next_state_array = []
-            useful_next_states = []
 
             self.actor_loss_in_ep = []
             self.critic_loss_in_ep = []
