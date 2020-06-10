@@ -15,12 +15,6 @@ import torchvision.transforms as T
 
 from motion_plan_state import Motion_plan_state
 
-# range 15m
-# MIN_X = 6.0
-# MAX_X= 10.0
-# MIN_Y = 0.0
-# MAX_Y = 15.0
-
 # range diy
 dist = 5.0
 MIN_X = dist
@@ -28,24 +22,6 @@ MAX_X= dist * 2
 MIN_Y = 0.0
 MAX_Y = dist * 3
 
-
-# range 45m
-# MIN_X = 15.0
-# MAX_X= 30.0
-# MIN_Y = 0.0
-# MAX_Y = 45.0
-
-# range 60m
-# MIN_X = 20.0
-# MAX_X= 40.0
-# MIN_Y = 0.0
-# MAX_Y = 60.0
-
-# range 100m
-# MIN_X = 50.0
-# MAX_X= 100.0
-# MIN_Y = 0.0
-# MAX_Y = 150.0
 
 def process_state_for_nn(state):
     """
@@ -555,7 +531,7 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
 
 
 def train():
-    batch_size = 128
+    batch_size = 64
     # discount factor for exploration rate decay
     gamma = 0.999
     eps_start = 1
@@ -579,8 +555,8 @@ def train():
 
     # parameter to discretize the action v and w
     # N specify the n         umber of options that we get to have for v and w
-    N_v = 5
-    N_w = 5
+    N_v = 7
+    N_w = 7
 
     num_of_obstacles = 2
 

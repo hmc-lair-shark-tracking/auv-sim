@@ -152,16 +152,13 @@ class AuvEnv(gym.Env):
             done - float, whether the episode has ended
             info - dictionary, can provide debugging info (TODO: right now, it's just an empty one)
         """
-        # v, w = action
-        theta = action
-        v = 2
-        w = 0
+        v, w = action
         
         # get the old position and orientation data for the auv
-        x, y, z, old_theta = self.state[0]
+        x, y, z, theta = self.state[0]
       
         # calculate the new position and orientation of the auv
-        new_theta = angle_wrap(theta)
+        new_theta = angle_wrap(theta + w * DELTA_T)
         new_x = x + v * np.cos(new_theta) * DELTA_T
         new_y = y + v * np.sin(new_theta) * DELTA_T
        
@@ -177,8 +174,8 @@ class AuvEnv(gym.Env):
         done = self.check_reached_target(self.state[0], self.state[1]) or\
             self.check_collision(self.state[0])
 
-        reward = self.get_reward(self.state[0], self.state[1])
-        # reward = self.get_binary_reward(self.state[0], self.state[1])
+        # reward = self.get_reward(self.state[0], self.state[1])
+        reward = self.get_binary_reward(self.state[0], self.state[1])
 
         return self.state, reward, done, {}
 
