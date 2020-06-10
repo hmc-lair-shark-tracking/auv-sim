@@ -351,14 +351,14 @@ class AuvEnvManager():
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
         self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
-        # print("=========================")
-        # print("action v: ", v_action_index, " | ", v_action)  
-        # print("action w: ", w_action_index, " | ", w_action)  
-        # print("new state: ")
-        # print(self.current_state)
-        # print("reward: ")
-        # print(reward)
-        # print("=========================")
+        print("=========================")
+        print("action v: ", v_action_index, " | ", v_action)  
+        print("action w: ", w_action_index, " | ", w_action)  
+        print("new state: ")
+        print(self.current_state)
+        print("reward: ")
+        print(reward)
+        print("=========================")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
@@ -584,8 +584,8 @@ def train():
     target_net_v.load_state_dict(policy_net_v.state_dict())
 
     # if we want to load the already trained network
-    policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
-    target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
+    # policy_net_v.load_state_dict(torch.load('checkpoint_policy.pth'))
+    # target_net_v.load_state_dict(torch.load('checkpoint_target.pth'))
 
     # set the target_net in evaluation mode instead of training mode (bc we are only using it to 
     # estimate the next max Q value)
@@ -598,7 +598,7 @@ def train():
     # determine when we should save the neural network model
     save_every = 10
 
-    max_step = 2000
+    max_step = 200
 
     score = 0
 
@@ -656,7 +656,7 @@ def train():
             # Observe reward and next state.
             score = em.take_action(action)
 
-            # em.render(live_graph=False)
+            em.render(print_state = False, live_graph = True)
 
             next_state = em.get_state()
 
@@ -908,8 +908,8 @@ def test_trained_model():
 
     
 def main():
-    # train()
-    test_trained_model()
+    train()
+    # test_trained_model()
 
 if __name__ == "__main__":
     main()

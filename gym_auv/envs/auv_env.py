@@ -20,10 +20,10 @@ AUV_MAX_V = 2.0
 AUV_MIN_V = 0.1
 # auv's max angular velocity (unit: rad/s)
 #   TODO: Currently, the track_way_point function has K_P == 1, so this is the range for w. Might change in the future?
-AUV_MAX_W = np.pi
+AUV_MAX_W = np.pi/8
 
 # time step (unit: sec)
-DELTA_T = 1
+DELTA_T = 0.1
 
 # the maximum range between the auv and shark to be considered that the auv has reached the shark
 END_GAME_RADIUS = 1.0
@@ -33,6 +33,8 @@ R_COLLIDE = -1000.0       # when the auv collides with an obstacle
 R_ARRIVE = 1000.0         # when the auv arrives at the target
 R_RANGE = 0.1           # this is a scaler to help determine immediate reward at a time step
 R_AWAY = 0.1
+
+REPEAT_ACTION_TIME = 5
 
 def angle_wrap(ang):
     """
@@ -158,15 +160,16 @@ class AuvEnv(gym.Env):
         x, y, z, theta = self.state[0]
       
         # calculate the new position and orientation of the auv
-        new_theta = angle_wrap(theta + w * DELTA_T)
-        new_x = x + v * np.cos(new_theta) * DELTA_T
-        new_y = y + v * np.sin(new_theta) * DELTA_T
+        for _ in range(REPEAT_ACTION_TIME):
+            theta = angle_wrap(theta + w * DELTA_T)
+            x = x + v * np.cos(theta) * DELTA_T
+            y = y + v * np.sin(theta) * DELTA_T
        
         # TODO: For now, the shark's position does not change. Might get updated in the future 
         new_shark_pos = self.state[1]
         
         # update the current state to the new state
-        self.state = (np.array([new_x, new_y, z, new_theta]), new_shark_pos, self.obstacle_array)
+        self.state = (np.array([x, y, z, theta]), new_shark_pos, self.obstacle_array)
 
         # the episode will only end (done = True) if
         #   - the auv has reached the target, or
