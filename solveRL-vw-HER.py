@@ -16,7 +16,7 @@ import torchvision.transforms as T
 from motion_plan_state import Motion_plan_state
 
 # range diy
-dist = 5.0
+dist = 10.0
 MIN_X = dist
 MAX_X= dist * 2
 MIN_Y = 0.0
@@ -88,32 +88,19 @@ class DQN(nn.Module):
         # relu is the activation function that will turn any negative value to 0,
         #   and keep any positive value
 
-        # print("pre-process")
-        # print(t)
-        
-        # print("unsqueeze")
-        # print(t)
         t = self.fc1(t)
         t = F.relu(t)
-        # print("first pass")
-        # print(t)
-        
-        # print(t)
-        # text = input("stop")
-        # t = self.bn1(t)
-        # print("bn")
-        # print(t)
-        # text = input("stop")
+        t = self.bn1(t)
 
         # the neural network is separated into 2 separate branch
         t_v = self.fc2_v(t)
         t_v = F.relu(t_v)
-        # t_v = self.bn2_v(t_v)
+        t_v = self.bn2_v(t_v)
 
 
         t_w = self.fc2_w(t)
         t_w = F.relu(t_w)
-        # t_w = self.bn2_w(t_w)
+        t_w = self.bn2_w(t_w)
   
 
         # pass through the last layer, the output layer
@@ -241,8 +228,8 @@ class Agent():
 
         if rate > random.random():
             # exploring the environment by randomly chosing an action
-            # print("-----")
-            # print("randomly picking")
+            print("-----")
+            print("randomly picking")
             v_action_index = random.choice(range(self.actions_range_v))
             w_action_index = random.choice(range(self.actions_range_w))
 
@@ -259,12 +246,12 @@ class Agent():
                 # for the given "state"，the output will be Q values for each possible action (index for v and w)
                 #   from the policy net
                 output_weight = policy_net(state).to(self.device)
-                # print("-----")
-                # print("exploiting")
-                # print("Q values check - v")
-                # print(output_weight[0])
-                # print("Q values check - w")
-                # print(output_weight[1])
+                print("-----")
+                print("exploiting")
+                print("Q values check - v")
+                print(output_weight[0])
+                print("Q values check - w")
+                print(output_weight[1])
 
                 # output_weight[0] is for the v_index, output_weight[1] is for w_index
                 # this is finding the index with the highest Q value
@@ -548,7 +535,7 @@ def train():
     # learning rate
     lr = 0.001
 
-    num_episodes = 1090
+    num_episodes = 500
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -598,7 +585,7 @@ def train():
     # determine when we should save the neural network model
     save_every = 10
 
-    max_step = 200
+    max_step = 1000
 
     score = 0
 
@@ -619,8 +606,6 @@ def train():
         auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
         shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0) 
         obstacle_array = []
-
-
         # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles)
 
         em.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
@@ -640,9 +625,13 @@ def train():
 
         action_array = []
         next_state_array = []
+        useful_next_states = []
+
         loss_in_ep = []
 
         iteration = max_step
+
+        prev_range = calculate_range(state[0], state[1])
 
         for timestep in range(max_step): 
             # For each time step:
@@ -656,11 +645,18 @@ def train():
             # Observe reward and next state.
             score = em.take_action(action)
 
-            em.render(print_state = False, live_graph = True)
-
             next_state = em.get_state()
-
             next_state_array.append(next_state)
+
+            curr_range = calculate_range(next_state[0], next_state[1])
+            if curr_range < prev_range:
+                useful_next_states.append([timestep, next_state])
+                prev_range = curr_range
+                # print("update useful next state")
+                # print(useful_next_states)
+                # text = input("stop")
+            
+            em.render(print_state = False, live_graph = True)
             
             state = next_state
 
@@ -680,6 +676,9 @@ def train():
         # print(next_state_array)
         # text = input("mannual stop")
 
+        index = 0
+        additional_goals = []
+
         for t in range(iteration):
             action = action_array[t]
 
@@ -693,7 +692,7 @@ def train():
             memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
             # print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
            
-            # sample the goals based on the "future" strategy:
+            """# sample the goals based on the "future" strategy:
             #    replay with k random states which come from the same episode as the transition being replayed and were observed after it
             future_goals_to_sample = next_state_array[t + 1:]
 
@@ -706,8 +705,19 @@ def train():
             else:
                 additional_goals = [next_state_array[-1]]
             # print("additional goals")
-            # print(additional_goals)
+            # print(additional_goals)"""
+
             additional_reward = 0
+
+            if useful_next_states != []:
+                while index < len(useful_next_states) and t >= useful_next_states[index][0]:
+                    index += 1
+
+                additional_goals = [x[1] for x in useful_next_states[index: ]]
+
+            # print("additional goals")
+            # print(additional_goals)
+            # text = input("stop")
 
             for goal in additional_goals:
                 # next_state[0] the auv's position after it has taken an action
@@ -722,7 +732,7 @@ def train():
                 new_next_state = (next_state[0], goal[0], next_state[2])
                 
                 memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
-                # print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
+                print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
 
             state = next_state
             # print("+++++++", t, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++", additional_reward)
