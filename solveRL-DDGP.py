@@ -208,9 +208,9 @@ def generate_rand_init_position(distance, quadrant):
         min_auv_y = 0.0
         max_auv_y = distance
 
-        min_goal_x = 0.0
+        min_goal_x = distance
         max_goal_x = distance * 2.0
-        min_goal_y = 0.0
+        min_goal_y = distance
         max_goal_y = distance * 2.0
 
     elif quadrant == "2":
@@ -220,8 +220,8 @@ def generate_rand_init_position(distance, quadrant):
         max_auv_y = distance
 
         min_goal_x = - distance * 2.0
-        max_goal_x = 0.0
-        min_goal_y = 0.0
+        max_goal_x = - distance
+        min_goal_y = distance
         max_goal_y = distance * 2.0
 
     elif quadrant == "3":
@@ -231,9 +231,9 @@ def generate_rand_init_position(distance, quadrant):
         max_auv_y = 0.0
 
         min_goal_x = - distance * 2.0
-        max_goal_x = 0.0
+        max_goal_x = - distance
         min_goal_y = - distance * 2.0
-        max_goal_y = 0.0
+        max_goal_y = - distance
 
     else:
         min_auv_x = 0.0
@@ -241,10 +241,10 @@ def generate_rand_init_position(distance, quadrant):
         min_auv_y = - distance
         max_auv_y = 0.0
 
-        min_goal_x = 0.0
+        min_goal_x = distance
         max_goal_x = distance * 2.0
         min_goal_y = - distance * 2.0
-        max_goal_y = 0.0
+        max_goal_y = - distance
 
     auv_init_pos = Motion_plan_state(x = np.random.uniform(min_auv_x, max_auv_x), y = np.random.uniform(min_auv_y,max_auv_y), z = -5.0, theta = 0)
     shark_init_pos = Motion_plan_state(x = np.random.uniform(min_goal_x, max_goal_x), y = np.random.uniform(min_goal_y, max_goal_y), z = -5.0, theta = 0)
@@ -394,24 +394,24 @@ class Critic(nn.Module):
         # relu is the activation function that will turn any negative value to 0,
         #   and keep any positive value
 
-        print("input state")
-        print(state)
+        # print("input state")
+        # print(state)
         # print("-------")
         # print(state)
         q_val = self.fc1(state)
         q_val = F.relu(q_val)
         q_val = self.bn1(q_val)             # batch normalization
 
-        print("before introducing")
-        print(q_val)
-        print(q_val.size())
-        print(action)
-        print(action.size())
+        # print("before introducing")
+        # print(q_val)
+        # print(q_val.size())
+        # print(action)
+        # print(action.size())
         # introduce action into the hidden layer
         q_val = torch.cat((q_val, action), dim = 1)
-        print("introduce action into the hidden layer")
-        print(q_val)
-        print(q_val.size())
+        # print("introduce action into the hidden layer")
+        # print(q_val)
+        # print(q_val.size())
         q_val = self.fc2(q_val)
         q_val = F.relu(q_val)
         q_val = self.bn2(q_val)       # batch normalization
@@ -526,8 +526,8 @@ class AuvEnvManager():
         # auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
         # shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0)
         print("random choice: ", np.random.randint(1, 5))
-        # quadrant = input("pick a quadrant: ")
-        quadrant = 1
+        quadrant = input("pick a quadrant: ")
+        
         auv_init_pos, shark_init_pos = generate_rand_init_position(DIST, quadrant)
         
         obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES)
@@ -539,7 +539,7 @@ class AuvEnvManager():
             print(shark_init_pos)
             print(obstacle_array)
             print("===============================")
-            # text = input("stop")
+            text = input("stop")
 
         return self.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
 
@@ -623,7 +623,7 @@ class AuvEnvManager():
             print("reward: ")
             print(reward)
             print("=========================")
-            # text = input("stop")
+            text = input("stop")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
@@ -789,13 +789,6 @@ class DDPG():
         if self.memory.can_provide_sample(BATCH_SIZE):
             # sample a random minibatch of "BATCH_SIZE" experiences
             experiences_batch = self.memory.sample(BATCH_SIZE)
-            
-            """
-            print("--------------------")
-            print("sampled experiences")
-            print(experiences_batch)
-            text = input("stop")
-            """
 
             # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
             states_batch, actions_batch, rewards_batch, next_states_batch, done_batch = extract_tensors(experiences_batch)
@@ -816,8 +809,6 @@ class DDPG():
             print("----")
             print("done")
             print(done_batch)
-
-            text = input("stop")
             """
             
             # --------------------- Update the Critic Network ---------------------
@@ -829,7 +820,6 @@ class DDPG():
             print("****************************")
             print("next action batch")
             print(next_actions_batch)
-            text = input("stop")
             """
 
             # get the predicted Q-values based on the next states and actions pairs
@@ -839,7 +829,6 @@ class DDPG():
             print("****************************")
             print("next target q val batch based on next state-action pair")
             print(next_target_q_val_batch)
-            text = input("stop")
             """
             
             # compute the current Q values using the Bellman equation
@@ -849,7 +838,6 @@ class DDPG():
             print("****************************")
             print("current q val batch")
             print(target_q_val_batch)
-            text = input("stop")
             """
             
             # compute the expected q value based on the critic neural net
@@ -859,7 +847,6 @@ class DDPG():
             print("****************************")
             print("expected q value based on the critic")
             print(expected_q_val_batch)
-            text = input("stop")
             """
             
             # calculate the loss for the critic neural net by using mean square error
@@ -908,14 +895,13 @@ class DDPG():
             """print("****************************")
             print("predicted action based on actor")
             print(predicted_actions_batch)
-            text = input("stop")"""
+            """
  
             actor_loss = -self.critic(states_batch, predicted_actions_batch).mean()
 
             print("****************************")
             print("actor loss")
             print(actor_loss)
-            # text = input("stop")
 
             """old_state_dict = {}
             for key in self.actor.state_dict():
@@ -1008,7 +994,6 @@ class DDPG():
                     prev_range = curr_range
                     print("update useful next states")
                     print(useful_next_states)
-                    # text = input("stop")
 
                 self.em.render(print_state = False, live_graph=True)
 
@@ -1091,8 +1076,8 @@ class DDPG():
 
             print("+++++++++++++++++++++++++++++++++++++++++")
 
-            # if DEBUG:
-            #     text = input("stop")
+            if DEBUG:
+                text = input("stop")
 
         print("steps in each episode")
         print(self.episode_durations)
@@ -1178,8 +1163,8 @@ class DDPG():
 
             print("+++++++++++++++++++++++++++++++++++++++++")
 
-            # if DEBUG:
-            #     text = input("stop")
+            if DEBUG:
+                text = input("stop")
 
         print("steps in each episode")
         print(self.episode_durations)
