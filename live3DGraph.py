@@ -1,10 +1,11 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.widgets import Button
 from matplotlib.widgets import CheckButtons
 import numpy as np
-import pandas as pd
-import random
-import itertools
+
+import constants as const
+
 
 """
 Uses matplotlib to generate live 3D Graph while the simulator is running
@@ -26,6 +27,8 @@ class Live3DGraph:
         self.ax.set_ylabel('Y')
         self.ax.set_zlabel('Z')
 
+        self.arrow_length_ratio = 0.1
+
         # create a dictionary for checkbox for each type of planned trajectory
         # key - the planner's name: "A *", "RRT"
         # value - three-element array
@@ -45,9 +48,60 @@ class Live3DGraph:
         self.particle_checkbox = CheckButtons(plt.axes([0.1, 0.10, 0.15, 0.05]),["Display Particles"])
         self.display_particles = False
         self.particle_checkbox.on_clicked(self.particle_checkbox_clicked)
+
+        self.run_sim = True
+
+        self.end_sim_btn = Button(plt.axes([0.1, 0.8, 0.15, 0.05]), "End Simulation")
+        self.end_sim_btn.on_clicked(self.end_simulation)
+
         # an array of the labels that will appear in the legend
         # TODO: labels and legends still have minor bugs
         self.labels = ["auv"]
+
+
+    def scale_quiver_arrow(self):
+        """
+        A hack to work around the bug with quiver plot arrow size
+
+        Manually alter the arrow_length_ratio which affects the arrow size partially
+        """
+        # The current theory is that the arrow size is weird because the z axis is being autoscaled
+        # A work-around is to adjust the arrow size based on the z axis range
+        z_interval = self.ax.get_zaxis().get_data_interval()
+        range = abs(z_interval[0] - z_interval[1])
+
+        if range == 0:
+            # if the distance between the auv and sharks is 0 m in the z direction
+            self.arrow_length_ratio = 0.01
+        elif range > 50:
+            # if the distance between the auv and sharks is greater than 50 m in the z direction
+            self.arrow_length_ratio = range * 0.02
+        else:
+            self.arrow_length_ratio = range * 0.1
+
+
+    def plot_auv(self, x_pos_array, y_pos_array, z_pos_array):
+        """
+        Plot the auv trajectory as well as its direction
+
+        Parameters:
+            x_pos_array - an array of floats indicating the auv's past x-position
+            y_pos_array - an array of floats indicating the auv's past y-position
+            z_pos_array - an array of floats indicating the auv's past z-position
+        """
+        # calculate the orientation of directino vector
+        x_orient = x_pos_array[-1]-x_pos_array[-2]
+        y_orient = y_pos_array[-1]-y_pos_array[-2]
+        z_orient = z_pos_array[-1]-z_pos_array[-2]
+
+        # plot the trajectory line
+        self.ax.plot(x_pos_array, y_pos_array, z_pos_array,\
+            marker = ',', linestyle = '-', color = 'red', label='auv')
+        
+        # use quiver plot to draw an arrow indicating the auv's direction
+        self.ax.quiver(x_pos_array[-1], y_pos_array[-1], z_pos_array[-1],\
+            x_orient, y_orient, z_orient,\
+            color = 'red', pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
 
 
     def load_shark_labels(self):
@@ -75,14 +129,40 @@ class Live3DGraph:
                     c = self.colors[i % len(self.colors)]
                     shark = self.shark_array[i]
                     
-                    while shark.index < len(shark.traj_pts_array) and\
-                        abs(shark.traj_pts_array[shark.index].time_stamp - sim_time) > 0.2:
-                        shark.index += 1
-
-                    # update the shark's position arrays to help us update the graph
-                    shark.store_positions(shark.traj_pts_array[shark.index].x, shark.traj_pts_array[shark.index].y, shark.traj_pts_array[shark.index].z)
+                    self.update_shark_location(shark, sim_time)
                     
-                    self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ',', color = c, label = "shark #" + str(shark.id))
+                    # calculate orientation by: current coordinate - previous coordinate
+                    # these 3 variables will help us indicate the direction of the trajectory
+                    x_orient = shark.x_pos_array[-1]-shark.x_pos_array[-2]
+                    y_orient = shark.y_pos_array[-1]-shark.y_pos_array[-2]
+                    z_orient = shark.z_pos_array[-1]-shark.z_pos_array[-2]
+                    
+                    # plot the trajectory of the shark
+                    self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ",", color = c, label = "shark #" + str(shark.id))
+
+                    # plot the direction vectors for the shark
+                    self.ax.quiver3D(shark.x_pos_array[-1], shark.y_pos_array[-1], shark.z_pos_array[-1], x_orient, y_orient, z_orient, color = c, pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
+
+
+    def update_shark_location(self, shark, sim_time):
+        """
+        Increment a shark's "index", so we update the position of the shark
+
+        Parameter:
+
+        """
+        if shark.index < len(shark.traj_pts_array):
+            # increment index variable so we get new position from the shark
+            # The shark trajectories have time interval of 0.03s between each trajectory,
+            #   but the simulator time interval might be diffent.
+            # So we need to increment the index properly so that the newest shark trajectory point is close
+            #   to the simulator's current time
+            while shark.index < len(shark.traj_pts_array) and\
+                abs(shark.traj_pts_array[shark.index].time_stamp - sim_time) > (const.SIM_TIME_INTERVAL + 0.1):
+                shark.index += 1
+
+            # update the shark's position arrays to help us update the graph
+            shark.store_positions(shark.traj_pts_array[shark.index].x, shark.traj_pts_array[shark.index].y, shark.traj_pts_array[shark.index].z)
 
             
     def enable_traj_plot(self, event):
@@ -127,15 +207,16 @@ class Live3DGraph:
                 self.labels += [planner_name]
                 self.traj_checkbox_dict[planner_name][0] = True
             
-            traj_x_array = []
+            '''traj_x_array = []
             traj_y_array = []
             # create two array of x and y positions for plotting
             for traj_pt in trajectory_array:
                 traj_x_array.append(traj_pt.x)
-                traj_y_array.append(traj_pt.y)
+                traj_y_array.append(traj_pt.y)'''
 
             # TODO: for now, we set the z position of the trajectory to be -10
-            self.ax.plot(traj_x_array,  traj_y_array, -10, marker = ',', color = color, label = planner_name)
+            #self.ax.plot(traj_x_array,  traj_y_array, 0, marker = ',', color = color, label = planner_name)
+            self.ax.plot([mps.x for mps in trajectory_array],  [mps.y for mps in trajectory_array], 0, marker = ',', color = color, label = planner_name)
         else:
             # if the checkbox if not checked
             # self.traj_checkbox_dict[planner_name][0] represents whether the label is added to
@@ -188,6 +269,7 @@ class Live3DGraph:
                     particle_color_array.append('#786b70')
 
             # TODO: for now, we set the z position of the trajectory to be -10
+
             self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = particle_color_array)
             #self.ax.scatter(final_new_shark_coordinate_x, final_new_shark_coordinate_y, -20, marker = 'x', color = '#42f5da')
             """
@@ -229,12 +311,110 @@ class Live3DGraph:
         #mean particles --> green
         # shark position --> blue
 
-        
+    
+    def plot_obstacles(self, obstacle_array):
+        """
+        Plot obstacles as sphere based on location and size indicated by the "obstacle_array"
 
+        Parameter - obstacle_array
+            an array of motion_plan_states that represent the obstacles's
+                position and size
+        """
+        for obs in obstacle_array:
+            # number of points used to plot the sphere
+            # the higher N is, the more refined will the obstacles look
+            #   (but at the expense of taking longer time)
+            N = 50
+            
+            u = np.linspace(0, 2 * np.pi, N)
+            v = np.linspace(0, np.pi, N)
+            x = obs.size * np.outer(np.cos(u), np.sin(v)) + obs.x
+            y = obs.size * np.outer(np.sin(u), np.sin(v)) + obs.y
+            z = obs.size * np.outer(np.ones(np.size(u)), np.cos(v)) + obs.z
 
-
-
-
-        
+            self.ax.plot_surface(x, y, z, linewidth=0.0, cstride = 1, rstride = 1, color = '#000000', alpha = 0.2)  
 
     
+    def end_simulation(self, events):
+        """
+        End the live simulation (terminate the main navigation while loop in robotSim)
+        """
+        self.run_sim = False
+
+
+    def plot_distance(self, all_dist_dict, time_array):
+        """
+        Use to generate one of the summary plots
+        
+        Parameters:
+            all_dist_dict - a dictionary storing the distance between the auv and sharks
+                key: shark id & value: an array storing the distance
+            time_array - an array for all the time stamps
+        """  
+        # allow us to have multiple subplots (differnt summary graphs) in the future
+        plt.subplots()
+
+        for shark_id in all_dist_dict:
+            label = "shark #" + str(shark_id)
+            plt.plot(time_array, all_dist_dict[shark_id], label=label)
+
+        plt.xlabel('x - time (sec)')
+        plt.ylabel('y - distance between auv and shark (m)')
+        plt.title('distance between auv and all the sharks during simulation')
+
+        plt.legend()
+
+
+    def plot_2d_sim_graph(self, auv_x_array, auv_y_array, obstacle_array=[]):
+        """
+        Plot the 2d summary graph of the overall trajectory for auv and sharks and also the obstacles
+
+        Parameters:
+            auv_x_array - an array of floats, indicating the auv x position throughout the simulation
+            auv_y_array - an array of floats, indicating the auv y position throughout the simulation
+            obstacle_array - (optional) an array of motion_plan_states that represent the obstacles's
+                position and size
+        """
+        # close the 3D simulation plot (if there's any)
+        plt.close()
+        
+        fig, ax = plt.subplots()
+        
+        # plot the auv overall trajectory
+        plt.plot(auv_x_array, auv_y_array, marker = ',', color = 'r', label='auv')
+        
+        # calculate the orientation of direction vector for the auv
+        x_orient = auv_x_array[-1]-auv_x_array[-2]
+        y_orient = auv_y_array[-1]-auv_y_array[-2]
+
+        # plot an arrow indicating the auv direction
+        plt.quiver(auv_x_array[-1], auv_y_array[-1], x_orient, y_orient, color = 'r', pivot="tail")
+
+        # plot all the sharks
+        if len(self.shark_array) != 0:         
+            for i in range(len(self.shark_array)):
+                    # determine the color of this shark's trajectory
+                    c = self.colors[i % len(self.colors)]
+
+                    shark = self.shark_array[i]
+
+                    plt.plot(shark.x_pos_array, shark.y_pos_array, marker = ",", color = c, label = "shark #" + str(shark.id))
+
+                    # calculate orientation by: current coordinate - previous coordinate
+                    # these 3 variables will help us indicate the direction of the trajectory
+                    x_orient = shark.x_pos_array[-1]-shark.x_pos_array[-2]
+                    y_orient = shark.y_pos_array[-1]-shark.y_pos_array[-2]
+
+                    plt.quiver(shark.x_pos_array[-1], shark.y_pos_array[-1], x_orient, y_orient, color = c, pivot="tail")
+
+        # plot all the obstacles
+        for obs in obstacle_array:
+            ax.add_patch(plt.Circle((obs.x, obs.y), obs.size, color = '#000000', fill = False))
+
+        plt.xlabel('x (m)')
+        plt.ylabel('y (m)')
+        plt.title('Summary of the auv and shark trajectories during the simulation')
+
+        plt.legend()
+
+        plt.show()

@@ -14,6 +14,7 @@ class Motion_plan_state:
         self.size = size
         self.parent = None
         self.path = []
+        self.length = 0
 
     def __repr__(self):
         #goal location in 2D
@@ -25,6 +26,9 @@ class Motion_plan_state:
         #obstable location in 3D
         elif self.size != 0:
             return "[" + str(self.x) + ", " + str(self.y) + ", " + str(self.z) + ", " + str(self.size) + "]"
+        #location for Dubins Path in 2D
+        elif self.z ==0 and self.v == 0 and self.w == 0 and self.time_stamp == 0:
+            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.theta) + "]"
         else: 
             return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + ", " +\
                 str(self.theta)  + ", " + str(self.v) + ", " + str(self.w) + ", "+  str(self.time_stamp) + "]"
@@ -39,6 +43,9 @@ class Motion_plan_state:
         #obstable location in 3D
         elif self.size != 0:
             return "[" + str(self.x) + ", " + str(self.y) + ", " + str(self.z) + ", " + str(self.size) + "]"
+        #location for Dubins Path in 2D
+        elif self.z ==0 and self.v == 0 and self.w == 0 and self.time_stamp == 0:
+            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.theta) + "]"
         else: 
             return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + ", " +\
                 str(self.theta)  + ", " + str(self.v) + ", " + str(self.w) + ", "+  str(self.time_stamp) + "]"

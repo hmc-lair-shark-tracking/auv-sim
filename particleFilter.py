@@ -14,6 +14,7 @@ from particle import Particle
 from robotSim import RobotSim
 from live3DGraph import Live3DGraph
 from twoDfigure import Figure
+from motion_plan_state import Motion_plan_state
 
 def angle_wrap(ang):
     """
@@ -289,7 +290,7 @@ def main():
     # shark's initial x, y, z, theta
     test_shark = RobotSim(740, 280, -5, 0.1)
     test_shark.setup("./data/sharkTrackingData.csv", [1])
-    test_shark.main_navigation_loop()
+    
     """
     #shark state dict = {1: [x, y]}
     shark_state_dict = test_shark.get_all_sharks_state()
@@ -303,7 +304,18 @@ def main():
     theta = 0
     initial_x_shark = 50
     initial_y_shark = 0
+
+    # for now, since the auv is stationary, we can just set it like this
+    auv_pos = Motion_plan_state(x_auv, y_auv, theta)
+
+    # example of how to get the shark x position and y position
+    shark_list = test_shark.live_graph.shark_array
+    shark = test_shark.live_graph.shark_array[0]
+    print(shark.x_pos_array)
+    print(shark.y_pos_array)
+    
     test_particle = particleFilter(initial_x_shark, initial_y_shark, theta, x_auv ,y_auv)
+
 
     for x in range(0, NUMBER_OF_PARTICLES):
         new_particle = Particle()
@@ -362,12 +374,36 @@ def main():
     particle_coordinates = test_particle.particle_coordinates(particles)
 
     loops = 0
+    sim_time = 0.0
 
     while True: 
         
         loops += 1
         print(loops)
+        print("sim time")
+        print(sim_time)
         time.sleep(1)
+
+        # update the shark position (do this in your main loop)
+        for shark in shark_list:
+            test_shark.live_graph.update_shark_location(shark, sim_time)
+        
+        shark_state_dict = test_shark.get_all_sharks_state()
+        print("==================")
+        print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
+
+        has_new_data = test_shark.get_all_sharks_sensor_measurements(shark_state_dict, auv_pos)
+
+        if has_new_data == True:
+            print("======NEW DATA=======")
+            print("All The Shark Sensor Measurements [range, bearing]: " +\
+                str(test_shark.shark_sensor_data_dict))
+        
+        print("range and bearing")
+        # pass in id
+        print(test_shark.shark_sensor_data_dict[1])
+            
+        
         #print("updated particles after", 1, "seconds of random movement")
         for particle in particles: 
             particle.update_particle(1)
@@ -410,6 +446,8 @@ def main():
         #print("particle coordinates", particle_coordinates)
         if loops >= 100:
             break
+        
+        sim_time += 0.1
         """
         #simulation stuff
         test_grapher.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y)
