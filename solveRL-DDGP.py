@@ -168,7 +168,7 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
     """
     """
     obstacle_array = []
-    for i in range(num_of_obstacles):
+    for _ in range(num_of_obstacles):
         obs_x = np.random.uniform(MIN_X, MAX_X)
         obs_y = np.random.uniform(MIN_Y, MAX_Y)
         obs_size = np.random.randint(1,5)
