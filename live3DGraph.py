@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.widgets import Button
 from matplotlib.widgets import CheckButtons
+from matplotlib.patches import Rectangle
 import numpy as np
 
 import constants as const
@@ -258,7 +259,7 @@ class Live3DGraph:
             self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = '#069ecc')
 
     
-    def plot_obstacles(self, obstacle_array):
+    def plot_obstacles(self, obstacle_array, color='#000000'):
         """
         Plot obstacles as sphere based on location and size indicated by the "obstacle_array"
 
@@ -278,7 +279,7 @@ class Live3DGraph:
             y = obs.size * np.outer(np.sin(u), np.sin(v)) + obs.y
             z = obs.size * np.outer(np.ones(np.size(u)), np.cos(v)) + obs.z
 
-            self.ax.plot_surface(x, y, z, linewidth=0.0, cstride = 1, rstride = 1, color = '#000000', alpha = 0.2)  
+            self.ax.plot_surface(x, y, z, linewidth=0.0, cstride = 1, rstride = 1, color = color, alpha = 0.2)  
 
     
     def end_simulation(self, events):

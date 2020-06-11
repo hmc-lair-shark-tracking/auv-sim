@@ -12,8 +12,9 @@ from live3DGraph import Live3DGraph
 from motion_plan_state import Motion_plan_state
 
 #import path planning class
-from astar import astar
-from rrt_dubins import RRT
+from path_planning.astar import astar
+from path_planning.rrt_dubins import RRT
+from path_planning.cost import Cost
 
 # keep all the constants in the constants.py file
 # to get access to a constant, eg:
@@ -162,7 +163,21 @@ class RobotSim:
             self.sensor_time += 1
 
             return False
+        
+    def get_habitats(self):
+        '''
+        get the location of all habitats within the boundary, represented as a list of motion_plan_states
+        '''
 
+        habitats = []
+
+        #testing habitat lists
+        habitats = [Motion_plan_state(750, 300, size=5), Motion_plan_state(750, 320, size=2), Motion_plan_state(780, 240, size=10),\
+            Motion_plan_state(775, 330, size=3), Motion_plan_state(760, 320, size=5), Motion_plan_state(770, 250, size=4),\
+            Motion_plan_state(800, 295, size=4), Motion_plan_state(810, 320, size=5), Motion_plan_state(815, 300, size=5),\
+            Motion_plan_state(825, 330, size=6), Motion_plan_state(830, 335, size=5)]
+        
+        return habitats
 
     def track_trajectory(self, trajectory, new_trajectory):
         """
@@ -219,7 +234,8 @@ class RobotSim:
         
         t_end = time.time() + self.planning_time
         shortest_path = []
-        shortest_length = float("inf")
+        cost_min = float("inf")
+        cost_tesing = Cost()
         
         if planner == "RRT":
             path_planning = RRT(auv_pos, shark_pos, obstacle, boundary)
@@ -227,10 +243,10 @@ class RobotSim:
         while time.time() < t_end:
             result = path_planning.planning(animation=False)
             if result is not None:
-                length = result[0]
                 path = result[1]
-                if length < shortest_length:
-                    shortest_length = length
+                cost = cost_tesing.habitat_time_cost_func(path, result[0], self.get_habitats(), weights=[1,5,5])
+                if cost[0] < cost_min:
+                    cost_min = cost[0]
                     shortest_path = path
 
         shortest_path.reverse()
@@ -363,6 +379,8 @@ class RobotSim:
             self.live_graph.plot_obstacles(obstacle_array)
 
         self.live_graph.ax.legend(self.live_graph.labels)
+
+        self.live_graph.plot_obstacles(self.get_habitats(), color="red")
         
         # re-add the labels because they will get erased
         self.live_graph.ax.set_xlabel('X')
@@ -579,21 +597,21 @@ class RobotSim:
         while self.live_graph.run_sim:
             
             auv_sensor_data = self.get_auv_sensor_measurements()
-            print("==================")
+            '''print("==================")
             print("Curr Auv Sensor Measurements [x, y, z, theta, time]: " +\
-                str(auv_sensor_data))
+                str(auv_sensor_data))'''
   
             shark_state_dict = self.get_all_sharks_state()
-            print("==================")
-            print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
+            '''print("==================")
+            print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))'''
 
             has_new_data = self.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
 
 
             if has_new_data == True:
-                print("======NEW DATA=======")
+                '''print("======NEW DATA=======")
                 print("All The Shark Sensor Measurements [range, bearing]: " +\
-                    str(self.shark_sensor_data_dict))
+                    str(self.shark_sensor_data_dict))'''
             
             # example of how to indicate the obstacles and plot them
             obstacle_array = [Motion_plan_state(757,243, size=2),Motion_plan_state(763,226, size=5)]
@@ -611,15 +629,15 @@ class RobotSim:
             
             # test trackTrajectory
             tracking_pt = self.track_trajectory(RRT_traj, new_trajectory)
-            print("==================")
-            print ("Currently tracking point: " + str(tracking_pt))
+            '''print("==================")
+            print ("Currently tracking point: " + str(tracking_pt))'''
             
             #v & w to the next point along the trajectory
             (v, w) = self.track_way_point(tracking_pt)
-            print("==================")
+            '''print("==================")
             print ("v and w: ", v, ", ", w)
             print("====================================")
-            print("====================================")
+            print("====================================")'''
 
             # update the auv position
             self.send_trajectory_to_actuators(v, w)
@@ -674,6 +692,7 @@ class RobotSim:
 
 
 def main():
+
     test_robot = RobotSim(700,270,0,0.1)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
