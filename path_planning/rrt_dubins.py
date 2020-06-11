@@ -46,7 +46,7 @@ class RRT:
         self.diff_max = diff_max
         self.freq = freq
 
-    def exploring(self, habitats, test_time=5.0, plan_time=True, weights=[1,-1,-1]):
+    def exploring(self, habitats, plot_interval, test_time=5.0, plan_time=True, weights=[1,-1,-1]):
         """
         rrt path planning without setting a specific goal, rather try to explore the configuration space as much as possible
         calculate cost while expand and keep track of the current optimal cost path
@@ -60,7 +60,6 @@ class RRT:
         opt_cost = [float("inf")]
         opt_path = None
         opt_cost_list = []
-        time_list = []
 
         #keep track of the longest single path in the tree to normalize every path length
         peri_boundary = 2 * (self.max_area.x - self.min_area.x) + 2 * (self.max_area.y - self.min_area.y)
@@ -70,39 +69,40 @@ class RRT:
 
         self.mps_list = [self.start]
 
-        t_end = time.time() + test_time
         self.t_start = time.time()
-        while time.time() < t_end:
-            #find the closest motion_plan_state by generating a random time stamp and 
-            #find the motion_plan_state whose time stamp is closest to it
-            if plan_time:
-                ran_time = random.uniform(0, test_time * self.freq)
-                closest_mps = self.get_closest_mps_time(ran_time, self.mps_list)
-            #find the closest motion_plan_state by generating a random motion_plan_state
-            #and find the motion_plan_state with smallest distance
-            else:
-                ran_mps = self.get_random_mps()
-                closest_mps = self.get_closest_mps(ran_mps, self.mps_list)
-            
-            new_mps = self.steer(closest_mps, self.dist_to_end, self.diff_max, self.freq)
+        n_expand = math.ceil(test_time / plot_interval)
+        for i in range(1, n_expand + 1):
+            t_end = self.t_start + i * plot_interval
+            while time.time() < t_end:
+                #find the closest motion_plan_state by generating a random time stamp and 
+                #find the motion_plan_state whose time stamp is closest to it
+                if plan_time:
+                    ran_time = random.uniform(0, test_time * self.freq)
+                    closest_mps = self.get_closest_mps_time(ran_time, self.mps_list)
+                #find the closest motion_plan_state by generating a random motion_plan_state
+                #and find the motion_plan_state with smallest distance
+                else:
+                    ran_mps = self.get_random_mps()
+                    closest_mps = self.get_closest_mps(ran_mps, self.mps_list)
+                
+                new_mps = self.steer(closest_mps, self.dist_to_end, self.diff_max, self.freq)
 
-            if self.check_collision(new_mps, self.obstacle_list):
-                new_mps.parent = closest_mps
-                path = self.generate_final_course(new_mps)
-                new_mps.length = self.cal_length(path)
-                self.mps_list.append(new_mps)
-                #Question: how to normalize the path length?
-                if new_mps.length != 0:
-                    cost = cal_cost.habitat_time_cost_func(path, new_mps.length, self.habitats, peri_boundary, weights=weights)
-                    if cost[0] < opt_cost[0]:
-                        opt_cost = cost
-                        opt_path = [new_mps.length, path]
-            
-            time_list.append(time.time()-self.t_start)
+                if self.check_collision(new_mps, self.obstacle_list):
+                    new_mps.parent = closest_mps
+                    path = self.generate_final_course(new_mps)
+                    new_mps.length = self.cal_length(path)
+                    self.mps_list.append(new_mps)
+                    #Question: how to normalize the path length?
+                    if new_mps.length != 0:
+                        cost = cal_cost.habitat_time_cost_func(path, new_mps.length, self.habitats, peri_boundary, weights=weights)
+                        if cost[0] < opt_cost[0]:
+                            opt_cost = cost
+                            opt_path = [new_mps.length, path]
+                
             opt_cost_list.append(opt_cost[0])
 
         #self.plot_performance(time_list, opt_cost_list)
-        return {"path length": opt_path[0], "path": opt_path[1], "cost": opt_cost, "cost list": opt_cost_list, "time": time_list}
+        return {"path length": opt_path[0], "path": opt_path[1], "cost": opt_cost, "cost list": opt_cost_list}
         
 
     def planning(self, max_iter = 1000, animation=False, min_length = 250, plan_time=True):
@@ -456,7 +456,7 @@ def main():
         Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
     rrt = RRT(start, goal, obstacle_array, boundary)
     #path = rrt.planning(animation=False, min_length=0)
-    path = rrt.exploring(habitats, plan_time=True, weights=[1,-1,-1])
+    path = rrt.exploring(habitats, 0.5, test_time=5.0, plan_time=True, weights=[1,-4.5,-4.5])
     print(path["cost"])
     
     # Draw final path
