@@ -180,8 +180,8 @@ class AuvEnv(gym.Env):
             self.check_collision(self.state[0])
 
         # reward = self.get_reward(self.state[0], self.state[1])
-        # reward = self.get_binary_reward(self.state[0], self.state[1])
-        reward = self.get_bearing_reward(self.state[0], self.state[1])
+        reward = self.get_binary_reward(self.state[0], self.state[1])
+        # reward = self.get_bearing_reward(self.state[0], self.state[1])
 
         return self.state, reward, done, {}
 

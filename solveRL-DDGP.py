@@ -995,6 +995,8 @@ class DDPG():
                 if curr_range < prev_range:
                     useful_next_states.append([t, next_state])
                     prev_range = curr_range
+                    print("curr range")
+                    print(curr_range)
                     print("update useful next states")
                     print(useful_next_states)
 
@@ -1032,6 +1034,10 @@ class DDPG():
 
                 # store the actual experience in the memory
                 self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
+
+                print("@@@@@@@@@@@@@@@@@@")
+                print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, torch.tensor([False], device=DEVICE)))
+                print("@@@@@@@@@@@@@@@@@@")
 
                 """
                 print("----------------------------")
@@ -1184,7 +1190,7 @@ class DDPG():
 
 def train():
     ddpg = DDPG(STATE_SIZE, ACTION_SIZE)
-    ddpg.train_no_HER(NUM_OF_EPISODES, MAX_STEP)
+    ddpg.train(NUM_OF_EPISODES, MAX_STEP)
 
 
     
