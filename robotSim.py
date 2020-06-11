@@ -467,6 +467,7 @@ class RobotSim:
                 print("======NEW DATA=======")
                 print("All The Shark Sensor Measurements [range, bearing]: " +\
                     str(self.shark_sensor_data_dict))
+                
 
             # test trackTrajectory
             tracking_pt = self.track_trajectory(self.testing_trajectory)

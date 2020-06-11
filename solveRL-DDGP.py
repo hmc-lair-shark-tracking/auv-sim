@@ -52,7 +52,7 @@ LR_CRITIC = 1e-3
 
 # size of the replay memory
 MEMORY_SIZE = 1e6
-BATCH_SIZE = 64
+BATCH_SIZE = 4 #64
 
 # use GPU if available, else use CPU
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -632,6 +632,10 @@ class AuvEnvManager():
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
 
+    
+    def get_done(self):
+        return torch.tensor([self.done], device=self.device)
+
 
     def get_state(self):
         """
@@ -750,7 +754,7 @@ class DDPG():
     def possible_extra_goals(self, time_step, next_state_array):
         # currently, we use the "future" strategy mentioned in the HER paper
         #   replay with k random states which come from the same episode as the transition being replayed and were observed after it
-        her_strategy = "final"
+        her_strategy = "future"
        
         additional_goals = []
 
@@ -819,11 +823,12 @@ class DDPG():
             # get the predicted actions based on next states
             next_actions_batch = self.actor_target(next_states_batch)
 
-            """
+            
             print("****************************")
             print("next action batch")
             print(next_actions_batch)
-            """
+            print(next_actions_batch.detach())
+            
 
             # get the predicted Q-values based on the next states and actions pairs
             next_target_q_val_batch = self.critic_target(next_states_batch, next_actions_batch)
@@ -836,12 +841,15 @@ class DDPG():
             
             # compute the current Q values using the Bellman equation
             target_q_val_batch = (rewards_batch + GAMMA * next_target_q_val_batch)
+            target_q_val_batch_done = rewards_batch + (1.0 - done_batch) * GAMMA * next_target_q_val_batch
 
-            """
+            
             print("****************************")
             print("current q val batch")
             print(target_q_val_batch)
-            """
+            print("with done")
+            print(target_q_val_batch_done)
+            
             
             # compute the expected q value based on the critic neural net
             expected_q_val_batch = self.critic(states_batch, actions_batch)
@@ -967,6 +975,7 @@ class DDPG():
 
             action_array = []
             next_state_array = []
+            done_array = []
             useful_next_states = []
 
             self.actor_loss_in_ep = []
@@ -990,6 +999,8 @@ class DDPG():
                 
                 next_state = self.em.get_state()
                 next_state_array.append(next_state)
+
+                done_array.append(self.em.get_done())
                 
                 curr_range = calculate_range(next_state[0], next_state[1])
                 if curr_range < prev_range:
@@ -1023,41 +1034,32 @@ class DDPG():
             for t in range(iteration):
                 action = action_array[t]
                 next_state = next_state_array[t]
+                done = done_array[t]
 
                 # next_state[0] - the auv position after it has taken an action
                 # next_state[1] - the actual goal
                 reward = self.em.get_binary_reward(next_state[0], next_state[1])
 
-                done = torch.tensor([False], device=DEVICE)
-                if reward.item() == 1:
-                    done = torch.tensor([True], device=DEVICE)
-
                 # store the actual experience in the memory
                 self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
 
-                print("@@@@@@@@@@@@@@@@@@")
-                print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, torch.tensor([False], device=DEVICE)))
-                print("@@@@@@@@@@@@@@@@@@")
-
-                """
                 print("----------------------------")
                 print("timestep: ", t)
                 print("actual experience stored")
                 print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
                 print("----------------------------")
-                text = input("stop")
-                """
 
-                if use_HER:
-                    if useful_next_states != []:
-                        while index < len(useful_next_states) and t >= useful_next_states[index][0]:
-                            index += 1
-
-                        additional_goals = [x[1] for x in useful_next_states[index: ]]
-
-                        # additional_goals = self.possible_extra_goals(t, next_state_array)
-                        self.store_extra_goals_HER(action, state, next_state, additional_goals)
                 
+                if use_HER:
+                    # if useful_next_states != []:
+                    #     while index < len(useful_next_states) and t >= useful_next_states[index][0]:
+                    #         index += 1
+
+                    #     additional_goals = [x[1] for x in useful_next_states[index: ]]
+
+                    additional_goals = self.possible_extra_goals(t, next_state_array)
+                    self.store_extra_goals_HER(action, state, next_state, additional_goals)
+                text = input("stop")
 
                 state = next_state
 
