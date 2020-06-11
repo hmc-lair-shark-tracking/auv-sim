@@ -55,8 +55,8 @@ class DQN(nn.Module):
         """
         super().__init__()
         # in 24, out 32
-        self.hidden_layer_in = 24
-        self.hidden_layer_out = 32
+        self.hidden_layer_in = 400
+        self.hidden_layer_out = 300
 
         # 2 fully connected hidden layers
         # first layer will have "input_size" inputs
@@ -228,8 +228,8 @@ class Agent():
 
         if rate > random.random():
             # exploring the environment by randomly chosing an action
-            print("-----")
-            print("randomly picking")
+            # print("-----")
+            # print("randomly picking")
             v_action_index = random.choice(range(self.actions_range_v))
             w_action_index = random.choice(range(self.actions_range_w))
 
@@ -246,12 +246,12 @@ class Agent():
                 # for the given "state"，the output will be Q values for each possible action (index for v and w)
                 #   from the policy net
                 output_weight = policy_net(state).to(self.device)
-                print("-----")
-                print("exploiting")
-                print("Q values check - v")
-                print(output_weight[0])
-                print("Q values check - w")
-                print(output_weight[1])
+                # print("-----")
+                # print("exploiting")
+                # print("Q values check - v")
+                # print(output_weight[0])
+                # print("Q values check - w")
+                # print(output_weight[1])
 
                 # output_weight[0] is for the v_index, output_weight[1] is for w_index
                 # this is finding the index with the highest Q value
@@ -338,14 +338,14 @@ class AuvEnvManager():
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
         self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
-        print("=========================")
-        print("action v: ", v_action_index, " | ", v_action)  
-        print("action w: ", w_action_index, " | ", w_action)  
-        print("new state: ")
-        print(self.current_state)
-        print("reward: ")
-        print(reward)
-        print("=========================")
+        # print("=========================")
+        # print("action v: ", v_action_index, " | ", v_action)  
+        # print("action w: ", w_action_index, " | ", w_action)  
+        # print("new state: ")
+        # print(self.current_state)
+        # print("reward: ")
+        # print(reward)
+        # print("=========================")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
@@ -535,7 +535,7 @@ def train():
     # learning rate
     lr = 0.001
 
-    num_episodes = 500
+    num_episodes = 1000
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -656,7 +656,9 @@ def train():
                 # print(useful_next_states)
                 # text = input("stop")
             
-            em.render(print_state = False, live_graph = True)
+            # if episode % 10 == 0:
+            #     # render every 10 seconds
+            #     em.render(print_state = False, live_graph = True)
             
             state = next_state
 
@@ -703,7 +705,7 @@ def train():
                     k = len(future_goals_to_sample)
                 additional_goals = random.sample(future_goals_to_sample, k = k)
             else:
-                additional_goals = [next_state_array[-1]]
+                additional_goals = [next_state_array[-1]]"""
             # print("additional goals")
             # print(additional_goals)"""
 
@@ -732,7 +734,7 @@ def train():
                 new_next_state = (next_state[0], goal[0], next_state[2])
                 
                 memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
-                print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
+                # print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))"""
 
             state = next_state
             # print("+++++++", t, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++", additional_reward)
@@ -808,8 +810,11 @@ def train():
             save_model()
 
 
-        # time.sleep(1)
-        # text = input("manual stop")
+        # if episode % 10 ==0:
+        #     text = input("manual stop")
+        # else:
+        #     time.sleep(1)
+
     save_model()
     em.close()
     print(episode_durations)
