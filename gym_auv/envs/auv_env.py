@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.patches import Circle
 import mpl_toolkits.mplot3d.art3d as Art3d
+import math
 
 from live3DGraph import Live3DGraph
 
@@ -26,7 +27,7 @@ AUV_MAX_W = np.pi
 DELTA_T = 1
 
 # the maximum range between the auv and shark to be considered that the auv has reached the shark
-END_GAME_RADIUS = 1.0
+END_GAME_RADIUS = 2.0
 
 # constants for reward
 R_COLLIDE = -1000.0       # when the auv collides with an obstacle
@@ -123,6 +124,7 @@ class AuvEnv(gym.Env):
         self.init_data_for_3D_plot(auv_init_pos, shark_init_pos)
 
         self.old_range = self.calculate_range([auv_init_pos.x, auv_init_pos.y], [shark_init_pos.x, shark_init_pos.y])
+        self.old_bearing = self.calculate_bearing([auv_init_pos.x, auv_init_pos.y, auv_init_pos.z, auv_init_pos.theta], [shark_init_pos.x, shark_init_pos.y, shark_init_pos.z, shark_init_pos.theta])
         
         return self.reset()
 
@@ -177,8 +179,9 @@ class AuvEnv(gym.Env):
         done = self.check_reached_target(self.state[0], self.state[1]) or\
             self.check_collision(self.state[0])
 
-        reward = self.get_reward(self.state[0], self.state[1])
+        # reward = self.get_reward(self.state[0], self.state[1])
         # reward = self.get_binary_reward(self.state[0], self.state[1])
+        reward = self.get_bearing_reward(self.state[0], self.state[1])
 
         return self.state, reward, done, {}
 
@@ -203,6 +206,43 @@ class AuvEnv(gym.Env):
         delta_y = b_y - a_y
 
         return np.sqrt(delta_x**2 + delta_y**2)
+
+
+    def calculate_bearing(self, a_pos, b_pos):
+        """
+        Calculate the range (distance) between point a and b, specified by their coordinates
+
+        Parameters:
+            a_pos - an array / a numpy array
+            b_pos - an array / a numpy array
+                both have the format: [x_pos, y_pos, z_pos, theta]
+
+        TODO: include z pos in future range calculation?
+        """
+        a_x = a_pos[0]
+        a_y = a_pos[1]
+        b_x = b_pos[0]
+        b_y = b_pos[1]
+
+        delta_x = b_x - a_x
+        delta_y = b_y - a_y
+
+        print("++++++++++++++++++++++++++++++++")
+        print("delta x: ", delta_x, " | delta y: ", delta_y)
+        print("++++++++++++++++++++++++++++++++")
+
+        angle_btw_goal_and_x_axis = angle_wrap(math.atan2(delta_y, delta_x))
+
+        angle = a_pos[3] - angle_btw_goal_and_x_axis
+
+        angle = angle_wrap(angle)
+
+        print("angle between goal and x axis")
+        print(angle_btw_goal_and_x_axis)
+        print("unprocessed: ")
+        print(angle)
+
+        return angle
 
 
     def check_reached_target(self, auv_pos, shark_pos):
@@ -258,6 +298,77 @@ class AuvEnv(gym.Env):
             return 1
         else:
             return -1
+
+
+    def get_bearing_reward(self, auv_pos, shark_pos):
+        if self.check_reached_target(auv_pos, shark_pos):
+            return R_ARRIVE
+        elif self.check_collision(auv_pos):
+            return R_COLLIDE
+        else:
+            new_bearing = self.calculate_bearing(auv_pos, shark_pos)
+           
+            bearing_diff = angle_wrap(abs(self.old_bearing)-abs(new_bearing))
+
+            print("===================")
+            print("auv position: ")
+            print(auv_pos)
+            print("new bearing: ")
+            print(new_bearing)
+            print("old bearing")
+            print(self.old_bearing)
+            print("bearing diff")
+            print(bearing_diff)
+            print("===================")
+
+            new_range = self.calculate_range(auv_pos, shark_pos)
+            # if auv has gotten closer to the shark, will receive positive reward
+            #   else, receive negative reward
+            range_diff = self.old_range - new_range
+
+            print("===================")
+            print("new range")
+            print(new_range)
+            print("range diff")
+            print(range_diff)
+            print("===================")
+             
+            # if abs(new_bearing) < np.pi/8:
+            #     # the auv just heads toward the shark
+            #     reward = 4
+            # elif abs(new_bearing) < np.pi/4 and abs(new_bearing) > np.pi/8:
+            #     reward = 1
+            # elif new_range > 15:
+            #     print("===exceed the range===")
+            #     reward = -10
+            # else:
+            #     reward = -1
+
+            # if abs(new_bearing) < np.pi/8:
+            #     # the auv just heads toward the shark
+            #     reward = 4
+            # elif abs(new_bearing) > np.pi/6*5 and new_range > 3:
+            #     print("===exceed the bearing===")
+            #     reward = -10
+            # elif new_range > 15:
+            #     print("===exceed the range===")
+            #     reward = -10
+            # else:
+            #     reward = R_RANGE * bearing_diff
+
+            if abs(new_bearing) < np.pi/10:
+                # the auv just heads toward the shark
+                reward = 5
+            elif new_range > 15:
+                print("===exceed the range===")
+                reward = -10
+            else:
+                reward = -1
+            
+            self.old_bearing = new_bearing
+            self.old_range = new_range
+            
+            return reward
     
 
     def check_collision(self, auv_pos):

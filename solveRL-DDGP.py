@@ -180,6 +180,16 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
     return obstacle_array
 
 
+# def clip_value_to_range(value, target_min, target_max):
+#     """
+#     From: https://stackoverflow.com/questions/49911206/how-to-restrict-output-of-a-neural-net-to-a-specific-range
+#     """
+#     # tanh gives you range between -1 and 1, so this gives you range between 0, 2
+#     # new_value = value + 1
+#     new_value = np.tanh(value) + 1 
+#     scale = (target_max - target_min) / 2.0
+#     return new_value * scale + target_min
+
 
 def angle_wrap(ang):
     """
@@ -329,6 +339,8 @@ class Actor(nn.Module):
         # print("before passing through the last layer")
         # print(action)
         action = self.out(action)
+
+        action = torch.tanh(action)
 
         # print("---------------------")
         # print("before being tanh")
@@ -526,7 +538,8 @@ class AuvEnvManager():
         # auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
         # shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0)
         print("random choice: ", np.random.randint(1, 5))
-        quadrant = input("pick a quadrant: ")
+        # quadrant = input("pick a quadrant: ")
+        quadrant = "1"
         
         auv_init_pos, shark_init_pos = generate_rand_init_position(DIST, quadrant)
         
@@ -575,17 +588,6 @@ class AuvEnvManager():
         """
         return len(self.possible_actions[0])
 
-    
-    def clip_value_to_range(self, value, target_min, target_max):
-        """
-        From: https://stackoverflow.com/questions/49911206/how-to-restrict-output-of-a-neural-net-to-a-specific-range
-        """
-        # tanh gives you range between -1 and 1, so this gives you range between 0, 2
-        # new_value = value + 1
-        new_value = np.tanh(value) + 1 
-        scale = (target_max - target_min) / 2.0
-        return new_value * scale + target_min
-
 
     def take_action(self, action):
         """
@@ -594,6 +596,8 @@ class AuvEnvManager():
                 use the index from the action and take a step in environment
                 based on the chosen values for v and w
         """
+        action = action.clamp(-np.pi, np.pi)
+
         # v_action_raw = action[0].item()
         # w_action_raw = action[1].item()
         theta_action = action.item()
@@ -614,7 +618,7 @@ class AuvEnvManager():
         self.current_state, reward, self.done, _ = self.env.step(theta_action)
 
         if DEBUG:
-            print("=========================")
+            print("=========================+++++++=========================")
             # print("action v: ", v_action_raw, " | ", v_action)  
             # print("action w: ", w_action_raw, " | ", w_action)  
             print("action theta: ", theta_action)
@@ -622,7 +626,7 @@ class AuvEnvManager():
             print(self.current_state)
             print("reward: ")
             print(reward)
-            print("=========================")
+            print("=========================+++++++=========================")
             text = input("stop")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
@@ -713,27 +717,26 @@ class DDPG():
         with torch.no_grad():
             action = self.actor(state).to(DEVICE)
 
-        if DEBUG:
-            print("without clipping: ")
-            print(action)
-
-        action = torch.tanh(action) * np.pi
-
         # set the actor nn back to train mode
         self.actor.train()
 
         if DEBUG:
+            print("---")
             print("action without noise: ")
             print(action)
 
         if add_noise:
-            action += self.epsilon + self.noise.noise()
+            action += self.noise.noise()
+            print("---")
+            print("action with noise")
+            print(action)
         
         self.critic.eval()
 
         with torch.no_grad():
             predict_q_value = self.critic(state.unsqueeze(0), action.unsqueeze(0).float()).to(DEVICE)
-        
+
+        print("---")
         print("predicted Q value for this given action")
         print(predict_q_value)
 
@@ -934,12 +937,12 @@ class DDPG():
             self.actor_loss_in_ep.append(actor_loss.item())
             self.critic_loss_in_ep.append(critic_loss.item())
 
-            if self.epsilon - EPSILON_DECAY > EPSILON_MIN:
-                self.epsilon -= EPSILON_DECAY
-            else:
-                self.epsilon = EPSILON_MIN
+            # if self.epsilon - EPSILON_DECAY > EPSILON_MIN:
+            #     self.epsilon -= EPSILON_DECAY
+            # else:
+            #     self.epsilon = EPSILON_MIN
 
-            self.noise.reset()
+            # self.noise.reset()
 
 
     def train(self, num_episodes, max_step, load_prev_training=False, use_HER =True):
@@ -1127,6 +1130,10 @@ class DDPG():
                 self.em.render(print_state = False, live_graph=True)
 
                 self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, torch.tensor([True], device=DEVICE)))
+
+                print("@@@@@@@@@@@@@@@@@@")
+                print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, torch.tensor([True], device=DEVICE)))
+                print("@@@@@@@@@@@@@@@@@@")
 
                 state = next_state
 
