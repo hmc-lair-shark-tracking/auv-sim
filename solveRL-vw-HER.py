@@ -323,7 +323,7 @@ class AuvEnvManager():
         return len(self.possible_actions[0])
 
 
-    def take_action(self, action):
+    def take_action(self, action, timestep):
         """
         Parameter: 
             action - tensor of the format: tensor([v_index, w_index])
@@ -337,7 +337,7 @@ class AuvEnvManager():
         
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
-        self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
+        self.current_state, reward, self.done, _ = self.env.step((v_action, w_action), timestep)
         # print("=========================")
         # print("action v: ", v_action_index, " | ", v_action)  
         # print("action w: ", w_action_index, " | ", w_action)  
@@ -356,6 +356,18 @@ class AuvEnvManager():
             so we can calculate the velocity
         """
         return self.env.state
+
+    
+    def get_range_reward(self, auv_pos, goal_pos, old_range):
+        reward = self.env.get_range_reward(auv_pos, goal_pos, old_range)
+
+        return torch.tensor([reward], device=self.device).float()
+
+    
+    def get_range_time_reward(self, auv_pos, goal_pos, old_range, timestep):
+        reward = self.env.get_range_time_reward(auv_pos, goal_pos, old_range, timestep)
+
+        return torch.tensor([reward], device=self.device).float()
 
 
     def get_binary_reward(self, auv_pos, goal_pos):
@@ -593,6 +605,8 @@ def train():
 
     avg_loss_array = []
 
+    render_every = 100
+
 
     def save_model():
         print("Model Save...")
@@ -643,7 +657,7 @@ def train():
 
             # Execute selected action in an emulator.
             # Observe reward and next state.
-            score = em.take_action(action)
+            score = em.take_action(action, timestep)
 
             next_state = em.get_state()
             next_state_array.append(next_state)
@@ -656,9 +670,9 @@ def train():
                 # print(useful_next_states)
                 # text = input("stop")
             
-            # if episode % 10 == 0:
-            #     # render every 10 seconds
-            #     em.render(print_state = False, live_graph = True)
+            if episode % render_every == 0:
+                # render every 10 seconds
+                em.render(print_state = False, live_graph = True)
             
             state = next_state
 
@@ -686,15 +700,19 @@ def train():
 
             next_state = next_state_array[t]
             
+            old_range = calculate_range(state[0], state[1])
+
             # next_state[0] the auv's position after it has taken an action
             # next_state[1] the actual goal (real shark position)
-            reward = em.get_binary_reward(next_state[0], next_state[1])
+            # reward = em.get_range_reward(next_state[0], next_state[1], old_range)
+            reward = em.get_range_time_reward(next_state[0], next_state[1], old_range, t)
+            
             
             # Store experience in replay memory.
             memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
             # print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
            
-            """# sample the goals based on the "future" strategy:
+            # sample the goals based on the "future" strategy:
             #    replay with k random states which come from the same episode as the transition being replayed and were observed after it
             future_goals_to_sample = next_state_array[t + 1:]
 
@@ -705,17 +723,15 @@ def train():
                     k = len(future_goals_to_sample)
                 additional_goals = random.sample(future_goals_to_sample, k = k)
             else:
-                additional_goals = [next_state_array[-1]]"""
-            # print("additional goals")
-            # print(additional_goals)"""
-
+                additional_goals = [next_state_array[-1]]
+            
             additional_reward = 0
 
-            if useful_next_states != []:
+            """if useful_next_states != []:
                 while index < len(useful_next_states) and t >= useful_next_states[index][0]:
                     index += 1
 
-                additional_goals = [x[1] for x in useful_next_states[index: ]]
+                additional_goals = [x[1] for x in useful_next_states[index: ]]"""
 
             # print("additional goals")
             # print(additional_goals)
@@ -724,20 +740,23 @@ def train():
             for goal in additional_goals:
                 # next_state[0] the auv's position after it has taken an action
                 # goal[0] the additional goal (real shark position)
-                
-                reward = em.get_binary_reward(next_state[0], goal[0])
-                if reward == 1:
-                    additional_reward += reward
-                
+
                 new_curr_state = (state[0], goal[0], state[2])
                 
                 new_next_state = (next_state[0], goal[0], next_state[2])
                 
+                old_range = calculate_range(new_curr_state[0], new_curr_state[1])
+
+                reward = em.get_range_time_reward(new_next_state[0], new_next_state[1], old_range, t)
+  
+                additional_reward += reward
+                
                 memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
-                # print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))"""
+                # print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
 
             state = next_state
             # print("+++++++", t, "+++++++", iteration, "+++++++", memory.can_provide_sample(batch_size), "++++++", additional_reward)
+            # text = input("stop")
 
             if memory.can_provide_sample(batch_size):
                 # Sample random batch from replay memory.
@@ -810,10 +829,10 @@ def train():
             save_model()
 
 
-        # if episode % 10 ==0:
-        #     text = input("manual stop")
-        # else:
-        #     time.sleep(1)
+        if episode % render_every ==0:
+            text = input("manual stop")
+        else:
+            time.sleep(1)
 
     save_model()
     em.close()
@@ -828,15 +847,15 @@ def test_trained_model():
     eps_end = 0.05
     eps_decay = 0.001
 
-    num_trails = 1000
+    num_trails = 10
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # parameter to discretize the action v and w
     # N specify the number of options that we get to have for v and w
-    N_v = 5
-    N_w = 5
+    N_v = 7
+    N_w = 7
 
     num_of_obstacles = 2
 
@@ -894,7 +913,7 @@ def test_trained_model():
             
             em.take_action(action)
 
-            # em.render(print_state = False, live_graph=True)
+            em.render(print_state = False, live_graph=True)
 
             state = em.get_state()
             # text = input("mannual stop")

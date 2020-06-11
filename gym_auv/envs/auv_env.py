@@ -29,10 +29,10 @@ DELTA_T = 0.1
 END_GAME_RADIUS = 1.0
 
 # constants for reward
-R_COLLIDE = -1000.0       # when the auv collides with an obstacle
-R_ARRIVE = 1000.0         # when the auv arrives at the target
+R_COLLIDE = -10.0       # when the auv collides with an obstacle
+R_ARRIVE = 10.0         # when the auv arrives at the target
 R_RANGE = 0.1           # this is a scaler to help determine immediate reward at a time step
-R_AWAY = 0.1
+R_TIME = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
 
 REPEAT_ACTION_TIME = 5
 
@@ -123,8 +123,6 @@ class AuvEnv(gym.Env):
         self.observation_space = spaces.Box(low = np.array([auv_init_pos.x - ENV_SIZE, auv_init_pos.y - ENV_SIZE, -ENV_SIZE, 0.0]), high = np.array([auv_init_pos.x + ENV_SIZE, auv_init_pos.y + ENV_SIZE, 0.0, 0.0]), dtype = np.float64)
 
         self.init_data_for_3D_plot(auv_init_pos, shark_init_pos)
-
-        self.old_range = self.calculate_range([auv_init_pos.x, auv_init_pos.y], [shark_init_pos.x, shark_init_pos.y])
         
         return self.reset()
 
@@ -140,7 +138,7 @@ class AuvEnv(gym.Env):
         return (v_options, w_options)
 
 
-    def step(self, action):
+    def step(self, action, timestep):
         """
         Run one time step (defined as DELTA_T) of the dynamics in the environment
 
@@ -155,6 +153,8 @@ class AuvEnv(gym.Env):
             info - dictionary, can provide debugging info (TODO: right now, it's just an empty one)
         """
         v, w = action
+
+        old_range = self.calculate_range(self.state[0], self.state[1])
         
         # get the old position and orientation data for the auv
         x, y, z, theta = self.state[0]
@@ -177,8 +177,9 @@ class AuvEnv(gym.Env):
         done = self.check_reached_target(self.state[0], self.state[1]) or\
             self.check_collision(self.state[0])
 
-        # reward = self.get_reward(self.state[0], self.state[1])
-        reward = self.get_binary_reward(self.state[0], self.state[1])
+        # reward = self.get_range_reward(self.state[0], self.state[1], old_range)
+        reward = self.get_range_time_reward(self.state[0], self.state[1], old_range, timestep)
+        # reward = self.get_binary_reward(self.state[0], self.state[1])
 
         return self.state, reward, done, {}
 
@@ -219,7 +220,7 @@ class AuvEnv(gym.Env):
             return False
 
 
-    def get_reward(self, auv_pos, shark_pos):
+    def get_range_reward(self, auv_pos, shark_pos, old_range):
         """
         Return the reward that the auv gets at this state
         Specifically,
@@ -236,15 +237,58 @@ class AuvEnv(gym.Env):
             new_range = self.calculate_range(auv_pos, shark_pos)
             # if auv has gotten closer to the shark, will receive positive reward
             #   else, receive negative reward
-            range_diff = self.old_range - new_range
-            if range_diff <= 0: 
-                reward = R_AWAY * range_diff
-            else:
-                reward = R_RANGE * range_diff
+            range_diff = old_range - new_range
+
+            # print("^^^^^^^^^^^^^^^^^^^^^^^")
+            # print("old range")
+            # print(old_range)
+            # print("new range")
+            # print(new_range)
+            # print("^^^^^^^^^^^^^^^^^^^^^^^")
             
-            self.old_range = new_range
+            reward = R_RANGE * range_diff
             
             return reward
+
+
+    def get_range_time_reward(self, auv_pos, shark_pos, old_range, timestep):
+        """
+        Return the reward that the auv gets at this state
+        Specifically,
+            if auv reaches the shark, R_ARRIVE
+            if auv hits any obstacle, R_COLLIDE
+            else,
+                R_NEG + (immediate reward if auv gets closer to the shark)
+        """
+        if self.check_reached_target(auv_pos, shark_pos):
+            return R_ARRIVE
+        elif self.check_collision(auv_pos):
+            return R_COLLIDE
+        else:
+            new_range = self.calculate_range(auv_pos, shark_pos)
+            # if auv has gotten closer to the shark, will receive positive reward
+            #   else, receive negative reward
+            range_diff = old_range - new_range
+
+            # print("^^^^^^^^^^^^^^^^^^^^^^^")
+            # print("old range")
+            # print(old_range)
+            # print("new range")
+            # print(new_range)
+            # print("^^^^^^^^^^^^^^^^^^^^^^^")
+            
+            reward = R_RANGE * range_diff
+
+            # print("just the range reward")
+            # print(reward)
+
+            reward += R_TIME * timestep
+
+            # print("with timestep penalty")
+            # print(reward)
+            
+            return reward
+
 
 
     def get_binary_reward(self, auv_pos, goal_pos):
