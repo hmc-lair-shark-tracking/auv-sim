@@ -403,7 +403,6 @@ def main():
         # pass in id
         print(test_shark.shark_sensor_data_dict[1])
             
-        
         #print("updated particles after", 1, "seconds of random movement")
         for particle in particles: 
             particle.update_particle(1)
