@@ -3,9 +3,8 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.widgets import CheckButtons
 import numpy as np
 import pandas as pd
-
-
-
+import random
+import itertools
 
 """
 Uses matplotlib to generate live 3D Graph while the simulator is running
@@ -156,7 +155,7 @@ class Live3DGraph:
         self.display_particles = not self.display_particles
     
     
-    def plot_particles(self, particle_array, new_x, new_y):
+    def plot_particles(self, particle_coordinates):
         """
         Plot the particles if the the particle checkbox is checked
 
@@ -169,20 +168,19 @@ class Live3DGraph:
             particle_y_array = []
             particle_color_array = []
             # create two arrays for plotting x and y positions
-
-            for particle in particle_array:
+            for particle in particle_coordinates:
                 particle_x_array.append(particle[0])
                 particle_y_array.append(particle[1])
                 # particle[4] specify the weight of the points
                 # the color of particles based on high weight to low weight:
                 #   red -> orange -> purple -> blue
-                if particle[4] > 0.75 and particle[4] <= 1.0:
+                if particle[2] > 0.75 and particle[2] <= 1.0:
                     # red
                     particle_color_array.append('#e31263')
-                elif particle[4] > 0.5 and particle[4] <= 0.75:
+                elif particle[2] > 0.5 and particle[2] <= 0.75:
                     # orange
                     particle_color_array.append('#912951')
-                elif particle[4] > 0.25 and particle[4] <= 0.5:
+                elif particle[2] > 0.25 and particle[2] <= 0.5:
                     # purple
                     particle_color_array.append('#7a5b67')
                 else:
@@ -191,17 +189,51 @@ class Live3DGraph:
 
             # TODO: for now, we set the z position of the trajectory to be -10
             self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = particle_color_array)
-            self.ax.scatter(new_x, new_y, -10, marker = '-o', color = '#42f5da')
-
+            #self.ax.scatter(final_new_shark_coordinate_x, final_new_shark_coordinate_y, -20, marker = 'x', color = '#42f5da')
+            """
             self.ax.set_xlim3d(-75,75)
-            self.ax.set_ylim3d(-75,75)
+            self.ax.set_ylim3d(-175,175)
             self.ax.set_zlim3d(-75,75)
-
+            """
             self.ax.set_xlabel('X')
             self.ax.set_ylabel('Y')
             self.ax.set_zlabel('Z')
 
-            self.ax.autoscale(False)
+            #self.ax.autoscale(False)
+
+    def shark_plotter_pf(self,new_mean_x, new_mean_y, new_coordinate_x, new_coordinate_y):
+        # plots trajectory of shark next to pf
+        # plot limits
+        self.ax.set_xlabel('X')
+        self.ax.set_ylabel('Y')
+        self.ax.set_zlabel('Z')
+        """
+        self.ax.set_xlim3d(-10,10)
+        self.ax.set_ylim3d(-10,10)
+        self.ax.set_zlim3d(-15,15)
+        """
+        # my try
+        color_list = []
+        colors = ['red', 'orange', 'gold', 'lawngreen', 'lightseagreen', 'royalblue','blueviolet']
+        index = -1
+        for coordinate in new_coordinate_x:
+            index += 1 
+            if index == 6:
+                index = -1
+            color_list.append(colors[index])
+            # particles
+        self.ax.scatter(new_mean_x, new_mean_y, -15, marker = 'o', color = color_list)
+        self.ax.scatter(new_coordinate_x, new_coordinate_y, -15, marker = 'o', color = color_list)
+        self.ax.plot(new_mean_x, new_mean_y, -15, marker = 'o', color = '#286330')
+        self.ax.plot(new_coordinate_x, new_coordinate_y, -15, marker = 'o', color = '#1b1c1b')
+        #mean particles --> green
+        # shark position --> blue
+
+        
+
+
+
+
 
         
 

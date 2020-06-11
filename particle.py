@@ -38,7 +38,8 @@ class Particle:
             NUMBER_OF_PARTICLES = 1000
             #particle has 5 properties: x, y, velocity, theta, weight (starts at 1/N)
             self.x_p = random.uniform(-INITIAL_PARTICLE_RANGE, INITIAL_PARTICLE_RANGE)
-            self.y_p = random.uniform(-INITIAL_PARTICLE_RANGE, INITIAL_PARTICLE_RANGE)
+            #self.y_p = random.uniform(-INITIAL_PARTICLE_RANGE, INITIAL_PARTICLE_RANGE)
+            self.y_p = 0
             self.v_p = random.uniform(0, 5)
             self.theta_p = random.uniform(-math.pi, math.pi)
             self.weight_p = 1/NUMBER_OF_PARTICLES
@@ -63,7 +64,8 @@ class Particle:
             self.theta_p = angle_wrap(self.theta_p)
             #change x & y coordinates to match 
             self.x_p += self.v_p * math.cos(self.theta_p) * dt
-            self.y_p += self.v_p * math.sin(self.theta_p) * dt
+            #self.y_p += self.v_p * math.sin(self.theta_p) * dt
+            
             
         def calc_particle_alpha(self, x_auv, y_auv, theta_auv):
             """

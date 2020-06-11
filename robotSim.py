@@ -423,8 +423,8 @@ class RobotSim:
             RRT_traj += [Motion_plan_state(760+i, 230+i) for i in range(50)]
             
             # example of first parameter to update_live_graph function
-            planned_traj_array = [["A *", A_star_traj], ["RRT", RRT_traj]]
-
+            #planned_traj_array = [["A *", A_star_traj], ["RRT", RRT_traj]]
+            planned_traj_array = [ ]
             # testing data for displaying particle array
             particle_array = [[740, 280, 0, 0, 0]]
             
