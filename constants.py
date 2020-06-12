@@ -14,6 +14,14 @@ TRAJ_LOOK_AHEAD_TIME = 0.5
 #   there will be new shark sensor data
 NUM_ITER_FOR_NEW_SENSOR_DATA = 20
 
+
 #the time interval moving from one motion_plan_state to another along the path
 #unit: sec
 PLAN_TIME_INTERVAL = 0.001
+
+# unit: m
+TERMINATE_DISTANCE = 10
+
+# unit: sec
+MAX_TIME = 100
+
