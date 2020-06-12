@@ -36,6 +36,9 @@ MAX_Y = dist * 3
 NUM_OF_EPISODES = 5
 MAX_STEP = 1000
 
+NUM_OF_EPISODES_TEST = 5
+MAX_STEP_TEST = 1000
+
 N_V = 7
 N_W = 7
 
@@ -734,9 +737,59 @@ class DQN():
         print(self.avg_loss_in_training)
 
     
+    def test(self, num_episodes, max_step):
+        episode_durations = []
+        starting_dist_array = []
+
+        # if we want to continue training an already trained network
+        self.load_trained_network()
+        
+        for eps in range(num_episodes):
+            # initialize the starting point of the shark and the auv randomly
+            # receive initial observation state s1 
+            state = self.em.init_env_randomly()
+
+            starting_dist = calculate_range(state[0], state[1])
+            starting_dist_array.append(starting_dist)
+
+            episode_durations.append(max_step)
+
+            reward = 0
+
+            for t in range(1, max_step):
+                action = self.agent.select_action(state, self.policy_net)
+
+                reward = self.em.take_action(action, t)
+
+                self.em.render(print_state = False, live_graph = True)
+
+                state = self.em.get_state()
+
+                if self.em.done:
+                    episode_durations[eps] = t
+                    break
+            
+            
+            print("+++++++++++++++++++++++++++++")
+            print("Episode # ", eps, "end with reward: ", reward, " used time: ", episode_durations[-1])
+            print("+++++++++++++++++++++++++++++")
+
+        self.em.close()
+
+        print("final sums of time")
+        print(episode_durations)
+        print("average time")
+        print(np.mean(episode_durations))
+
+        print("all the starting distances")
+        print(starting_dist_array)
+        print("average distance")
+        print(np.mean(starting_dist_array))
+    
 def main():
     dpn = DQN(N_V, N_W)
-    dpn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=True)
+    # dpn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=True)
+    dpn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST)
 
 if __name__ == "__main__":
     main()

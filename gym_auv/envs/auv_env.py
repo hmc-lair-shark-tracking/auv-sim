@@ -29,7 +29,7 @@ SHARK_V = 1.0
 DELTA_T = 0.1
 
 # the maximum range between the auv and shark to be considered that the auv has reached the shark
-END_GAME_RADIUS = 1.0
+END_GAME_RADIUS = 2.0
 
 # constants for reward
 R_COLLIDE = -10.0       # when the auv collides with an obstacle
@@ -374,7 +374,7 @@ class AuvEnv(gym.Env):
 
         self.live_graph.plot_entity(self.auv_x_array_rl, self.auv_y_array_rl, self.auv_z_array_rl, label = 'auv', color = 'r', marker = ',')
 
-        self.live_graph.plot_entity(self.shark_x_array_rl, self.shark_y_array_rl, self.shark_z_array_rl, label = 'shark', color = 'b', marker = 'o')
+        self.live_graph.plot_entity(self.shark_x_array_rl, self.shark_y_array_rl, self.shark_z_array_rl, label = 'shark', color = 'b', marker = ',')
 
         goal_region = Circle((shark_pos[0],shark_pos[1]), radius=END_GAME_RADIUS, color='b', fill=False)
         self.live_graph.ax.add_patch(goal_region)
