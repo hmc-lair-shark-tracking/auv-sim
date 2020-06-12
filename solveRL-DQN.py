@@ -33,7 +33,7 @@ MAX_X= dist * 2
 MIN_Y = 0.0
 MAX_Y = dist * 3
 
-NUM_OF_EPISODES = 10
+NUM_OF_EPISODES = 5
 MAX_STEP = 1000
 
 N_V = 7
@@ -722,10 +722,10 @@ class DQN():
             if eps % SAVE_EVERY == 0:
                 save_model(self.policy_net, self.target_net)
 
-            if eps % RENDER_EVERY ==0:
-                text = input("manual stop")
-            else:
-                time.sleep(0.5)
+            # if eps % RENDER_EVERY ==0:
+            #     text = input("manual stop")
+            # else:
+            #     time.sleep(0.5)
 
         save_model(self.policy_net, self.target_net)
         self.em.close()
