@@ -22,6 +22,9 @@ AUV_MIN_V = 0.1
 #   TODO: Currently, the track_way_point function has K_P == 1, so this is the range for w. Might change in the future?
 AUV_MAX_W = np.pi/8
 
+# shark's speed (unit: m/s)
+SHARK_V = 1.0
+
 # time step (unit: sec)
 DELTA_T = 0.1
 
@@ -166,7 +169,13 @@ class AuvEnv(gym.Env):
             y = y + v * np.sin(theta) * DELTA_T
        
         # TODO: For now, the shark's position does not change. Might get updated in the future 
-        new_shark_pos = self.state[1]
+        shark_x, shark_y, shark_z, shark_theta = self.state[1]
+
+        for _ in range(REPEAT_ACTION_TIME):
+            shark_x = shark_x + SHARK_V * np.cos(shark_theta) * DELTA_T
+            shark_y = shark_y + SHARK_V * np.sin(shark_theta) * DELTA_T
+
+        new_shark_pos = np.array([shark_x, shark_y, shark_z, shark_theta])
         
         # update the current state to the new state
         self.state = (np.array([x, y, z, theta]), new_shark_pos, self.obstacle_array)
