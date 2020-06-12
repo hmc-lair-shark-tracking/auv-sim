@@ -847,7 +847,7 @@ def test_trained_model():
     eps_end = 0.05
     eps_decay = 0.001
 
-    num_trails = 10
+    num_trails = 1000
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -877,6 +877,9 @@ def test_trained_model():
 
     episode_durations = []
     distance_array = []
+    traveled_distance_array = []
+    final_reward_array = []
+    total_reward_array = []
 
     max_step = 1000
 
@@ -908,12 +911,21 @@ def test_trained_model():
 
         episode_durations.append(max_step)
 
+        final_reward_array.append(0)
+        total_reward_array.append(0)
+        traveled_distance_array.append(0)
+
         for t in range(max_step):
             action = agent.select_action(state, policy_net_v)
             
-            em.take_action(action)
+            reward = em.take_action(action, t)
 
-            em.render(print_state = False, live_graph=True)
+            final_reward_array[i] = reward.item()
+            total_reward_array[i] += reward.item()
+
+            traveled_distance_array[i] += em.env.distance_traveled
+
+            # em.render(print_state = False, live_graph=True)
 
             state = em.get_state()
             # text = input("mannual stop")
@@ -926,7 +938,6 @@ def test_trained_model():
         print("Episode # ", i, " used time: ", episode_durations[i])
         print("+++++++++++++++++++++++++++++")
         
-
     em.close()
 
     print("final sums of time")
@@ -939,11 +950,22 @@ def test_trained_model():
     print("average distance")
     print(np.mean(distance_array))
 
+    print("actual distance traveled")
+    print(traveled_distance_array)
+    print("average traveled distance")
+    print(np.mean(traveled_distance_array))
+
+    print("final reward")
+    print(final_reward_array)
+
+    print("total reward")
+    print(total_reward_array)
+
 
     
 def main():
-    train()
-    # test_trained_model()
+    # train()
+    test_trained_model()
 
 if __name__ == "__main__":
     main()
