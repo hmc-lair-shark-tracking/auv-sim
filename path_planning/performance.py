@@ -52,7 +52,7 @@ def summary_1(cost_funcs, num_habitats=10, test_num=100):
             cost_list = []  
 
             while time.time() < t_end:
-                result = testing.exploring(habitats, 0.5)
+                result = testing.exploring(habitats, 0.5, 1)
                 count += 1
                 if result is not None:
                     cost = result["cost"]
@@ -123,7 +123,11 @@ def summary_2(start, goal, obstacle_array, boundary, habitats, test_num, test_ti
 
     for _ in range(test_num):
         rrt = RRT(start, goal, obstacle_array, boundary)
-        result = rrt.exploring(habitats, plot_interval, test_time=test_time, plan_time=weights[1], weights=weights[0])
+        if weights[1] == "random time":
+            plan_time = True
+        elif weights[1] == "random (x,y)":
+            plan_time = False
+        result = rrt.exploring(habitats, plot_interval, 1, test_time=test_time, plan_time=plan_time, weights=weights[0])
         cost = result["cost list"]
         for i in range(len(cost)):
             cost_list[i].append(cost[i])
@@ -146,18 +150,18 @@ def plot_summary_2(x_list, y_list):
 
     plt.show()
 
-def summary_3(start, goal, boundary, obstacle_array, habitats, plan_time, plot_interval):
+def summary_3(start, goal, boundary, obstacle_array, habitats, test_num, plan_time, plot_interval):
     results = []
     time_list = [plot_interval + i * plot_interval for i in range(math.ceil(plan_time//plot_interval))]
 
-    weight1 = [[1, -4.5, -4.5], True]
-    weight2 = [[0.5, -4.5, -4.5], True]
-    weight3 = [[1, -4.5, -4.5], False]
-    weight4 = [[0.5, -4.5, -4.5], False]
+    weight1 = [[1, -4.5, -4.5], "random time"]
+    weight2 = [[0.5, -4.5, -4.5], "random time"]
+    weight3 = [[1, -4.5, -4.5], "random (x,y)"]
+    weight4 = [[0.5, -4.5, -4.5], "random (x,y)"]
     weights = [weight1, weight2, weight3, weight4]
-
+    
     for weight in weights:
-        result = summary_2(start, goal, obstacle_array, boundary, habitats, 10, plan_time, plot_interval, weight)
+        result = summary_2(start, goal, obstacle_array, boundary, habitats, test_num, plan_time, plot_interval, weight)
         results.append(result)
     
     for i in range(len(results)):
@@ -175,4 +179,4 @@ boundary = [Motion_plan_state(0,0), Motion_plan_state(100,100)]
 obstacle_array = [Motion_plan_state(5,7, size=5),Motion_plan_state(14,22, size=3)]
 habitats = [Motion_plan_state(63,23, size=5), Motion_plan_state(12,45,size=7), Motion_plan_state(51,36,size=5), Motion_plan_state(45,82,size=5),\
     Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
-summary_3(start, goal, boundary, obstacle_array, habitats, 20.0, 0.5)
+summary_3(start, goal, boundary, obstacle_array, habitats, test_num=10, plan_time=20.0, plot_interval=0.5)
