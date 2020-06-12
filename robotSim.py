@@ -152,7 +152,7 @@ class RobotSim:
                 Z_shark_range = math.sqrt(delta_x**2 + delta_y**2) + range_random
                 Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) + bearing_random)
 
-                self.shark_sensor_data_dict[shark_id] = SharkState(Z_shark_range, Z_shark_bearing, shark_id)
+                self.shark_sensor_data_dict[shark_id] = SharkState(shark_data.x, shark_data.y, Z_shark_range, shark_id)
             
             # reset the 2 sec time counter
             self.sensor_time = 0

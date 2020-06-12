@@ -13,7 +13,7 @@ import threading
 #from particle import Particle
 from robotSim import RobotSim
 from live3DGraph import Live3DGraph
-from twoDfigure import Figure
+#from twoDfigure import Figure
 from motion_plan_state import Motion_plan_state
 
 def angle_wrap(ang):
@@ -45,7 +45,7 @@ class Particle:
         def __init__(self):
             #set L (side length of square that the random particles are in) and N (number of particles)
             INITIAL_PARTICLE_RANGE = 150
-            NUMBER_OF_PARTICLES = 1000
+            NUMBER_OF_PARTICLES = 50
             #particle has 5 properties: x, y, velocity, theta, weight (starts at 1/N)
             self.x_p = random.uniform(-INITIAL_PARTICLE_RANGE, INITIAL_PARTICLE_RANGE)
             self.y_p = random.uniform(-INITIAL_PARTICLE_RANGE, INITIAL_PARTICLE_RANGE)
@@ -100,13 +100,13 @@ class Particle:
             SIGMA_ALPHA = .05
             
             if particleAlpha > 0:
-                function_alpha = .001 + (1/(SIGMA_ALPHA * math.sqrt(2*math.pi))* (math.e**(((-(angle_wrap(float(particleAlpha) - auv_alpha)**2)))/(2*(SIGMA_ALPHA)**2))))
+                function_alpha = .001 + (1/(SIGMA_ALPHA * math.sqrt(2*math.pi))* (math.e**(((-((float(particleAlpha) - auv_alpha[0])**2)))/(2*(SIGMA_ALPHA)**2))))
                 self.weight_p = function_alpha
             elif particleAlpha == 0:
-                function_alpha = .001 + (1/(SIGMA_ALPHA * math.sqrt(2*math.pi))* (math.e**(((-(angle_wrap(float(particleAlpha) - auv_alpha)**2)))/(2*(SIGMA_ALPHA)**2))))
+                function_alpha = .001 + (1/(SIGMA_ALPHA * math.sqrt(2*math.pi))* (math.e**(((-((float(particleAlpha) - auv_alpha[0])**2)))/(2*(SIGMA_ALPHA)**2))))
                 self.weight_p = function_alpha
             else:
-                function_alpha = .001 + (1/(SIGMA_ALPHA * math.sqrt(2*math.pi))* (math.e**(((-((float(particleAlpha) - auv_alpha)**2)))/(2*(SIGMA_ALPHA)**2))))
+                function_alpha = .001 + (1/(SIGMA_ALPHA * math.sqrt(2*math.pi))* (math.e**(((-((float(particleAlpha) - auv_alpha[0])**2)))/(2*(SIGMA_ALPHA)**2))))
                 self.weight_p = function_alpha
     
             #range weight
@@ -281,19 +281,18 @@ class particleFilter:
     
             
 def main(): 
-    NUMBER_OF_PARTICLES = 1000
+    NUMBER_OF_PARTICLES = 50
     #change this constant ^^ in the particle class too!
     particles = []
     
-    test_grapher = Live3DGraph()
+    #test_grapher = Live3DGraph()
     #shark's initial x, y, z, theta
     test_shark = RobotSim(740, 280, -5, 0.1)
     test_shark.setup("./data/sharkTrackingData.csv", [1])
 
-    x_auv = 0
-    y_auv = 0
-    theta = 0
-
+    x_auv = 740
+    y_auv = 230
+    theta = 0 
     # for now, since the auv is stationary, we can just set it like this
     auv_pos = Motion_plan_state(x_auv, y_auv, theta)
     # example of how to get the shark x position and y position
@@ -325,9 +324,12 @@ def main():
 
     shark_state_dict = test_shark.get_all_sharks_state()
     has_new_data = test_shark.get_all_sharks_sensor_measurements(shark_state_dict, auv_pos)
-    test_shark.shark_sensor_data_dict[1] 
-    auv_alpha = test_shark.shark_sensor_data_dict[1].bearing
+    test_shark.shark_sensor_data_dict[1]
+    test_particle.init_x_shark = test_shark.shark_sensor_data_dict[1].x
+    test_particle.init_y_shark = test_shark.shark_sensor_data_dict[1].y
+    auv_alpha = test_particle.auv_to_alpha()
     auv_range = test_shark.shark_sensor_data_dict[1].range
+
     print("auv range and alpha", auv_alpha, auv_range)
 
     for particle in particles: 
@@ -360,8 +362,6 @@ def main():
     particles = new_particles
     #for particle in particles: 
         #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
-    particle_coordinates_x = []
-    particle_coordinates_y = []
     particle_coordinates = test_particle.particle_coordinates(particles)
 
     loops = 0
@@ -370,7 +370,6 @@ def main():
     while True: 
         
         loops += 1
-
         print(loops)
         time.sleep(1.0)
         #print("updated particles after", 1, "seconds of random movement")
@@ -383,6 +382,7 @@ def main():
             test_shark.live_graph.update_shark_location(shark, sim_time)
         
         shark_state_dict = test_shark.get_all_sharks_state()
+
         #print("==================")
         #print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
 
@@ -392,32 +392,33 @@ def main():
             print("======NEW DATA=======")
             print("All The Shark Sensor Measurements [range, bearing]: " +\
                 str(test_shark.shark_sensor_data_dict))
-            particleFilter.x_shark = shark.x_pos_array[-1]
-            particleFilter.y_shark = shark.y_pos_array[-1]
-        # pass in id
-        #print(test_shark.shark_sensor_data_dict[1])
-        auv_alpha = test_shark.shark_sensor_data_dict[1].bearing 
-        auv_range = test_shark.shark_sensor_data_dict[1].range 
-        #print(" range in the loop")
-        #print(auv_alpha, auv_range)
+            auv_alpha = test_particle.auv_to_alpha()
+            auv_range = test_shark.shark_sensor_data_dict[1].range
+            test_particle.init_x_shark = test_shark.shark_sensor_data_dict[1].x
+            test_particle.init_y_shark = test_shark.shark_sensor_data_dict[1].y
+            #print(" range in the loop")
+            #print(auv_alpha, auv_range)
 
-        for particle in particles: 
-            particleAlpha = particle.calc_particle_alpha(x_auv, y_auv, theta)
-            particleRange = particle.calc_particle_range(x_auv, y_auv)
-            particle.weight(auv_alpha, particleAlpha, auv_range, particleRange)
-            #print("weight: ", particle.weight_p)
+            for particle in particles: 
+                particleAlpha = particle.calc_particle_alpha(x_auv, y_auv, theta)
+                particleRange = particle.calc_particle_range(x_auv, y_auv)
+                particle.weight(auv_alpha, particleAlpha, auv_range, particleRange)
+                #print("weight: ", particle.weight_p)
 
-        list_of_weights = []
-        for particle in particles: 
-            list_of_weights.append(particle.weight_p)
+            list_of_weights = []
+            for particle in particles: 
+                list_of_weights.append(particle.weight_p)
 
-        normalized_weights = test_particle.normalize(list_of_weights)
-        count = 0
-        for particle in particles: 
-            particle.weight_p = normalized_weights[count]
-            #print("particle weight: ", particle.weight_p)
-            count += 1
+            normalized_weights = test_particle.normalize(list_of_weights)
+            count = 0
+            for particle in particles: 
+                particle.weight_p = normalized_weights[count]
+                #print("particle weight: ", particle.weight_p)
+            new_particles = test_particle.correct(normalized_weights, particles)
+            particles = new_particles
+            
 
+        count += 1
 
         sim_time += 0.1
 
@@ -428,27 +429,31 @@ def main():
         y_mean_over_time.append(xy_mean[1])
         """
 
-        new_particles = test_particle.correct(normalized_weights, particles)
-        particles = new_particles
+        final_new_shark_coordinate_x.append(test_particle.init_x_shark)
+        final_new_shark_coordinate_y.append(test_particle.init_y_shark)
+
+        #print(test_shark.shark_sensor_data_dict[1])
         #for particle in particles: 
             #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
 
         particle_coordinates = test_particle.particle_coordinates(particles)
         #print("particle coordinates", particle_coordinates)
+
         if loops >= 100:
             break
         
         #simulation stuff
-        final_new_shark_coordinate_x.append(shark.x_pos_array[-1])
 
-        final_new_shark_coordinate_y.append(shark.y_pos_array[-1])
         print("===================")
         print(final_new_shark_coordinate_x)
+        print("=====================================")
+        print(particle_coordinates)
         
-        test_grapher.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y)
+        test_shark.live_graph.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y)
         plt.draw()
-        plt.pause(0.5)
-        test_grapher.ax.clear()
+        plt.pause(1)
+        test_shark.live_graph.ax.clear()
+        
         
     
     """

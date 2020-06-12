@@ -92,17 +92,17 @@ class Particle:
             
             if particleAlpha > 0:
                 function_alpha = .001 + (1/(SIGMA_ALPHA * math.sqrt(2*math.pi))* (math.e**(((-(angle_wrap(float(particleAlpha) - float(auv_alpha[0]))**2)))/(2*(SIGMA_ALPHA)**2))))
-                self.weight_p = angle_wrap(function_alpha)
+                self.weight_p = function_alpha
             elif particleAlpha == 0:
                 function_alpha = .001 + (1/(SIGMA_ALPHA * math.sqrt(2*math.pi))* (math.e**(((-(angle_wrap(float(particleAlpha) - float(auv_alpha[0]))**2)))/(2*(SIGMA_ALPHA)**2))))
-                self.weight_p = angle_wrap(function_alpha)
+                self.weight_p = function_alpha
             else:
-                function_alpha = .001 + (1/(SIGMA_ALPHA * math.sqrt(2*math.pi))* (math.e**(((-(angle_wrap(float(particleAlpha) + float(auv_alpha[0]))**2)))/(2*(SIGMA_ALPHA)**2))))
-                self.weight_p = angle_wrap(function_alpha)
+                function_alpha = .001 + (1/(SIGMA_ALPHA * math.sqrt(2*math.pi))* (math.e**(((-((float(particleAlpha) - float(auv_alpha[0]))**2)))/(2*(SIGMA_ALPHA)**2))))
+                self.weight_p = function_alpha
             
             #range weight
             SIGMA_RANGE = 10
-            function_weight =  .001 + (1/(SIGMA_RANGE * math.sqrt(2*math.pi))* (math.e**(((-((particleRange-auv_range[0])**2)))/(2*(SIGMA_RANGE)**2))))
+            function_weight =  .001 + (1/(SIGMA_RANGE * math.sqrt(2*math.pi))* (math.e**(((-((particleRange - auv_range[0])**2)))/(2*(SIGMA_RANGE)**2))))
             
             #multiply weights
             self.weight_p = function_weight * self.weight_p
