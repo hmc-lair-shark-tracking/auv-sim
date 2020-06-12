@@ -236,7 +236,7 @@ class Live3DGraph:
         self.display_particles = not self.display_particles
     
     
-    def plot_particles(self, particle_coordinates):
+    def plot_particles(self, particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y):
         """
         Plot the particles if the the particle checkbox is checked
 
@@ -271,7 +271,7 @@ class Live3DGraph:
             # TODO: for now, we set the z position of the trajectory to be -10
 
             self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = particle_color_array)
-            #self.ax.scatter(final_new_shark_coordinate_x, final_new_shark_coordinate_y, -20, marker = 'x', color = '#42f5da')
+            self.ax.scatter(final_new_shark_coordinate_x, final_new_shark_coordinate_y, -20, marker = 'x', color = '#42f5da')
             """
             self.ax.set_xlim3d(-75,75)
             self.ax.set_ylim3d(-175,175)
