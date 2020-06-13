@@ -23,13 +23,15 @@ AUV_MIN_V = 0.1
 AUV_MAX_W = np.pi/8
 
 # shark's speed (unit: m/s)
-SHARK_V = 1.0
+SHARK_MIN_V = 0.5
+SHARK_MAX_V = 1
+SHARK_MAX_W = np.pi/8
 
 # time step (unit: sec)
 DELTA_T = 0.1
 
 # the maximum range between the auv and shark to be considered that the auv has reached the shark
-END_GAME_RADIUS = 2.0
+END_GAME_RADIUS = 3.0
 
 # constants for reward
 R_COLLIDE = -10.0       # when the auv collides with an obstacle
@@ -162,18 +164,26 @@ class AuvEnv(gym.Env):
         # get the old position and orientation data for the auv
         x, y, z, theta = self.state[0]
       
+        self.distance_traveled = 0
+
         # calculate the new position and orientation of the auv
         for _ in range(REPEAT_ACTION_TIME):
             theta = angle_wrap(theta + w * DELTA_T)
-            x = x + v * np.cos(theta) * DELTA_T
-            y = y + v * np.sin(theta) * DELTA_T
+            dist_x = v * np.cos(theta) * DELTA_T
+            x = x + dist_x
+            dist_y = v * np.sin(theta) * DELTA_T
+            y = y + dist_y
+            self.distance_traveled += np.sqrt(dist_x ** 2 + dist_y ** 2)
        
         # TODO: For now, the shark's position does not change. Might get updated in the future 
         shark_x, shark_y, shark_z, shark_theta = self.state[1]
 
+        shark_v = np.random.uniform(SHARK_MIN_V, SHARK_MAX_V)
+        shark_w = np.random.uniform(-SHARK_MAX_W, SHARK_MAX_W)
         for _ in range(REPEAT_ACTION_TIME):
-            shark_x = shark_x + SHARK_V * np.cos(shark_theta) * DELTA_T
-            shark_y = shark_y + SHARK_V * np.sin(shark_theta) * DELTA_T
+            shark_theta = angle_wrap(shark_theta + shark_w * DELTA_T)
+            shark_x = shark_x + shark_v * np.cos(shark_theta) * DELTA_T
+            shark_y = shark_y + shark_v * np.sin(shark_theta) * DELTA_T
 
         new_shark_pos = np.array([shark_x, shark_y, shark_z, shark_theta])
         
@@ -186,8 +196,8 @@ class AuvEnv(gym.Env):
         done = self.check_reached_target(self.state[0], self.state[1]) or\
             self.check_collision(self.state[0])
 
-        # reward = self.get_range_reward(self.state[0], self.state[1], old_range)
-        reward = self.get_range_time_reward(self.state[0], self.state[1], old_range, timestep)
+        reward = self.get_range_reward(self.state[0], self.state[1], old_range)
+        # reward = self.get_range_time_reward(self.state[0], self.state[1], old_range, timestep)
         # reward = self.get_binary_reward(self.state[0], self.state[1])
 
         return self.state, reward, done, {}

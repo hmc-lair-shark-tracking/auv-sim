@@ -27,14 +27,14 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 """
 
 # define the range between the starting point of the auv and shark
-dist = 10.0
+dist = 100.0
 MIN_X = dist
 MAX_X= dist * 2
 MIN_Y = 0.0
 MAX_Y = dist * 3
 
-NUM_OF_EPISODES = 5
-MAX_STEP = 1000
+NUM_OF_EPISODES = 1000
+MAX_STEP = 1500
 
 NUM_OF_EPISODES_TEST = 5
 MAX_STEP_TEST = 1000
@@ -66,9 +66,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 1
+RENDER_EVERY = 100
 
-DEBUG = True
+DEBUG = False
 
 """
 ============================================================================
@@ -410,13 +410,14 @@ class AuvEnvManager():
   
         obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES)
 
+        
+        print("===============================")
+        print("Starting Positions")
+        print(auv_init_pos)
+        print(shark_init_pos)
+        print(obstacle_array)
+        print("===============================")
         if DEBUG:
-            print("===============================")
-            print("Starting Positions")
-            print(auv_init_pos)
-            print(shark_init_pos)
-            print(obstacle_array)
-            print("===============================")
             text = input("stop")
 
         return self.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
@@ -585,7 +586,7 @@ class DQN():
     def save_real_experiece(self, state, next_state, action, timestep):
         old_range = calculate_range(state[0], state[1])
 
-        reward = self.em.get_range_time_reward(next_state[0], next_state[1], old_range, timestep)
+        reward = self.em.get_range_reward(next_state[0], next_state[1], old_range)
 
         self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
 
@@ -611,7 +612,7 @@ class DQN():
             
             old_range = calculate_range(new_curr_state[0], new_curr_state[1])
 
-            reward = self.em.get_range_time_reward(new_next_state[0], new_next_state[1], old_range, timestep)
+            reward = self.em.get_range_reward(new_next_state[0], new_next_state[1], old_range)
             
             self.memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
     
@@ -724,11 +725,8 @@ class DQN():
 
             if eps % SAVE_EVERY == 0:
                 save_model(self.policy_net, self.target_net)
-
-            # if eps % RENDER_EVERY ==0:
-            #     text = input("manual stop")
-            # else:
-            #     time.sleep(0.5)
+ 
+            time.sleep(0.5)
 
         save_model(self.policy_net, self.target_net)
         self.em.close()
@@ -737,12 +735,16 @@ class DQN():
         print(self.avg_loss_in_training)
 
     
-    def test(self, num_episodes, max_step):
+    def test(self, num_episodes, max_step, show_live_graph = False):
         episode_durations = []
         starting_dist_array = []
+        traveled_dist_array = []
+        final_reward_array = []
+        total_reward_array = []
 
         # if we want to continue training an already trained network
         self.load_trained_network()
+        self.policy_net.eval()
         
         for eps in range(num_episodes):
             # initialize the starting point of the shark and the auv randomly
@@ -753,6 +755,10 @@ class DQN():
             starting_dist_array.append(starting_dist)
 
             episode_durations.append(max_step)
+            traveled_dist_array.append(0.0)
+            final_reward_array.append(0.0)
+            total_reward_array.append(0.0)
+
 
             reward = 0
 
@@ -761,7 +767,12 @@ class DQN():
 
                 reward = self.em.take_action(action, t)
 
-                self.em.render(print_state = False, live_graph = True)
+                final_reward_array[eps] = reward.item()
+                total_reward_array[eps] += reward.item()
+
+                traveled_dist_array[eps] += self.em.env.distance_traveled
+
+                self.em.render(print_state = False, live_graph = show_live_graph)
 
                 state = self.em.get_state()
 
@@ -780,16 +791,33 @@ class DQN():
         print(episode_durations)
         print("average time")
         print(np.mean(episode_durations))
+        print("-----------------")
 
         print("all the starting distances")
         print(starting_dist_array)
-        print("average distance")
+        print("average starting distance")
         print(np.mean(starting_dist_array))
+        print("-----------------")
+
+        print("all the traveled distances")
+        print(traveled_dist_array)
+        print("average traveled dissta")
+        print(np.mean(traveled_dist_array))
+        print("-----------------")
+
+        print("final reward")
+        print(final_reward_array)
+        print("-----------------")
+
+        print("total reward")
+        print(total_reward_array)
+        print("-----------------")
+
     
 def main():
     dpn = DQN(N_V, N_W)
-    # dpn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=True)
-    dpn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST)
+    # dpn.train(NUM_OF_EPISODES, MAX_STEP)
+    dpn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=False)
 
 if __name__ == "__main__":
     main()
