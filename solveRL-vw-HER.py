@@ -16,7 +16,7 @@ import torchvision.transforms as T
 from motion_plan_state import Motion_plan_state
 
 # range diy
-dist = 10.0
+dist = 100.0
 MIN_X = dist
 MAX_X= dist * 2
 MIN_Y = 0.0
@@ -547,7 +547,7 @@ def train():
     # learning rate
     lr = 0.001
 
-    num_episodes = 1000
+    num_episodes = 1800
 
     # use GPU if available, else use CPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -597,7 +597,7 @@ def train():
     # determine when we should save the neural network model
     save_every = 10
 
-    max_step = 1000
+    max_step = 1500
 
     score = 0
 
@@ -605,7 +605,7 @@ def train():
 
     avg_loss_array = []
 
-    render_every = 100
+    render_every = 200
 
 
     def save_model():
@@ -704,8 +704,8 @@ def train():
 
             # next_state[0] the auv's position after it has taken an action
             # next_state[1] the actual goal (real shark position)
-            # reward = em.get_range_reward(next_state[0], next_state[1], old_range)
-            reward = em.get_range_time_reward(next_state[0], next_state[1], old_range, t)
+            reward = em.get_range_reward(next_state[0], next_state[1], old_range)
+            # reward = em.get_range_time_reward(next_state[0], next_state[1], old_range, t)
             
             
             # Store experience in replay memory.
@@ -747,7 +747,7 @@ def train():
                 
                 old_range = calculate_range(new_curr_state[0], new_curr_state[1])
 
-                reward = em.get_range_time_reward(new_next_state[0], new_next_state[1], old_range, t)
+                reward = em.get_range_reward(new_next_state[0], new_next_state[1], old_range)
   
                 additional_reward += reward
                 
@@ -958,8 +958,8 @@ def test_trained_model():
     print("final reward")
     print(final_reward_array)
 
-    print("total reward")
-    print(total_reward_array)
+    # print("total reward")
+    # print(total_reward_array)
 
 
     
