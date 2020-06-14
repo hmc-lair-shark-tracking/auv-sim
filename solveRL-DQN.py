@@ -27,16 +27,22 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 """
 
 # define the range between the starting point of the auv and shark
-dist = 100.0
-MIN_X = dist
-MAX_X= dist * 2
-MIN_Y = 0.0
-MAX_Y = dist * 3
+DIST = 100.0
+
+AUV_MIN_X = DIST
+AUV_MAX_X= DIST * 2
+AUV_MIN_Y = DIST
+AUV_MAX_Y = DIST * 2
+
+SHARK_MIN_X = 0.0
+SHARK_MAX_X= DIST * 3
+SHARK_MIN_Y = 0.0
+SHARK_MAX_Y = DIST * 3
 
 NUM_OF_EPISODES = 1000
 MAX_STEP = 1500
 
-NUM_OF_EPISODES_TEST = 5
+NUM_OF_EPISODES_TEST = 1000
 MAX_STEP_TEST = 1000
 
 N_V = 7
@@ -155,12 +161,12 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
     """
     obstacle_array = []
     for _ in range(num_of_obstacles):
-        obs_x = np.random.uniform(MIN_X, MAX_X)
-        obs_y = np.random.uniform(MIN_Y, MAX_Y)
+        obs_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
+        obs_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
         obs_size = np.random.randint(1,5)
         while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array):
-            obs_x = np.random.uniform(MIN_X, MAX_X)
-            obs_y = np.random.uniform(MIN_Y, MAX_Y)
+            obs_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
+            obs_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
         obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, z=-5, size = obs_size))
 
     return obstacle_array  
@@ -405,8 +411,8 @@ class AuvEnvManager():
 
     
     def init_env_randomly(self):
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
-        shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(AUV_MIN_X, AUV_MAX_X), y = np.random.uniform(AUV_MIN_Y, AUV_MAX_Y), z = -5.0, theta = 0)
+        shark_init_pos = Motion_plan_state(x = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y), y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
   
         obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES)
 
@@ -725,8 +731,6 @@ class DQN():
 
             if eps % SAVE_EVERY == 0:
                 save_model(self.policy_net, self.target_net)
- 
-            time.sleep(0.5)
 
         save_model(self.policy_net, self.target_net)
         self.em.close()
@@ -793,11 +797,15 @@ class DQN():
         print(np.mean(episode_durations))
         print("-----------------")
 
+        text = input("stop")
+
         print("all the starting distances")
         print(starting_dist_array)
         print("average starting distance")
         print(np.mean(starting_dist_array))
         print("-----------------")
+
+        text = input("stop")
 
         print("all the traveled distances")
         print(traveled_dist_array)
@@ -805,9 +813,13 @@ class DQN():
         print(np.mean(traveled_dist_array))
         print("-----------------")
 
+        text = input("stop")
+
         print("final reward")
         print(final_reward_array)
         print("-----------------")
+
+        text = input("stop")
 
         print("total reward")
         print(total_reward_array)
