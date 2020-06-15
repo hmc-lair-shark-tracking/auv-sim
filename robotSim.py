@@ -4,6 +4,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import csv
 import time
+import timeit
 
 # import 3 data representation class
 from sharkState import SharkState
@@ -12,15 +13,16 @@ from live3DGraph import Live3DGraph
 from motion_plan_state import Motion_plan_state
 
 #import path planning class
-from path_planning.astar import astar
+from path_planning.astar_real import astar
 from path_planning.rrt_dubins import RRT
 from path_planning.cost import Cost
+from catalina import create_cartesian
 
 # keep all the constants in the constants.py file
 # to get access to a constant, eg:
 #   const.SIM_TIME_INTERVAL
 import constants as const
-
+import catalina 
 
 def angle_wrap(ang):
     """
@@ -37,7 +39,6 @@ def angle_wrap(ang):
     elif ang < -math.pi: 
         ang += (2 * math.pi)
         return angle_wrap(ang)
-
 
 
 class RobotSim:
@@ -580,6 +581,47 @@ class RobotSim:
         
         return reach_any_shark or reach_max_time
 
+    def display_auv_trajectory(self):
+        """
+        Display the 2d auv trajectory constructed with A* algorithm
+
+        Parameter:
+            None
+        """
+
+        origin = catalina.ORIGIN_BOUND
+        start = create_cartesian(catalina.START, origin)
+        goal = create_cartesian(catalina.GOAL, origin)
+    
+        obstacle_list = []
+        boundary_list = []
+        boat_list = []
+
+        astar_solver = astar(start, goal, obstacle_list, boundary_list)
+
+        for obs in catalina.OBSTACLES:
+            pos = create_cartesian((obs.x, obs.y), catalina.ORIGIN_BOUND)
+            obstacle_list.append(Motion_plan_state(pos[0], pos[1], size=obs.size))
+
+        for b in catalina.BOUNDARIES:
+            pos = create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
+            boundary_list.append(Motion_plan_state(pos[0], pos[1]))
+        
+        for boat in catalina.BOATS:
+            pos = create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
+            boat_list.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
+
+        A_star_traj = astar_solver.astar(obstacle_list+boat_list, boundary_list, start, goal)
+        A_star_new_traj = self.create_trajectory_list(A_star_traj)
+
+        astar_x_array = []
+        astar_y_array = []
+
+        for point in A_star_new_traj:
+            astar_x_array.append(point.x)
+            astar_y_array.append(point.y)
+
+        self.live_graph.plot_2d_astar_traj(astar_x_array, astar_y_array)
 
     def main_navigation_loop(self, show_live_graph = True):
         """ 
@@ -693,14 +735,16 @@ class RobotSim:
 
 def main():
 
-    test_robot = RobotSim(700,270,0,0.1)
+    pos = create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
+    test_robot = RobotSim(pos[0], pos[1], 0, 0.1)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
     test_robot.setup("./data/sharkTrackingData.csv", [1,2])
 
-    # to not show that live_graph, you can pass in "False"
-    test_robot.main_navigation_loop(False)
+    test_robot.display_auv_trajectory()
 
+    # to not show that live_graph, you can pass in "False"
+    # test_robot.main_navigation_loop(False)
 
 
 if __name__ == "__main__":
