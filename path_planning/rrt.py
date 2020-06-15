@@ -171,7 +171,7 @@ def main():
     Motion_plan_state(3,10,size=2),Motion_plan_state(7,5,size=2),Motion_plan_state(9,5,size=2),Motion_plan_state(8,10,size=1)]
     boundary = [Motion_plan_state(0,0), Motion_plan_state(15,15)]
     rrt = RRT(initial, goal, obstacle_list, boundary)
-    path = rrt.planning(animation=show_animation)
+    path = rrt.planning(animation=False)
     print(path)
 
     # Draw final path
