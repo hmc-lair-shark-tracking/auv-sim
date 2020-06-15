@@ -89,16 +89,19 @@ def process_state_for_nn(state):
     Convert the state (observation in the environment) to a tensor so it can be passed into the neural network
 
     Parameter:
-        state - a tuple of two np arrays
-            Each array is this form [x, y, z, theta]
+        state - a direction of two np arrays
     """
-    auv_tensor = torch.from_numpy(state[0])
-    shark_tensor = torch.from_numpy(state[1])
-    obstacle_tensor = torch.from_numpy(state[2])
+    auv_tensor = torch.from_numpy(state['auv_pos'])
+    shark_tensor = torch.from_numpy(state['shark_pos'])
+
+    obstacle_tensor = torch.from_numpy(state['obstacles_pos'])
     obstacle_tensor = torch.flatten(obstacle_tensor)
+
+    habitat_tensor = torch.from_numpy(state['habitats_pos'])
+    habitat_tensor = torch.flatten(habitat_tensor)
     
-    # join 2 tensor together
-    return torch.cat((auv_tensor, shark_tensor, obstacle_tensor)).float()
+    # join tensors together
+    return torch.cat((auv_tensor, shark_tensor, obstacle_tensor, habitat_tensor)).float()
 
 
 def extract_tensors(experiences):
@@ -181,7 +184,7 @@ def generate_rand_habitats(num_of_habitats):
         hab_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
         hab_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
         hab_size = np.random.randint(2,5)
-        habitats_array.append(Motion_plan_state(x = hab_x, y = hab_y, z=-5, size = hab_size))
+        habitats_array.append(Motion_plan_state(x = hab_x, y = hab_y, z=-10, size = hab_size))
 
     return habitats_array  
 
@@ -437,12 +440,15 @@ class AuvEnvManager():
         print("Starting Positions")
         print(auv_init_pos)
         print(shark_init_pos)
+        print("-")
         print(obstacle_array)
+        print("-")
+        print(habitats_array)
         print("===============================")
         if DEBUG:
             text = input("stop")
 
-        return self.env.init_env(auv_init_pos, shark_init_pos, obstacle_array)
+        return self.env.init_env(auv_init_pos, shark_init_pos, obstacle_array, habitats_array)
 
 
     def reset(self):

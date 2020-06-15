@@ -90,6 +90,9 @@ class AuvEnv(gym.Env):
         self.obstacle_array = []
         self.obstacle_array_for_rendering = []
 
+        self.habitats_array = []
+        self.habitats_array_for_rendering = []
+
         self.live_graph = Live3DGraph()
 
         self.auv_x_array_rl = []
@@ -101,7 +104,7 @@ class AuvEnv(gym.Env):
         self.shark_z_array_rl = []
 
 
-    def init_env(self, auv_init_pos, shark_init_pos, obstacle_array = []):
+    def init_env(self, auv_init_pos, shark_init_pos, obstacle_array = [], habitats_array = []):
         """
         Initialize the environment based on the auv and shark's initial position
 
@@ -113,19 +116,24 @@ class AuvEnv(gym.Env):
         self.auv_init_pos = auv_init_pos
         self.shark_init_pos = shark_init_pos
         self.obstacle_array_for_rendering = obstacle_array
+        self.habitats_array_for_rendering = habitats_array
 
         self.obstacle_array = []
         for obs in obstacle_array:
             self.obstacle_array.append([obs.x, obs.y, obs.z, obs.size])
         self.obstacle_array = np.array(self.obstacle_array)
 
+        self.habitats_array = []
+        for hab in habitats_array:
+            self.habitats_array.append([hab.x, hab.y, hab.z, hab.size])
+        self.habitats_array = np.array(self.habitats_array)
 
-        # observation: a tuple of 2 elements
-        #   1. np array representing the auv's 
-        #      [x_pos, y_pos, z_pos, theta]
-        #   2. np array represent the shark's (TODO: one shark for now?)
-        #      [x_pos, y_pos, z_pos, theta]
-        self.observation_space = spaces.Box(low = np.array([auv_init_pos.x - ENV_SIZE, auv_init_pos.y - ENV_SIZE, -ENV_SIZE, 0.0]), high = np.array([auv_init_pos.x + ENV_SIZE, auv_init_pos.y + ENV_SIZE, 0.0, 0.0]), dtype = np.float64)
+        self.observation_space = spaces.Dict({
+            'auv_pos': spaces.Box(low = np.array([auv_init_pos.x - ENV_SIZE, auv_init_pos.y - ENV_SIZE, -ENV_SIZE, 0.0]), high = np.array([auv_init_pos.x + ENV_SIZE, auv_init_pos.y + ENV_SIZE, 0.0, 0.0]), dtype = np.float64),
+            'shark_pos': spaces.Box(low = np.array([shark_init_pos.x - ENV_SIZE, shark_init_pos.y - ENV_SIZE, -ENV_SIZE, 0.0]), high = np.array([shark_init_pos.x + ENV_SIZE, shark_init_pos.y + ENV_SIZE, 0.0, 0.0]), dtype = np.float64),
+            'obstacles_pos': spaces.Box(low = np.array([shark_init_pos.x - ENV_SIZE, shark_init_pos.y - ENV_SIZE, -ENV_SIZE, 0.0]), high = np.array([shark_init_pos.x + ENV_SIZE, shark_init_pos.y + ENV_SIZE, 0.0, 0.0]), dtype = np.float64),
+            'habitats_pos': spaces.Box(low = np.array([shark_init_pos.x - ENV_SIZE, shark_init_pos.y - ENV_SIZE, -ENV_SIZE, 0.0]), high = np.array([shark_init_pos.x + ENV_SIZE, shark_init_pos.y + ENV_SIZE, 0.0, 0.0]), dtype = np.float64)
+        })
 
         self.init_data_for_3D_plot(auv_init_pos, shark_init_pos)
         
@@ -159,10 +167,10 @@ class AuvEnv(gym.Env):
         """
         v, w = action
 
-        old_range = self.calculate_range(self.state[0], self.state[1])
+        old_range = self.calculate_range(self.state['auv_pos'], self.state['shark_pos'])
         
         # get the old position and orientation data for the auv
-        x, y, z, theta = self.state[0]
+        x, y, z, theta = self.state['auv_pos']
 
         self.distance_traveled = 0
       
@@ -178,7 +186,7 @@ class AuvEnv(gym.Env):
             self.distance_traveled += np.sqrt(dist_x ** 2 + dist_y ** 2)
        
         # TODO: For now, the shark's position does not change. Might get updated in the future 
-        shark_x, shark_y, shark_z, shark_theta = self.state[1]
+        shark_x, shark_y, shark_z, shark_theta = self.state['shark_pos']
 
         shark_v = np.random.uniform(SHARK_MIN_V, SHARK_MAX_V)
         shark_w = np.random.uniform(-SHARK_MAX_W, SHARK_MAX_W)
@@ -190,15 +198,16 @@ class AuvEnv(gym.Env):
         new_shark_pos = np.array([shark_x, shark_y, shark_z, shark_theta])
         
         # update the current state to the new state
-        self.state = (np.array([x, y, z, theta]), new_shark_pos, self.obstacle_array)
+        self.state['auv_pos'] = np.array([x, y, z, theta])
+        self.state['shark_pos'] = new_shark_pos
 
         # the episode will only end (done = True) if
         #   - the auv has reached the target, or
         #   - the auv has hit an obstacle
-        done = self.check_reached_target(self.state[0], self.state[1]) or\
-            self.check_collision(self.state[0])
+        done = self.check_reached_target(self.state['auv_pos'], self.state['shark_pos']) or\
+            self.check_collision(self.state['auv_pos'])
 
-        reward = self.get_range_reward(self.state[0], self.state[1], old_range)
+        reward = self.get_range_reward(self.state['auv_pos'], self.state['shark_pos'], old_range)
         # reward = self.get_range_time_reward(self.state[0], self.state[1], old_range, timestep)
         # reward = self.get_binary_reward(self.state[0], self.state[1])
 
@@ -346,8 +355,12 @@ class AuvEnv(gym.Env):
         Reset the environment
             Set the observation to the initial auv and shark position
         """
-        self.state = (np.array([self.auv_init_pos.x, self.auv_init_pos.y, self.auv_init_pos.z, self.auv_init_pos.theta]),\
-            np.array([self.shark_init_pos.x, self.shark_init_pos.y, self.shark_init_pos.z, self.shark_init_pos.theta]), self.obstacle_array)
+        self.state = {
+            'auv_pos': np.array([self.auv_init_pos.x, self.auv_init_pos.y, self.auv_init_pos.z, self.auv_init_pos.theta]),\
+            'shark_pos': np.array([self.shark_init_pos.x, self.shark_init_pos.y, self.shark_init_pos.z, self.shark_init_pos.theta]),\
+            'obstacles_pos': self.obstacle_array,\
+            'habitats_pos': self.habitats_array,\
+        }
         return self.state
 
 
