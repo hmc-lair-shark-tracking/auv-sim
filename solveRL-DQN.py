@@ -39,8 +39,8 @@ SHARK_MAX_X= DIST * 3
 SHARK_MIN_Y = 0.0
 SHARK_MAX_Y = DIST * 3
 
-NUM_OF_EPISODES = 1000
-MAX_STEP = 1500
+NUM_OF_EPISODES = 10
+MAX_STEP = 100
 
 NUM_OF_EPISODES_TEST = 3
 MAX_STEP_TEST = 1000
@@ -64,7 +64,7 @@ NUM_GOALS_SAMPLED_HER = 4
 
 TARGET_UPDATE = 10
 
-NUM_OF_OBSTACLES = 0
+NUM_OF_OBSTACLES = 4
 STATE_SIZE = 8 + NUM_OF_OBSTACLES * 4
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -72,7 +72,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 100
+RENDER_EVERY = 1
 
 DEBUG = False
 
@@ -413,7 +413,6 @@ class AuvEnvManager():
     def init_env_randomly(self):
         auv_init_pos = Motion_plan_state(x = np.random.uniform(AUV_MIN_X, AUV_MAX_X), y = np.random.uniform(AUV_MIN_Y, AUV_MAX_Y), z = -5.0, theta = 0)
         shark_init_pos = Motion_plan_state(x = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y), y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
-  
         obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES)
 
         
@@ -828,8 +827,8 @@ class DQN():
     
 def main():
     dqn = DQN(N_V, N_W)
-    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=True)
-    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=True)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False)
+    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=True)
 
 if __name__ == "__main__":
     main()
