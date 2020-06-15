@@ -52,7 +52,7 @@ def summary_1(cost_funcs, num_habitats=10, test_num=100):
             cost_list = []  
 
             while time.time() < t_end:
-                result = testing.exploring(habitats, 0.5)
+                result = testing.exploring(habitats, 0.5, 5, 1)
                 count += 1
                 if result is not None:
                     cost = result["cost"]
@@ -119,11 +119,16 @@ def plot_summary_1(labels, summary):
     plt.show()
 
 def summary_2(start, goal, obstacle_array, boundary, habitats, test_num, test_time, plot_interval, weights):
+    '''generate the average cost of optimal paths of one weight scheme'''
     cost_list = [[]for _ in range(math.ceil(test_time//plot_interval))]
 
     for _ in range(test_num):
         rrt = RRT(start, goal, obstacle_array, boundary)
-        result = rrt.exploring(habitats, plot_interval, test_time=test_time, plan_time=weights[1], weights=weights[0])
+        if weights[1] == "random time":
+            plan_time = True
+        elif weights[1] == "random (x,y)":
+            plan_time = False
+        result = rrt.exploring(habitats, plot_interval, 5, 1, test_time=test_time, plan_time=plan_time, weights=weights[0])
         cost = result["cost list"]
         for i in range(len(cost)):
             cost_list[i].append(cost[i])
@@ -146,18 +151,19 @@ def plot_summary_2(x_list, y_list):
 
     plt.show()
 
-def summary_3(start, goal, boundary, obstacle_array, habitats, plan_time, plot_interval):
+def summary_3(start, goal, boundary, obstacle_array, habitats, test_num, plan_time, plot_interval):
+    '''draw average cost of optimal path from different weight schemes as a function of time'''
     results = []
     time_list = [plot_interval + i * plot_interval for i in range(math.ceil(plan_time//plot_interval))]
 
-    weight1 = [[1, -4.5, -4.5], True]
-    weight2 = [[0.5, -4.5, -4.5], True]
-    weight3 = [[1, -4.5, -4.5], False]
-    weight4 = [[0.5, -4.5, -4.5], False]
+    weight1 = [[1, -4.5, -4.5], "random time"]
+    weight2 = [[0.5, -4.5, -4.5], "random time"]
+    weight3 = [[1, -4.5, -4.5], "random (x,y)"]
+    weight4 = [[0.5, -4.5, -4.5], "random (x,y)"]
     weights = [weight1, weight2, weight3, weight4]
-
+    
     for weight in weights:
-        result = summary_2(start, goal, obstacle_array, boundary, habitats, 10, plan_time, plot_interval, weight)
+        result = summary_2(start, goal, obstacle_array, boundary, habitats, test_num, plan_time, plot_interval, weight)
         results.append(result)
     
     for i in range(len(results)):
@@ -169,10 +175,29 @@ def summary_3(start, goal, boundary, obstacle_array, habitats, plan_time, plot_i
     plt.legend()
     plt.show()
 
+def plot_time_stamp(start, goal, boundary, obstacle_array, habitats):
+    '''draw time stamp distribution of one rrt_rubins path planning algorithm'''
+    rrt = RRT(start, goal, obstacle_array, boundary)
+    result = rrt.exploring(habitats, 0.5, 5, 1, test_time=10.0, weights=[1,-4.5,-4.5])
+    time_stamp_list = result["time stamp"]
+    print(result["time limit"])
+    bin_list = time_stamp_list.keys()
+    num_time_list = []
+    for time_bin in bin_list:
+        num_time_list.append(len(time_stamp_list[time_bin]))
+    
+    plt.title("time stamp distribution")
+    plt.xlabel("time stamp bin")
+    plt.ylabel("number of motion_plan_states")
+    #plt.xticks(self.bin_list)
+    plt.bar(bin_list, num_time_list, color="g")
+    
+    plt.show()
+
 start = Motion_plan_state(10,15)
 goal = Motion_plan_state(7,4)
 boundary = [Motion_plan_state(0,0), Motion_plan_state(100,100)]
 obstacle_array = [Motion_plan_state(5,7, size=5),Motion_plan_state(14,22, size=3)]
 habitats = [Motion_plan_state(63,23, size=5), Motion_plan_state(12,45,size=7), Motion_plan_state(51,36,size=5), Motion_plan_state(45,82,size=5),\
     Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
-summary_3(start, goal, boundary, obstacle_array, habitats, 20.0, 0.5)
+summary_3(start, goal, boundary, obstacle_array, habitats, 10, 50.0, 0.5)
