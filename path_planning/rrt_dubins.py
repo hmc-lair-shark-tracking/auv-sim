@@ -83,8 +83,8 @@ class RRT:
                     ran_bin = int(random.uniform(1, time_expand + 1))
                     while self.time_bin[bin_interval * ran_bin] == []:
                         ran_bin = int(random.uniform(1, time_expand + 1))
-                    ran_index = int(random.uniform(0, len(self.time_bin[bin_interval * i])))
-                    closest_mps = self.time_bin[bin_interval * i][ran_index] 
+                    ran_index = int(random.uniform(0, len(self.time_bin[bin_interval * ran_bin])))
+                    closest_mps = self.time_bin[bin_interval * ran_bin][ran_index] 
                 #find the closest motion_plan_state by generating a random motion_plan_state
                 #and find the motion_plan_state with smallest distance
                 else:
@@ -468,16 +468,16 @@ def main():
         Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
     rrt = RRT(start, goal, obstacle_array, boundary)
     #path = rrt.planning(animation=False, min_length=0)
-    path = rrt.exploring(habitats, 0.5, 5, 1, test_time=50.0, plan_time=True, weights=[1,-4.5,-4.5])
+    path = rrt.exploring(habitats, 0.5, 5, 1, test_time=5.0, plan_time=True, weights=[1,-4.5,-4.5])
     
     # Draw final path
-    '''if path is not None:
+    if path is not None:
         plt.figure(1)  
         rrt.draw_graph()
         plt.plot([mps.x for mps in path["path"]], [mps.y for mps in path["path"]], '-r')
         plt.grid(True)
         plt.pause(0.01)
-        plt.show()'''
+        plt.show()
 
 
 if __name__ == '__main__':
