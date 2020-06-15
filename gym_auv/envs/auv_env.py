@@ -373,8 +373,8 @@ class AuvEnv(gym.Env):
         Return:
             a tuple of 2 np.array representing the auv and shark's current position
         """
-        auv_pos = self.state[0]
-        shark_pos = self.state[1]
+        auv_pos = self.state['auv_pos']
+        shark_pos = self.state['shark_pos']
         
         if print_state: 
             print("==========================")
@@ -407,6 +407,11 @@ class AuvEnv(gym.Env):
 
         if self.obstacle_array_for_rendering != []:
             self.live_graph.plot_obstacles(self.obstacle_array_for_rendering)
+
+        for hab in self.habitats_array_for_rendering:
+            hab_region = Circle((hab.x, hab.y), radius=hab.size, color='#2a753e', fill=False)
+            self.live_graph.ax.add_patch(hab_region)
+            Art3d.pathpatch_2d_to_3d(hab_region, z=hab.size, zdir='z')
         
         self.live_graph.ax.set_xlabel('X')
         self.live_graph.ax.set_ylabel('Y')

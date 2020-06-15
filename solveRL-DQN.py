@@ -472,7 +472,7 @@ class AuvEnvManager():
         """
         state = self.env.render(mode, print_state)
         if live_graph: 
-            self.env.render_3D_plot(state[0], state[1])
+            self.env.render_3D_plot(state['auv_pos'], state['shark_pos'])
         return state
 
 
