@@ -1,3 +1,9 @@
 .vscode/
 __pycache__/
 .DS_Store
+checkpoint_target.pth
+checkpoint_policy.pth
+checkpoint_critic_target.pth
+checkpoint_critic.pth
+checkpoint_actor_target.pth
+checkpoint_actor.pth
