@@ -163,6 +163,8 @@ class AuvEnv(gym.Env):
         
         # get the old position and orientation data for the auv
         x, y, z, theta = self.state[0]
+
+        self.distance_traveled = 0
       
         self.distance_traveled = 0
 
