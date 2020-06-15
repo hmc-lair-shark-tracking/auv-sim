@@ -27,7 +27,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 """
 
 # define the range between the starting point of the auv and shark
-DIST = 20.0
+DIST = 200.0
 
 AUV_MIN_X = DIST
 AUV_MAX_X= DIST * 2
@@ -38,6 +38,9 @@ SHARK_MIN_X = 0.0
 SHARK_MAX_X= DIST * 3
 SHARK_MIN_Y = 0.0
 SHARK_MAX_Y = DIST * 3
+
+CLIP_MAX_VAL = 120.0
+CLIP_MIN_VAL = 0.0
 
 NUM_OF_EPISODES = 1000
 MAX_STEP = 1500
@@ -170,6 +173,31 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
         obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, z=-5, size = obs_size))
 
     return obstacle_array  
+
+
+def clip_value_to_range(value, target_min, target_max):
+        """
+        From: https://stackoverflow.com/questions/49911206/how-to-restrict-output-of-a-neural-net-to-a-specific-range
+        """
+        # tanh gives you range between -1 and 1, so this gives you range between 0, 2
+        # new_value = value + 1
+        new_value = np.tanh(value) + 1 
+        scale = (target_max - target_min) / 2.0
+        return new_value * scale + target_min
+
+
+def clip_state_to_range(state):
+        """
+        Parameter:
+            it's a numpy array
+        """
+        new_state_x = clip_value_to_range(state[0], CLIP_MIN_VAL, CLIP_MAX_VAL)
+        new_state_y = clip_value_to_range(state[1], CLIP_MIN_VAL, CLIP_MAX_VAL)
+
+        new_state = np.array([new_state_x, new_state_y, state[2], state[3]])
+
+        return new_state
+
 
 """
 Class for building policy and target neural network
@@ -749,6 +777,10 @@ class DQN():
         # if we want to continue training an already trained network
         self.load_trained_network()
         self.policy_net.eval()
+
+        scale_states = False
+        if DIST > 100:
+            scale_states = True
         
         for eps in range(num_episodes):
             # initialize the starting point of the shark and the auv randomly
@@ -763,11 +795,25 @@ class DQN():
             final_reward_array.append(0.0)
             total_reward_array.append(0.0)
 
-
             reward = 0
 
             for t in range(1, max_step):
-                action = self.agent.select_action(state, self.policy_net)
+                print("pre-processed")
+                print(state)
+                scaled_auv_pos = clip_state_to_range(state[0])
+                scaled_shark_pos = clip_state_to_range(state[1])
+                print("scaled position")
+                print(scaled_auv_pos)
+                print(scaled_shark_pos)
+
+                scaled_state = (scaled_auv_pos, scaled_auv_pos, state[2])
+
+                print("-----")
+                print("scaled states")
+                print(scaled_state)
+                # text = input("stop")
+
+                action = self.agent.select_action(scaled_state, self.policy_net)
 
                 reward = self.em.take_action(action, t)
 
