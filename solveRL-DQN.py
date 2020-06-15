@@ -39,8 +39,8 @@ SHARK_MAX_X= DIST * 3
 SHARK_MIN_Y = 0.0
 SHARK_MAX_Y = DIST * 3
 
-NUM_OF_EPISODES = 10
-MAX_STEP = 100
+NUM_OF_EPISODES = 1000
+MAX_STEP = 1500
 
 NUM_OF_EPISODES_TEST = 3
 MAX_STEP_TEST = 1000
@@ -72,7 +72,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 1
+RENDER_EVERY = 100
 
 DEBUG = False
 
