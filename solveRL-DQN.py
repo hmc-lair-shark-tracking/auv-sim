@@ -65,7 +65,8 @@ NUM_GOALS_SAMPLED_HER = 4
 TARGET_UPDATE = 10
 
 NUM_OF_OBSTACLES = 4
-STATE_SIZE = 8 + NUM_OF_OBSTACLES * 4
+NUM_OF_HABITATS = 4
+STATE_SIZE = 8 + NUM_OF_OBSTACLES * 4 + NUM_OF_HABITATS * 4
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -170,6 +171,21 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
         obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, z=-5, size = obs_size))
 
     return obstacle_array  
+
+
+def generate_rand_habitats(num_of_habitats):
+    """
+    """
+    habitats_array = []
+    for _ in range(num_of_habitats):
+        hab_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
+        hab_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
+        hab_size = np.random.randint(2,5)
+        habitats_array.append(Motion_plan_state(x = hab_x, y = hab_y, z=-5, size = hab_size))
+
+    return habitats_array  
+
+
 
 """
 Class for building policy and target neural network
@@ -414,6 +430,7 @@ class AuvEnvManager():
         auv_init_pos = Motion_plan_state(x = np.random.uniform(AUV_MIN_X, AUV_MAX_X), y = np.random.uniform(AUV_MIN_Y, AUV_MAX_Y), z = -5.0, theta = 0)
         shark_init_pos = Motion_plan_state(x = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y), y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
         obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES)
+        habitats_array = generate_rand_habitats(NUM_OF_HABITATS)
 
         
         print("===============================")
