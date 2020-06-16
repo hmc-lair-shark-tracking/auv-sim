@@ -306,8 +306,12 @@ def main():
     test_particle = particleFilter(initial_x_shark, initial_y_shark, theta, x_auv ,y_auv)
     final_new_shark_coordinate_x = []
     final_new_shark_coordinate_y = []
+    actual_shark_coordinate_x = []
+    actual_shark_coordinate_y = []
     final_new_shark_coordinate_x.append(initial_x_shark)
     final_new_shark_coordinate_y.append(initial_y_shark)
+    actual_shark_coordinate_x.append(initial_x_shark)
+    actual_shark_coordinate_y.append(initial_y_shark)
 
     for x in range(0, NUMBER_OF_PARTICLES):
         new_particle = Particle(initial_x_shark, initial_y_shark)
@@ -356,7 +360,7 @@ def main():
     x_mean_over_time.append(xy_mean[0])
     y_mean_over_time.append(xy_mean[1])
     print(x_mean_over_time)
-    #print("error (x, y): ", xy_mean)
+    # print("error (x, y): ", xy_mean)
 
     new_particles = test_particle.correct(normalized_weights, particles)
     particles = new_particles
@@ -432,6 +436,8 @@ def main():
 
         final_new_shark_coordinate_x.append(test_particle.x_shark)
         final_new_shark_coordinate_y.append(test_particle.y_shark)
+        actual_shark_coordinate_x.append(shark.x_pos_array[-1])
+        actual_shark_coordinate_y.append(shark.y_pos_array[-1])
 
         #print(test_shark.shark_sensor_data_dict[1])
         #for particle in particles: 
@@ -449,7 +455,7 @@ def main():
         print("=====================================")
         print(particle_coordinates)
         
-        test_shark.live_graph.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y)
+        test_shark.live_graph.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y, actual_shark_coordinate_x, actual_shark_coordinate_y)
         plt.draw()
         plt.pause(1)
         test_shark.live_graph.ax.clear()

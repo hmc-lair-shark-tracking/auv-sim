@@ -162,7 +162,7 @@ class Live3DGraph:
             while shark.index < len(shark.traj_pts_array) and\
                 abs(shark.traj_pts_array[shark.index].time_stamp - sim_time) > (const.SIM_TIME_INTERVAL + 0.1):
                 shark.index += 1
-
+                
             # update the shark's position arrays to help us update the graph
             shark.store_positions(shark.traj_pts_array[shark.index].x, shark.traj_pts_array[shark.index].y, shark.traj_pts_array[shark.index].z)
 
@@ -238,7 +238,7 @@ class Live3DGraph:
         self.display_particles = not self.display_particles
     
     
-    def plot_particles(self, particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y):
+    def plot_particles(self, particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y, actual_shark_coordinate_x, actual_shark_coordinate_y):
         """
         Plot the particles if the the particle checkbox is checked
 
@@ -273,7 +273,11 @@ class Live3DGraph:
             # TODO: for now, we set the z position of the trajectory to be -10
 
             self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = particle_color_array)
+
+            self.ax.plot(actual_shark_coordinate_x, actual_shark_coordinate_y, -20, marker = ',', color='b')
+
             self.ax.scatter(final_new_shark_coordinate_x, final_new_shark_coordinate_y, -20, marker = 'x', color = '#42f5da')
+
             """
             self.ax.set_xlim3d(-75,75)
             self.ax.set_ylim3d(-175,175)
