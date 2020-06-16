@@ -31,13 +31,19 @@ SHARK_MAX_W = np.pi/8
 DELTA_T = 0.1
 
 # the maximum range between the auv and shark to be considered that the auv has reached the shark
-END_GAME_RADIUS = 3.0
+END_GAME_RADIUS = 5.0
 
 # constants for reward
 R_COLLIDE = -10.0       # when the auv collides with an obstacle
 R_ARRIVE = 10.0         # when the auv arrives at the target
 R_RANGE = 0.1           # this is a scaler to help determine immediate reward at a time step
 R_TIME = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
+
+# constants for reward with habitats
+R_JUST_MAINTAIN_DIST = 5.0       # when the auv collides with an obstacle
+R_REACHES_NEW_HAB = 15.0         # when the auv arrives at the target
+R_IN_HAB_MAINTAIN_DIST = 0.1           # this is a scaler to help determine immediate reward at a time step
+R_RANGE = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
 
 REPEAT_ACTION_TIME = 5
 
@@ -204,8 +210,7 @@ class AuvEnv(gym.Env):
         # the episode will only end (done = True) if
         #   - the auv has reached the target, or
         #   - the auv has hit an obstacle
-        done = self.check_reached_target(self.state['auv_pos'], self.state['shark_pos']) or\
-            self.check_collision(self.state['auv_pos'])
+        done = self.check_collision(self.state['auv_pos'])
 
         reward = self.get_range_reward(self.state['auv_pos'], self.state['shark_pos'], old_range)
         # reward = self.get_range_time_reward(self.state[0], self.state[1], old_range, timestep)
@@ -320,6 +325,34 @@ class AuvEnv(gym.Env):
             return reward
 
 
+    def get_reward_with_habitats(self, auv_pos, shark_pos, old_range):
+        reward = 0.0
+        # if it collides with an obstacle
+        # if it finds a new habitat
+        if self.check_reached_target(auv_pos, shark_pos):
+            return R_ARRIVE
+        # if it's in a habit and it's also within the range
+        elif self.check_collision(auv_pos):
+            return R_COLLIDE
+        # if it's within the range
+        # else
+        else:
+            new_range = self.calculate_range(auv_pos, shark_pos)
+            # if auv has gotten closer to the shark, will receive positive reward
+            #   else, receive negative reward
+            range_diff = old_range - new_range
+
+            # print("^^^^^^^^^^^^^^^^^^^^^^^")
+            # print("old range")
+            # print(old_range)
+            # print("new range")
+            # print(new_range)
+            # print("^^^^^^^^^^^^^^^^^^^^^^^")
+            
+            reward = R_RANGE * range_diff
+            
+            return reward
+
 
     def get_binary_reward(self, auv_pos, goal_pos):
         """
@@ -411,7 +444,7 @@ class AuvEnv(gym.Env):
         for hab in self.habitats_array_for_rendering:
             hab_region = Circle((hab.x, hab.y), radius=hab.size, color='#2a753e', fill=False)
             self.live_graph.ax.add_patch(hab_region)
-            Art3d.pathpatch_2d_to_3d(hab_region, z=hab.size, zdir='z')
+            Art3d.pathpatch_2d_to_3d(hab_region, z=hab.z, zdir='z')
         
         self.live_graph.ax.set_xlabel('X')
         self.live_graph.ax.set_ylabel('Y')

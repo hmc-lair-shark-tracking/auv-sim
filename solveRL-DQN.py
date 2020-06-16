@@ -39,8 +39,8 @@ SHARK_MAX_X= DIST * 3
 SHARK_MIN_Y = 0.0
 SHARK_MAX_Y = DIST * 3
 
-NUM_OF_EPISODES = 1000
-MAX_STEP = 1500
+NUM_OF_EPISODES = 10
+MAX_STEP = 10
 
 NUM_OF_EPISODES_TEST = 3
 MAX_STEP_TEST = 1000
@@ -73,9 +73,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 100
+RENDER_EVERY = 1
 
-DEBUG = False
+DEBUG = True
 
 """
 ============================================================================
@@ -612,9 +612,9 @@ class DQN():
 
 
     def save_real_experiece(self, state, next_state, action, timestep):
-        old_range = calculate_range(state[0], state[1])
+        old_range = calculate_range(state['auv_pos'], state['shark_pos'])
 
-        reward = self.em.get_range_reward(next_state[0], next_state[1], old_range)
+        reward = self.em.get_range_reward(next_state['auv_pos'], next_state['shark_pos'], old_range)
 
         self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
 
@@ -634,13 +634,23 @@ class DQN():
     
     def store_extra_goals_HER(self, state, next_state, action, additional_goals, timestep):
         for goal in additional_goals:
-            new_curr_state = (state[0], goal[0], state[2])
-                
-            new_next_state = (next_state[0], goal[0], next_state[2])
-            
-            old_range = calculate_range(new_curr_state[0], new_curr_state[1])
+            new_curr_state = {\
+                'auv_pos': state['auv_pos'],\
+                'shark_pos': goal['auv_pos'],\
+                'obstacles_pos': state['obstacles_pos'],\
+                'habitats_pos': state['habitats_pos']\
+            }
 
-            reward = self.em.get_range_reward(new_next_state[0], new_next_state[1], old_range)
+            new_next_state = {\
+                'auv_pos': next_state['auv_pos'],\
+                'shark_pos': goal['auv_pos'],\
+                'obstacles_pos': next_state['obstacles_pos'],\
+                'habitats_pos': next_state['habitats_pos']\
+            }
+            
+            old_range = calculate_range(new_curr_state['auv_pos'], new_curr_state['shark_pos'])
+
+            reward = self.em.get_range_reward(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range)
             
             self.memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
     
@@ -777,7 +787,7 @@ class DQN():
             # receive initial observation state s1 
             state = self.em.init_env_randomly()
 
-            starting_dist = calculate_range(state[0], state[1])
+            starting_dist = calculate_range(state['auv_pos'], state['shark_pos'])
             starting_dist_array.append(starting_dist)
 
             episode_durations.append(max_step)
