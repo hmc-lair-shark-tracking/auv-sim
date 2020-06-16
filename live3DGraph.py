@@ -283,9 +283,9 @@ class Live3DGraph:
             self.ax.set_ylim3d(-175,175)
             self.ax.set_zlim3d(-75,75)
             """
-            self.ax.set_xlabel('X')
-            self.ax.set_ylabel('Y')
-            self.ax.set_zlabel('Z')
+            self.ax.set_xlabel('X (meters)')
+            self.ax.set_ylabel('Y (meters)')
+            self.ax.set_zlabel('Z (meters)')
 
             #self.ax.autoscale(False)
 

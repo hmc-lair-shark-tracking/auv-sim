@@ -13,7 +13,7 @@ import threading
 #from particle import Particle
 from robotSim import RobotSim
 from live3DGraph import Live3DGraph
-#from twoDfigure import Figure
+from twoDfigure import Figure
 from motion_plan_state import Motion_plan_state
 
 def angle_wrap(ang):
@@ -286,6 +286,7 @@ def main():
     particles = []
     
     #test_grapher = Live3DGraph()
+    test_grapher_shark = Figure()
     #shark's initial x, y, z, theta
     test_shark = RobotSim(740, 280, -5, 0.1)
     test_shark.setup("./data/sharkTrackingData.csv", [1])
@@ -379,6 +380,9 @@ def main():
             #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
         #print("updated particles after", .1, "seconds of random movement")
         # update the shark position (do this in your main loop)
+        for particle in particles: 
+            particle.update_particle(.1)
+
         for shark in shark_list:
             test_shark.live_graph.update_shark_location(shark, sim_time)
         
@@ -423,16 +427,13 @@ def main():
         new_particles = test_particle.correct(normalized_weights, particles)
         particles = new_particles
 
-        for particle in particles: 
-            particle.update_particle(.1)
         sim_time += 0.1
 
-        """
         xy_mean = test_particle.particleMean(particles)
         print("mean of all particles (x, y): ", xy_mean)
         x_mean_over_time.append(xy_mean[0])
         y_mean_over_time.append(xy_mean[1])
-        """
+
 
         final_new_shark_coordinate_x.append(test_particle.x_shark)
         final_new_shark_coordinate_y.append(test_particle.y_shark)
@@ -444,8 +445,9 @@ def main():
             #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
 
         particle_coordinates = test_particle.particle_coordinates(particles)
-
-        if loops >= 1000:
+        print("+++++++++++++++++++++++++++++++")
+        print(particle_coordinates)
+        if loops >= 280:
             break
         
         #simulation stuff
@@ -453,13 +455,17 @@ def main():
         print("===================")
         print(final_new_shark_coordinate_x)
         print("=====================================")
-        print(particle_coordinates)
-        
+        #print(particle_coordinates)
+        """
         test_shark.live_graph.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y, actual_shark_coordinate_x, actual_shark_coordinate_y)
         plt.draw()
-        plt.pause(1)
+        plt.pause(.1)
         test_shark.live_graph.ax.clear()
-        
+        """
+    plt.close()
+    test_grapher_shark.coordinate_plotter(x_mean_over_time, y_mean_over_time, final_new_shark_coordinate_x, final_new_shark_coordinate_y)
+    plt.show()
+
         
         
 if __name__ == "__main__":
