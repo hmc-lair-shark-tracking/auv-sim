@@ -97,7 +97,7 @@ class Particle:
             """
             
             #alpha weight
-            SIGMA_ALPHA = .025
+            SIGMA_ALPHA = .5
             
             if particleAlpha > 0:
                 function_alpha = .001 + (1/(SIGMA_ALPHA * math.sqrt(2*math.pi))* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha[0])**2))))/(2*(SIGMA_ALPHA)**2))))
@@ -280,6 +280,7 @@ class particleFilter:
             #print("particle_coordinates", particle_coordinates)
         return particle_coordinates
     
+    """
     def cluster_over_time_function(self, particles, actual_shark_coordinate_x, actual_shark_coordinate_y, sim_time, list_of_error_mean):
         list_of_answers = []
         count = 0
@@ -290,6 +291,7 @@ class particleFilter:
                 if count >= NUMBER_OF_PARTICLES *0.8
                     list_of_answers.append(sim_time)
         return list_of_answers
+    """
 
 
     
@@ -378,7 +380,7 @@ def main():
     # print("error (x, y): ", xy_mean)
 
     tracking_error_list = []
-    tracking_error_list = tracking_error_list.append(test_particle.meanError(xy_mean[0], xy_mean[1]))
+    tracking_error_list.append(test_particle.meanError(xy_mean[0], xy_mean[1]))
 
     new_particles = test_particle.correct(normalized_weights, particles)
     particles = new_particles
@@ -451,23 +453,16 @@ def main():
         print("mean of all particles (x, y): ", xy_mean)
         x_mean_over_time.append(xy_mean[0])
         y_mean_over_time.append(xy_mean[1])
-        tracking_error_list = tracking_error_list.append(test_particle.meanError(xy_mean[0], xy_mean[1]))
+        tracking_error_list.append(test_particle.meanError(xy_mean[0], xy_mean[1]))
 
         final_new_shark_coordinate_x.append(test_particle.x_shark)
         final_new_shark_coordinate_y.append(test_particle.y_shark)
         actual_shark_coordinate_x.append(shark.x_pos_array[-1])
         actual_shark_coordinate_y.append(shark.y_pos_array[-1])
-        list_of_news = test_particle.cluster_over_time_function(particles, actual_shark_coordinate_x, actual_shark_coordinate_y, sim_time, list_of_error_mean)
-        if len(list_of_news) == index_number_of_particles:
-            index_number_of_particles += 1
-            NUMBER_OF_PARTICLES += 100
-            sim_time = 0
-            if NUMBER_OF_PARTICLES > 1000:
-                break
 
         particle_coordinates = test_particle.particle_coordinates(particles)
         print("+++++++++++++++++++++++++++++++")
-        print(particle_coordinates)
+        #print(particle_coordinates)
         
         #simulation stuff
 
