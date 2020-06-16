@@ -280,7 +280,7 @@ class particleFilter:
             #print("particle_coordinates", particle_coordinates)
         return particle_coordinates
     
-    def cluster_over_time_function(self, particles, final_new_shark_coordinate_x, final_new_shark_coordinate_y, sim_time, list_of_error_mean):
+    def cluster_over_time_function(self, particles, actual_shark_coordinate_x, actual_shark_coordinate_y, sim_time, list_of_error_mean):
         list_of_answers = []
         count = 0
         for particle in particles:
@@ -374,7 +374,7 @@ def main():
     y_mean_over_time = []
     x_mean_over_time.append(xy_mean[0])
     y_mean_over_time.append(xy_mean[1])
-    print(x_mean_over_time)
+    #print(x_mean_over_time)
     # print("error (x, y): ", xy_mean)
 
     tracking_error_list = []
@@ -388,11 +388,6 @@ def main():
 
     loops = 0
     sim_time = 0.0
-    
-    #cluster function stuff
-    list_of_number_of_particles = []
-    list_of_number_of_particles.append(NUMBER_OF_PARTICLES)
-
     index_number_of_particles = 0
 
     while True: 
@@ -456,17 +451,17 @@ def main():
         print("mean of all particles (x, y): ", xy_mean)
         x_mean_over_time.append(xy_mean[0])
         y_mean_over_time.append(xy_mean[1])
+        tracking_error_list = tracking_error_list.append(test_particle.meanError(xy_mean[0], xy_mean[1]))
 
         final_new_shark_coordinate_x.append(test_particle.x_shark)
         final_new_shark_coordinate_y.append(test_particle.y_shark)
         actual_shark_coordinate_x.append(shark.x_pos_array[-1])
         actual_shark_coordinate_y.append(shark.y_pos_array[-1])
-
-        list_of_news = test_particle.cluster_over_time_function(particles, final_new_shark_coordinate_x, final_new_shark_coordinate_y, sim_time, list_of_error_mean)
+        list_of_news = test_particle.cluster_over_time_function(particles, actual_shark_coordinate_x, actual_shark_coordinate_y, sim_time, list_of_error_mean)
         if len(list_of_news) == index_number_of_particles:
             index_number_of_particles += 1
             NUMBER_OF_PARTICLES += 100
-            list_of_number_of_particles.append(NUMBER_OF_PARTICLES)
+            sim_time = 0
             if NUMBER_OF_PARTICLES > 1000:
                 break
 
