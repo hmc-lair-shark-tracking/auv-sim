@@ -45,7 +45,7 @@ class Particle:
         def __init__(self, x_shark, y_shark):
             #set L (side length of square that the random particles are in) and N (number of particles)
             INITIAL_PARTICLE_RANGE = 150
-            NUMBER_OF_PARTICLES = 1000
+            NUMBER_OF_PARTICLES = 900
             #particle has 5 properties: x, y, velocity, theta, weight (starts at 1/N)
             self.x_p = x_shark + random.uniform(-INITIAL_PARTICLE_RANGE, INITIAL_PARTICLE_RANGE)
             self.y_p = y_shark + random.uniform(-INITIAL_PARTICLE_RANGE, INITIAL_PARTICLE_RANGE)
@@ -179,6 +179,7 @@ class particleFilter:
         return xy_mean
 
     def meanError(self, x_mean, y_mean):
+        
         x_difference = x_mean - self.x_shark
         y_difference = y_mean - self.y_shark
         range_error = math.sqrt((x_difference**2) + (y_difference **2))
@@ -281,7 +282,7 @@ class particleFilter:
     
             
 def main(): 
-    NUMBER_OF_PARTICLES = 1000
+    NUMBER_OF_PARTICLES = 900
     #change this constant ^^ in the particle class too!
     particles = []
     
@@ -363,6 +364,9 @@ def main():
     print(x_mean_over_time)
     # print("error (x, y): ", xy_mean)
 
+    tracking_error_list = []
+    tracking_error_list = tracking_error_list.append(test_particle.meanError(xy_mean[0], xy_mean[1]))
+
     new_particles = test_particle.correct(normalized_weights, particles)
     particles = new_particles
     #for particle in particles: 
@@ -434,6 +438,8 @@ def main():
         x_mean_over_time.append(xy_mean[0])
         y_mean_over_time.append(xy_mean[1])
 
+        tracking_error_list = tracking_error_list.append(test_particle.meanError(xy_mean[0], xy_mean[1]))
+
 
         final_new_shark_coordinate_x.append(test_particle.x_shark)
         final_new_shark_coordinate_y.append(test_particle.y_shark)
@@ -467,6 +473,6 @@ def main():
     plt.show()
 
         
-        
+
 if __name__ == "__main__":
     main()
