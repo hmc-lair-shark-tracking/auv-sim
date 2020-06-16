@@ -279,6 +279,19 @@ class particleFilter:
             #print("particle_coordinates", particle_coordinates)
         return particle_coordinates
     
+    def cluster_over_time_function(self, particles, final_new_shark_coordinate_x, final_new_shark_coordinate_y, sim_time, list_of_error_mean):
+        list_of_answers = []
+        count = 0
+        for particle in particles:
+            sum = abs(particle.x_p - final_new_shark_coordinate_x[-1]) + abs(particle.y_p - final_new_shark_coordinate_x[-1])
+            if sum <= 1.1* (list_of_error_mean[index_number_of_particles])
+                count += 1
+                if count >= NUMBER_OF_PARTICLES *0.8
+                    list_of_answers.append(sim_time)
+        return list_of_answers
+
+
+    
             
 def main(): 
     NUMBER_OF_PARTICLES = 1000
@@ -371,6 +384,12 @@ def main():
 
     loops = 0
     sim_time = 0.0
+    
+    #cluster function stuff
+    list_of_number_of_particles = []
+    list_of_number_of_particles.append(NUMBER_OF_PARTICLES)
+
+    index_number_of_particles = 0
 
     while True: 
         
@@ -434,21 +453,22 @@ def main():
         x_mean_over_time.append(xy_mean[0])
         y_mean_over_time.append(xy_mean[1])
 
-
         final_new_shark_coordinate_x.append(test_particle.x_shark)
         final_new_shark_coordinate_y.append(test_particle.y_shark)
         actual_shark_coordinate_x.append(shark.x_pos_array[-1])
         actual_shark_coordinate_y.append(shark.y_pos_array[-1])
 
-        #print(test_shark.shark_sensor_data_dict[1])
-        #for particle in particles: 
-            #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
+        list_of_news = test_particle.cluster_over_time_function(particles, final_new_shark_coordinate_x, final_new_shark_coordinate_y, sim_time, list_of_error_mean)
+        if len(list_of_news) == index_number_of_particles:
+            index_number_of_particles += 1
+            NUMBER_OF_PARTICLES += 100
+            list_of_number_of_particles.append(NUMBER_OF_PARTICLES)
+            if NUMBER_OF_PARTICLES > 1000:
+                break
 
         particle_coordinates = test_particle.particle_coordinates(particles)
         print("+++++++++++++++++++++++++++++++")
         print(particle_coordinates)
-        if loops >= 280:
-            break
         
         #simulation stuff
 

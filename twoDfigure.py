@@ -65,10 +65,14 @@ class Figure:
         plt.ylabel('difference between mean and shark x- blue, y - red')
         plt.xlabel('time')
     
-    def particle_cluster_over_time(self, particle_coordinates, final_new_shark_x, final_new_shark_y):
-        for particle in particle_coordinates:
-            difference_x = abs(particle[0]- final_new_shark_x[-1])
+    def particle_cluster_over_time(self, list_of_news, list_of_number_of_particles):
+            plt.plot(list_of_news, color = '#eb5282')
+            plt.ylabel('record time (s)')
+            plt.xlabel('number of particles')
             
+
+
+
 
 
 
