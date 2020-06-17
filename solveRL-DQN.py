@@ -28,17 +28,6 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 
 # define the range between the starting point of the auv and shark
 DIST = 20.0
-SAVE_ORIGINAL_DIST = 20.0
-
-AUV_MIN_X = DIST
-AUV_MAX_X= DIST * 2
-AUV_MIN_Y = DIST
-AUV_MAX_Y = DIST * 2
-
-SHARK_MIN_X = 0.0
-SHARK_MAX_X= DIST * 3
-SHARK_MIN_Y = 0.0
-SHARK_MAX_Y = DIST * 3
 
 NUM_OF_EPISODES = 10
 MAX_STEP = 10
@@ -159,48 +148,20 @@ def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_p
     return auv_overlaps or shark_overlaps or obs_overlaps
 
 
-def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
+def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shark_min_x, shark_max_x,  shark_min_y, shark_max_y):
     """
     """
     obstacle_array = []
     for _ in range(num_of_obstacles):
-        obs_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
-        obs_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
+        obs_x = np.random.uniform(shark_min_x, shark_max_x)
+        obs_y = np.random.uniform(shark_min_y, shark_max_y)
         obs_size = np.random.randint(1,11)
         while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array):
-            obs_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
-            obs_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
+            obs_x = np.random.uniform(shark_min_x, shark_max_x)
+            obs_y = np.random.uniform(shark_min_y, shark_max_y)
         obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, z=-5, size = obs_size))
 
     return obstacle_array  
-
-
-def modify_starting_distance(starting_dist):
-    DIST = starting_dist
-
-    AUV_MIN_X = DIST
-    AUV_MAX_X= DIST * 2
-    AUV_MIN_Y = DIST
-    AUV_MAX_Y = DIST * 2
-
-    SHARK_MIN_X = 0.0
-    SHARK_MAX_X= DIST * 3
-    SHARK_MIN_Y = 0.0
-    SHARK_MAX_Y = DIST * 3
-
-
-def restore_original_starting_distance():
-    DIST = SAVE_ORIGINAL_DIST
-
-    AUV_MIN_X = DIST
-    AUV_MAX_X= DIST * 2
-    AUV_MIN_Y = DIST
-    AUV_MAX_Y = DIST * 2
-
-    SHARK_MIN_X = 0.0
-    SHARK_MAX_X= DIST * 3
-    SHARK_MIN_Y = 0.0
-    SHARK_MAX_Y = DIST * 3
 
 
 def calculate_success_and_collision_rate(final_reward_array):
@@ -212,7 +173,7 @@ def calculate_success_and_collision_rate(final_reward_array):
         elif reward == -10.0:
             collision_count += 1
 
-    success_rate = float(success_count)/float(final_reward_array) * 100
+    success_rate = float(success_count)/float(len(final_reward_array)) * 100
 
     collision_rate = float(collision_count)/float(len(final_reward_array)) * 100
 
@@ -457,10 +418,20 @@ class AuvEnvManager():
         self.possible_actions = self.env.actions_range(N_v, N_w)
 
     
-    def init_env_randomly(self):
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(AUV_MIN_X, AUV_MAX_X), y = np.random.uniform(AUV_MIN_Y, AUV_MAX_Y), z = -5.0, theta = 0)
-        shark_init_pos = Motion_plan_state(x = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y), y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
-        obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES)
+    def init_env_randomly(self, dist = DIST):
+        auv_min_x = dist
+        auv_max_x = dist * 2
+        auv_min_y = dist
+        auv_max_y = dist * 2
+
+        shark_min_x = 0.0
+        shark_max_x = dist * 3
+        shark_min_y = 0.0
+        shark_max_y = dist * 3
+
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = 0)
+        shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+        obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
 
         
         print("===============================")
@@ -700,6 +671,9 @@ class DQN():
     def train(self, num_episodes, max_step, load_prev_training = False, use_HER = True):
         self.episode_durations = []
         self.avg_loss_in_training = []
+        self.episodes_that_gets_tested = []
+        self.success_rate_array = []
+        self.collision_rate_array = []
 
         if load_prev_training:
             # if we want to continue training an already trained network
@@ -779,13 +753,35 @@ class DQN():
                 save_model(self.policy_net, self.target_net)
 
             if eps % TEST_EVERY == 0:
-                self.test_model_during_training(num_episodes, max_step, 100)
+                success_rate, collision_rate = self.test_model_during_training(num_episodes, max_step, 100)
+
+                self.episodes_that_gets_tested.append(eps)
+                self.success_rate_array.append(success_rate)
+                self.collision_rate_array.append(collision_rate)
 
         save_model(self.policy_net, self.target_net)
+
         self.em.close()
+
+        print("episode durations")
         print(self.episode_durations)
+        text = input("stop")
+
         print("average loss")
         print(self.avg_loss_in_training)
+        text = input("stop")
+
+        print("episodes that gets tested")
+        print(self.episodes_that_gets_tested)
+        text = input("stop")
+
+        print("success rate array")
+        print(self.success_rate_array)
+        text = input("stop")
+
+        print("collision rate array")
+        print(self.collision_rate_array)
+        
 
     
     def test(self, num_episodes, max_step, show_live_graph = False):
@@ -888,7 +884,7 @@ class DQN():
         for eps in range(num_episodes):
             # initialize the starting point of the shark and the auv randomly
             # receive initial observation state s1 
-            state = self.em.init_env_randomly()
+            state = self.em.init_env_randomly(starting_dist)
             
             init_distance_array.append(calculate_range(state[0], state[1]))
             episode_durations.append(max_step)
@@ -945,7 +941,7 @@ class DQN():
 
         text = input("stop")
 
-        restore_original_starting_distance()
+        return success_rate, collision_rate
 
     
 def main():
