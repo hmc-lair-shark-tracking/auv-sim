@@ -223,7 +223,7 @@ class RobotSim:
 
         self.calculate_new_auv_state(v, w, const.SIM_TIME_INTERVAL)
 
-    def replan_trajectory(self, planner, auv_pos, shark_pos, obstacle, boundary):
+    def replan_trajectory(self, planner, auv_pos, shark_pos, obstacle, boundary, habitats):
         '''after replan_time, calculate a new trajectory based on planner chosen
         
         Parameters:
@@ -233,31 +233,12 @@ class RobotSim:
             obstacle: obstacle list
             boundary'''
         
-        t_end = time.time() + self.planning_time
-        shortest_path = []
-        cost_min = float("inf")
-        cost_tesing = Cost()
-        
         if planner == "RRT":
             path_planning = RRT(auv_pos, shark_pos, obstacle, boundary)
 
-        while time.time() < t_end:
-            result = path_planning.planning(animation=False)
-            if result is not None:
-                path = result[1]
-                cost = cost_tesing.habitat_time_cost_func(path, result[0], self.get_habitats(), weights=[1,5,5])
-                if cost[0] < cost_min:
-                    cost_min = cost[0]
-                    shortest_path = path
-
-        shortest_path.reverse()
+        result = path_planning.exploring(habitats, 0.5, 5, 1)
         
-        step = self.curr_time
-        for pt in shortest_path:
-            pt.time_stamp = step
-            step += const.SIM_TIME_INTERVAL
-        
-        return shortest_path
+        return result["path"]
     
     def create_trajectory_list(self, traj_list):
         """
@@ -653,9 +634,13 @@ class RobotSim:
             # testing data for plotting RRT_traj
             boundary = [Motion_plan_state(-500, -500), Motion_plan_state(500,500)]
 
+            #testing data for habitats
+            habitats = [Motion_plan_state(63,23, size=5), Motion_plan_state(12,45,size=7), Motion_plan_state(51,36,size=5), Motion_plan_state(45,82,size=5),\
+                Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
+
             #condition to replan trajectory
             if self.curr_time == 0 or self.curr_time - t_start >= self.replan_time:
-                RRT_traj = self.replan_trajectory("RRT", auv_sensor_data, shark_state_dict[1], obstacle_array, boundary)
+                RRT_traj = self.replan_trajectory("RRT", auv_sensor_data, shark_state_dict[1], obstacle_array, boundary, habitats)
                 new_trajectory = True
                 t_start = self.curr_time
             else:
