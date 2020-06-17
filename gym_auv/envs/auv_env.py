@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.patches import Circle
 import mpl_toolkits.mplot3d.art3d as Art3d
+import copy
 
 from live3DGraph import Live3DGraph
 
@@ -31,7 +32,8 @@ SHARK_MAX_W = np.pi/8
 DELTA_T = 0.1
 
 # the maximum range between the auv and shark to be considered that the auv has reached the shark
-END_GAME_RADIUS = 5.0
+END_GAME_RADIUS = 3.0
+FOLLOWING_RADIUS = 6.0
 
 # constants for reward
 R_COLLIDE = -10.0       # when the auv collides with an obstacle
@@ -41,7 +43,7 @@ R_TIME = -0.01          # negative reward (the longer for the auv to reach the g
 
 # constants for reward with habitats
 R_COLLIDE_100 = -100.0
-R_JUST_MAINTAIN_DIST = 5.0       
+R_MAINTAIN_DIST = 5.0       
 R_IN_HAB = 10.0    
 R_IN_HAB_BASELINE = 5.0         
 
@@ -212,13 +214,17 @@ class AuvEnv(gym.Env):
         #   - the auv has hit an obstacle
         done = self.check_collision(self.state['auv_pos'])
 
-        visited_habitat_index_array = self.check_in_habitat(self.state['auv_pos'])
+        visited_habitat_index_array = self.check_in_habitat(self.state['auv_pos'], self.habitats_array)
 
-        # update the number of time visited for each habitat
-        for hab_idx in visited_habitat_index_array:
-            self.habitats_array[hab_idx][4] += 1
+        print("================================")
+        print("visited habitat index array")
+        print(visited_habitat_index_array)
+        text = input("stop")
 
-        reward = self.get_reward_with_habitats(self.state['auv_pos'], self.state['shark_pos'], old_range, visited_habitat_index_array )
+        self.habitats_array = self.update_num_time_visited_for_habitats(self.habitats_array, visited_habitat_index_array)
+        self.state['habitats_pos'] = self.habitats_array
+
+        reward = self.get_reward_with_habitats(self.state['auv_pos'], self.state['shark_pos'], old_range, self.habitats_array,visited_habitat_index_array)
         # reward = self.get_range_reward(self.state['auv_pos'], self.state['shark_pos'], old_range)
         # reward = self.get_range_time_reward(self.state[0], self.state[1], old_range, timestep)
         # reward = self.get_binary_reward(self.state[0], self.state[1])
@@ -261,7 +267,16 @@ class AuvEnv(gym.Env):
         else:
             return False
 
+    
+    def within_follow_range(self, auv_pos, shark_pos):
+        auv_shark_range = self.calculate_range(auv_pos, shark_pos)
+        if auv_shark_range <= FOLLOWING_RADIUS:
+            print("Within the following range")
+            return True
+        else:
+            return False
 
+    
     def check_collision(self, auv_pos):
         """
         Check if the auv at the current state is hitting any obstacles
@@ -278,18 +293,29 @@ class AuvEnv(gym.Env):
         return False
 
 
-    def check_in_habitat(self, auv_pos):
+    def check_in_habitat(self, auv_pos, habitats_array):
         """
         """
         visited_hab_idx_array = []
-        for i in range(len(self.habitats_array)):
-            hab = self.habitats_array[i]
+        for i in range(len(habitats_array)):
+            hab = habitats_array[i]
             distance = self.calculate_range(auv_pos, hab)
             if distance <= hab[3]:
                 print("visit habitat #", i)
                 visited_hab_idx_array.append(i)
         return visited_hab_idx_array
     
+
+    def update_num_time_visited_for_habitats(self, habitats_array, visited_habitat_index_array):
+        """
+        """
+        new_habitats_array = copy.deepcopy(habitats_array)
+
+        for hab_idx in visited_habitat_index_array:
+            new_habitats_array[hab_idx][4] += 1
+        
+        return new_habitats_array
+
 
     def get_range_reward(self, auv_pos, shark_pos, old_range):
         """
@@ -354,20 +380,21 @@ class AuvEnv(gym.Env):
             return reward
 
 
-    def get_reward_with_habitats(self, auv_pos, shark_pos, old_range, visited_habitat_index_array):
+    def get_reward_with_habitats(self, auv_pos, shark_pos, old_range, habitats_array, visited_habitat_index_array):
         # if the auv collides with an obstacle
         if self.check_collision(auv_pos):
             return R_COLLIDE_100
         # if the auv maintain FOLLOW_DISTANCE with the shark
         elif self.within_follow_range(auv_pos, shark_pos):
             print("I am within following distance")
-            reward = R_JUST_MAINTAIN_DIST
+            reward = R_MAINTAIN_DIST
             # if the auv has visited any habitat in this time step
             for hab_idx in visited_habitat_index_array:
-                hab = self.habitats_array[hab_idx]
+                hab = habitats_array[hab_idx]
                 num_of_time_visited = hab[4]
                 additional_reward = R_IN_HAB/float(num_of_time_visited) + R_IN_HAB_BASELINE
                 reward += additional_reward
+
                 print("number of time visited")
                 print(num_of_time_visited)
                 print("additional reward")

@@ -41,7 +41,7 @@ SHARK_MIN_Y = 0.0
 SHARK_MAX_Y = DIST * 3
 
 NUM_OF_EPISODES = 10
-MAX_STEP = 10
+MAX_STEP = 20
 
 NUM_OF_EPISODES_TEST = 3
 MAX_STEP_TEST = 1000
@@ -67,7 +67,7 @@ TARGET_UPDATE = 10
 
 NUM_OF_OBSTACLES = 4
 NUM_OF_HABITATS = 4
-STATE_SIZE = 8 + NUM_OF_OBSTACLES * 4 + NUM_OF_HABITATS * 4
+STATE_SIZE = 8 + NUM_OF_OBSTACLES * 4 + NUM_OF_HABITATS * 5
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -184,7 +184,7 @@ def generate_rand_habitats(num_of_habitats):
     for _ in range(num_of_habitats):
         hab_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
         hab_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
-        hab_size = np.random.randint(2,5)
+        hab_size = np.random.randint(8,16)
         habitats_array.append(HabitatState(x = hab_x, y = hab_y, z=-10, size = hab_size))
 
     return habitats_array  
@@ -615,9 +615,15 @@ class DQN():
     def save_real_experiece(self, state, next_state, action, timestep):
         old_range = calculate_range(state['auv_pos'], state['shark_pos'])
 
-        reward = self.em.get_range_reward(next_state['auv_pos'], next_state['shark_pos'], old_range)
+        visited_habitat_index_array = self.em.env.check_in_habitat(next_state['auv_pos'], next_state['habitats_pos'])
+
+        reward = self.em.env.get_reward_with_habitats(next_state['auv_pos'], next_state['shark_pos'], old_range,\
+            next_state['habitats_pos'], visited_habitat_index_array)
 
         self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
+
+        print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
+        text = input("stop")
 
     
     def generate_extra_goals(self, time_step, next_state_array):
@@ -642,18 +648,26 @@ class DQN():
                 'habitats_pos': state['habitats_pos']\
             }
 
+            visited_habitat_index_array = self.em.env.check_in_habitat(next_state['auv_pos'], new_curr_state['habitats_pos'])
+
+            new_habitats_array = self.em.env.update_num_time_visited_for_habitats(new_curr_state['habitats_pos'], visited_habitat_index_array)
+        
             new_next_state = {\
                 'auv_pos': next_state['auv_pos'],\
                 'shark_pos': goal['auv_pos'],\
                 'obstacles_pos': next_state['obstacles_pos'],\
-                'habitats_pos': next_state['habitats_pos']\
+                'habitats_pos': new_habitats_array\
             }
             
             old_range = calculate_range(new_curr_state['auv_pos'], new_curr_state['shark_pos'])
 
-            reward = self.em.get_range_reward(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range)
+            reward = self.em.env.get_reward_with_habitats(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range,\
+                new_next_state['habitats_pos'], visited_habitat_index_array)
             
             self.memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
+
+            print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
+            text = input("stop")
     
 
     def update_neural_net(self):
