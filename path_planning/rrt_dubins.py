@@ -42,7 +42,7 @@ class RRT:
         self.diff_max = diff_max
         self.freq = freq
 
-    def exploring(self, habitats, plot_interval, bin_interval, v, traj_time_stamp=False, test_time=5.0, plan_time=True, weights=[1,-1,-1]):
+    def exploring(self, habitats, plot_interval, bin_interval, v, traj_time_stamp=False, max_plan_time=5.0, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1]):
         """
         rrt path planning without setting a specific goal, rather try to explore the configuration space as much as possible
         calculate cost while expand and keep track of the current optimal cost path
@@ -55,9 +55,9 @@ class RRT:
         opt_cost = [float("inf")]
         opt_path = None
         opt_cost_list = []
-
-        #keep track of the longest path
-        longest_time = 500
+        
+        #keep track of longest traj_time_stamp
+        longest_traj_time = 0
 
         #keep track of the longest single path in the tree to normalize every path length
         peri_boundary = 2 * (self.max_area.x - self.min_area.x) + 2 * (self.max_area.y - self.min_area.y)
@@ -68,10 +68,10 @@ class RRT:
         self.mps_list = [self.start]
 
         self.t_start = time.time()
-        n_expand = math.ceil(test_time / plot_interval)
+        n_expand = math.ceil(max_plan_time / plot_interval)
 
         if traj_time_stamp:
-            time_expand = math.ceil(longest_time / bin_interval)
+            time_expand = math.ceil(max_traj_time / bin_interval)
             for i in range(1, time_expand + 1):
                 self.time_bin[bin_interval * i] = []
             self.time_bin[bin_interval].append(self.start)
@@ -89,15 +89,19 @@ class RRT:
                         ran_index = int(random.uniform(0, len(self.time_bin[bin_interval * ran_bin])))
                         closest_mps = self.time_bin[bin_interval * ran_bin][ran_index]
                     else:
-                        ran_time = random.uniform(0, test_time * self.freq)
+                        ran_time = random.uniform(0, max_plan_time * self.freq)
                         closest_mps = self.get_closest_mps_time(ran_time, self.mps_list)
+                        if closest_mps.traj_time_stamp > max_traj_time:
+                            continue
                 #find the closest motion_plan_state by generating a random motion_plan_state
                 #and find the motion_plan_state with smallest distance
                 else:
                     ran_mps = self.get_random_mps()
                     closest_mps = self.get_closest_mps(ran_mps, self.mps_list)
+                    if closest_mps.traj_time_stamp > max_traj_time:
+                        continue
                 
-                new_mps = self.steer(closest_mps, self.dist_to_end, self.diff_max, self.freq, v, traj_time_stamp)
+                new_mps = self.steer(closest_mps, self.dist_to_end, self.diff_max, self.freq, v, traj_time_stamp)  
 
                 if self.check_collision(new_mps, self.obstacle_list):
                     new_mps.parent = closest_mps
@@ -106,10 +110,16 @@ class RRT:
                     self.mps_list.append(new_mps)
                     #add to time stamp bin
                     if traj_time_stamp:
-                        curr_bin = (new_mps.time_stamp // bin_interval + 1) * bin_interval
-                        if curr_bin > longest_time:
+                        curr_bin = (new_mps.traj_time_stamp // bin_interval + 1) * bin_interval
+                        if curr_bin > max_traj_time:
+                            #continue
                             self.time_bin[curr_bin] = []
                         self.time_bin[curr_bin].append(new_mps)
+                    if new_mps.traj_time_stamp > longest_traj_time:
+                        longest_traj_time = new_mps.traj_time_stamp
+                    #else:
+                    #    if new_mps.traj_time_stamp > max_traj_time:
+                    #        continue    
                     #Question: how to normalize the path length?
                     if new_mps.length != 0:
                         cost = cal_cost.habitat_time_cost_func(path, new_mps.length, self.habitats, peri_boundary, weights=weights)
@@ -119,13 +129,12 @@ class RRT:
                 
             opt_cost_list.append(opt_cost[0])
 
-        #self.plot_performance(time_list, opt_cost_list)
         if int(opt_cost[0]) == 0:
             return None
         return {"path length": opt_path[0], "path": opt_path[1], "cost": opt_cost, "cost list": opt_cost_list}
         
 
-    def planning(self, test_time=5.0, animation=False, min_length = 250, plan_time=True):
+    def planning(self, max_traj_time=5.0, animation=False, min_length = 250, plan_time=True):
         """
         rrt path planning
         animation: flag for animation on or off
@@ -133,12 +142,12 @@ class RRT:
 
         self.mps_list = [self.start]
         self.t_start = time.time()
-        t_end = time.time() + test_time
+        t_end = time.time() + max_traj_time
         while time.time()<t_end:
             #find the closest motion_plan_state by generating a random time stamp and 
             #find the motion_plan_state whose time stamp is closest to it
             if plan_time:
-                ran_time = random.uniform(0, test_time * self.freq)
+                ran_time = random.uniform(0, max_traj_time * self.freq)
                 closest_mps = self.get_closest_mps_time(ran_time, self.mps_list)
             #find the closest motion_plan_state by generating a random motion_plan_state
             #and find the motion_plan_state with smallest distance
@@ -186,9 +195,9 @@ class RRT:
         new_mps.path = dubins_path'''
 
         if traj_time_stamp:
-            new_mps = Motion_plan_state(mps.x, mps.y, theta = mps.theta, time_stamp=mps.time_stamp)
+            new_mps = Motion_plan_state(mps.x, mps.y, theta = mps.theta, traj_time_stamp=mps.traj_time_stamp)
         else:
-            new_mps = Motion_plan_state(mps.x, mps.y, theta = mps.theta, time_stamp=time.time()-self.t_start)
+            new_mps = Motion_plan_state(mps.x, mps.y, theta = mps.theta, plan_time_stamp=time.time()-self.t_start, traj_time_stamp=mps.traj_time_stamp)
 
         new_mps.path = [mps]
 
@@ -217,10 +226,11 @@ class RRT:
                 new_mps.x += delta_x
                 new_mps.y += delta_y
                 if traj_time_stamp:
-                    new_mps.time_stamp += (math.sqrt(delta_x ** 2 + delta_y ** 2)) / velocity
+                    new_mps.traj_time_stamp += (math.sqrt(delta_x ** 2 + delta_y ** 2)) / velocity
                 else:
-                    new_mps.time_stamp = time.time() - self.t_start
-                new_mps.path.append(Motion_plan_state(new_mps.x, new_mps.y, theta=new_mps.theta, time_stamp=new_mps.time_stamp))
+                    new_mps.plan_time_stamp = time.time() - self.t_start
+                    new_mps.traj_time_stamp += (math.sqrt(delta_x ** 2 + delta_y ** 2)) / velocity
+                new_mps.path.append(Motion_plan_state(new_mps.x, new_mps.y, theta=new_mps.theta, traj_time_stamp=new_mps.traj_time_stamp, plan_time_stamp=new_mps.plan_time_stamp))
 
             #d, theta = self.get_distance_angle(new_mps, to_mps)
 
@@ -331,7 +341,7 @@ class RRT:
         return new_mps
     
     def connect_to_goal_curve_alt(self, mps, exp_rate):
-        new_mps = Motion_plan_state(mps.x, mps.y, theta=mps.theta, time_stamp=mps.time_stamp)
+        new_mps = Motion_plan_state(mps.x, mps.y, theta=mps.theta, traj_time_stamp=mps.traj_time_stamp)
         theta_0 = new_mps.theta
         _, theta = self.get_distance_angle(mps, self.goal)
         diff = theta - theta_0
@@ -367,7 +377,7 @@ class RRT:
             new_mps.x = x_C + radius * math.sin(ang_vel * i + theta_0)
             new_mps.y = y_C - radius * math.cos(ang_vel * i + theta_0)
             new_mps.theta = ang_vel * i + theta_0
-            new_mps.path.append(Motion_plan_state(new_mps.x, new_mps.y, theta = new_mps.theta, time_stamp=time.time()-self.t_start))
+            new_mps.path.append(Motion_plan_state(new_mps.x, new_mps.y, theta = new_mps.theta, plan_time_stamp=time.time()-self.t_start))
         
         return new_mps
 
@@ -394,9 +404,9 @@ class RRT:
     def get_closest_mps_time(self, ran_time, mps_list):
         while len(mps_list) > 3:
             left = mps_list[len(mps_list)//2 - 1]
-            left_diff = abs(left.time_stamp - ran_time)
+            left_diff = abs(left.plan_time_stamp - ran_time)
             right = mps_list[len(mps_list)//2 + 1]
-            right_diff = abs(right.time_stamp - ran_time)
+            right_diff = abs(right.plan_time_stamp - ran_time)
 
             index =  len(mps_list)//2 
             if left_diff >= right_diff:
@@ -464,22 +474,23 @@ def main():
     start = Motion_plan_state(10,15)
     goal = Motion_plan_state(7,4)
     boundary = [Motion_plan_state(0,0), Motion_plan_state(100,100)]
-    obstacle_array = [Motion_plan_state(5,7, size=5),Motion_plan_state(14,22, size=3)]
+    obstacle_array = [Motion_plan_state(5,7, size=5),Motion_plan_state(14,22, size=3), Motion_plan_state(50, 20, size=6), Motion_plan_state(60,80, size=3), \
+        Motion_plan_state(20, 80, size=5), Motion_plan_state(75, 40, size=5)]
     habitats = [Motion_plan_state(63,23, size=5), Motion_plan_state(12,45,size=7), Motion_plan_state(51,36,size=5), Motion_plan_state(45,82,size=5),\
         Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
     rrt = RRT(start, goal, obstacle_array, boundary)
     #path = rrt.planning(animation=False, min_length=0)
-    path = rrt.exploring(habitats, 0.5, 5, 1, traj_time_stamp=True, test_time=10.0, plan_time=True, weights=[1,-4.5,-4.5])
+    path = rrt.exploring(habitats, 0.5, 5, 1, True, 10.0, 500.0, True, [1,-4.5, -4.5])
     print(path["cost"])
 
     # Draw final path
-    '''if path is not None:
+    if path is not None:
         plt.figure(1)  
         rrt.draw_graph()
         plt.plot([mps.x for mps in path["path"]], [mps.y for mps in path["path"]], '-r')
         plt.grid(True)
         plt.pause(0.01)
-        plt.show()'''
+        plt.show()
 
 
 if __name__ == '__main__':
