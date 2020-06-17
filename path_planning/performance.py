@@ -133,7 +133,7 @@ def summary_2(start, goal, obstacle_array, boundary, habitats, test_num, test_ti
         elif weights[1] == "random (x,y)":
             plan_time = False
             traj_time_stamp = False
-        result = rrt.exploring(habitats, 0.5, 5, 1, traj_time_stamp=traj_time_stamp, test_time=test_time, plan_time=plan_time, weights=weights[0])
+        result = rrt.exploring(habitats, 0.5, 5, 1, traj_time_stamp=traj_time_stamp, max_plan_time=test_time, max_traj_time=500, plan_time=plan_time, weights=weights[0])
         if result:
             cost = result["cost list"]
             for i in range(len(cost)):
@@ -183,7 +183,7 @@ def summary_3(start, goal, boundary, obstacle_array, habitats, test_num, plan_ti
 def plot_time_stamp(start, goal, boundary, obstacle_array, habitats):
     '''draw time stamp distribution of one rrt_rubins path planning algorithm'''
     rrt = RRT(start, goal, obstacle_array, boundary)
-    result = rrt.exploring(habitats, 0.5, 5, 1, test_time=10.0, weights=[1,-4.5,-4.5])
+    result = rrt.exploring(habitats, 0.5, 5, 1, max_plan_time=10.0, weights=[1,-4.5,-4.5])
     time_stamp_list = result["time stamp"]
     bin_list = time_stamp_list.keys()
     num_time_list = []
@@ -201,7 +201,8 @@ def plot_time_stamp(start, goal, boundary, obstacle_array, habitats):
 start = Motion_plan_state(10,15)
 goal = Motion_plan_state(7,4)
 boundary = [Motion_plan_state(0,0), Motion_plan_state(100,100)]
-obstacle_array = [Motion_plan_state(5,7, size=5),Motion_plan_state(14,22, size=3)]
+obstacle_array = [Motion_plan_state(5,7, size=5),Motion_plan_state(14,22, size=3), Motion_plan_state(55, 25, size=6), Motion_plan_state(70,80, size=5), \
+    Motion_plan_state(20, 80, size=5), Motion_plan_state(75, 30, size=5)]
 habitats = [Motion_plan_state(63,23, size=5), Motion_plan_state(12,45,size=7), Motion_plan_state(51,36,size=5), Motion_plan_state(45,82,size=5),\
     Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
-summary_3(start, goal, boundary, obstacle_array, habitats, 20, 50.0, 0.5)
+summary_3(start, goal, boundary, obstacle_array, habitats, 10, 20.0, 0.5)
