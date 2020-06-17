@@ -182,9 +182,9 @@ def generate_rand_habitats(num_of_habitats):
     """
     habitats_array = []
     for _ in range(num_of_habitats):
-        hab_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
-        hab_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
-        hab_size = np.random.randint(8,16)
+        hab_x = np.random.uniform(AUV_MIN_X, AUV_MAX_X)
+        hab_y = np.random.uniform(AUV_MIN_Y, AUV_MAX_Y)
+        hab_size = np.random.randint(5,11)
         habitats_array.append(HabitatState(x = hab_x, y = hab_y, z=-10, size = hab_size))
 
     return habitats_array  
@@ -622,6 +622,8 @@ class DQN():
 
         self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
 
+        print("**********************")
+        print("real experience")
         print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
         text = input("stop")
 
@@ -666,6 +668,8 @@ class DQN():
             
             self.memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
 
+            print("^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+            print("HER experience")
             print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
             text = input("stop")
     

@@ -43,7 +43,7 @@ R_TIME = -0.01          # negative reward (the longer for the auv to reach the g
 
 # constants for reward with habitats
 R_COLLIDE_100 = -100.0
-R_MAINTAIN_DIST = 5.0       
+R_MAINTAIN_DIST = 10.0       
 R_IN_HAB = 10.0    
 R_IN_HAB_BASELINE = 5.0         
 
@@ -403,6 +403,22 @@ class AuvEnv(gym.Env):
             print("total reward")
             print(reward)
             return reward
+        elif visited_habitat_index_array != []:
+            reward = 0.0
+            for hab_idx in visited_habitat_index_array:
+                hab = habitats_array[hab_idx]
+                num_of_time_visited = hab[4]
+                additional_reward = R_IN_HAB/float(num_of_time_visited) + R_IN_HAB_BASELINE
+                reward += additional_reward
+
+                print("number of time visited")
+                print(num_of_time_visited)
+                print("additional reward")
+                print(additional_reward)
+                print("-----------------------------")
+            print("total reward")
+            print(reward)
+            return reward
         else:
             new_range = self.calculate_range(auv_pos, shark_pos)
             # if auv has gotten closer to the shark, will receive positive reward
@@ -432,6 +448,11 @@ class AuvEnv(gym.Env):
         Reset the environment
             Set the observation to the initial auv and shark position
         """
+        self.habitats_array = []
+        for hab in self.habitats_array_for_rendering:
+            self.habitats_array.append([hab.x, hab.y, hab.z, hab.size, hab.num_of_time_visited])
+        self.habitats_array = np.array(self.habitats_array)
+
         self.state = {
             'auv_pos': np.array([self.auv_init_pos.x, self.auv_init_pos.y, self.auv_init_pos.z, self.auv_init_pos.theta]),\
             'shark_pos': np.array([self.shark_init_pos.x, self.shark_init_pos.y, self.shark_init_pos.z, self.shark_init_pos.theta]),\
