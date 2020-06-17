@@ -184,9 +184,9 @@ class particleFilter:
         y_difference = y_mean - self.y_shark
         range_error = math.sqrt((x_difference**2) + (y_difference **2))
         #alpha_error = math.atan2(y_difference, x_difference)
-        print("error")
-        print(range_error)
-        return range_error
+        #print("error")
+        #print(range_error)
+        return (range_error)
 
     def correct(self, normalize_list, old_coordinates):
         list_of_new_particles = []
@@ -279,33 +279,37 @@ class particleFilter:
             individual_coordinates = []
             #print("particle_coordinates", particle_coordinates)
         return particle_coordinates
-    """
     
     def cluster_over_time_function(self, particles, actual_shark_coordinate_x, actual_shark_coordinate_y, sim_time, list_of_error_mean):
         list_of_answers = []
         count = 0
         for particle in particles:
-            sum = abs(particle.x_p - final_new_shark_coordinate_x[-1]) + abs(particle.y_p - final_new_shark_coordinate_x[-1])
-            if sum <= 1.1* (list_of_error_mean[index_number_of_particles])
+            sum = math.sqrt(((particle.x_p - actual_shark_coordinate_x[-1])**2)  + ((particle.y_p - actual_shark_coordinate_y[-1])**2))
+            if sum <= 1.1* (list_of_error_mean[9]):
                 count += 1
-                if count >= NUMBER_OF_PARTICLES *0.8
+            if count == 560:
+                initial_time = sim_time
+                list_of_answers.append(sim_time)
+            """
+            elif count == 0:
+                difference = sim_time - initial_time
+                if difference >= 1:
                     list_of_answers.append(sim_time)
-        return list_of_answers
-    """
+            """
+            return list_of_answers
+
             
 def main(): 
     NUMBER_OF_PARTICLES = 900
     #change this constant ^^ in the particle class too!
     particles = []
-    
     #test_grapher = Live3DGraph()
     test_grapher_shark = Figure()
     #shark's initial x, y, z, theta
     test_shark = RobotSim(740, 280, -5, 0.1)
-    test_shark.setup("./data/sharkTrackingData.csv", [1])
-
-    x_auv = 740
-    y_auv = 230
+    test_shark.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1,2])
+    x_auv = 0
+    y_auv = 0
     theta = 0 
     # for now, since the auv is stationary, we can just set it like this
     auv_pos = Motion_plan_state(x_auv, y_auv, theta)
@@ -374,10 +378,10 @@ def main():
     x_mean_over_time.append(xy_mean[0])
     y_mean_over_time.append(xy_mean[1])
     #print(x_mean_over_time)
-    print("error (x, y): ", xy_mean)
+    # print("error (x, y): ", xy_mean)
 
     tracking_error_list = []
-    tracking_error_list.append(test_particle.meanError(xy_mean[0], xy_mean[1]))
+    tracking_error_list = tracking_error_list.append(test_particle.meanError(xy_mean[0], xy_mean[1]))
 
     new_particles = test_particle.correct(normalized_weights, particles)
     particles = new_particles
@@ -387,6 +391,7 @@ def main():
 
     loops = 0
     sim_time = 0.0
+    sim_time_list = []
     index_number_of_particles = 0
 
     while True: 
@@ -445,32 +450,20 @@ def main():
         particles = new_particles
 
         sim_time += 0.1
+        sim_time_list.append(sim_time)
 
         xy_mean = test_particle.particleMean(particles)
-        
+        print("mean of all particles (x, y): ", xy_mean)
         x_mean_over_time.append(xy_mean[0])
         y_mean_over_time.append(xy_mean[1])
-        #print(x_mean_over_time)
-        print("error (x, y): ", xy_mean)
-        error = test_particle.meanError(x_mean_over_time[-1], y_mean_over_time[-1]
-        #print(error)
-        tracking_error_list.append(error)
-
 
         final_new_shark_coordinate_x.append(test_particle.x_shark)
         final_new_shark_coordinate_y.append(test_particle.y_shark)
         actual_shark_coordinate_x.append(shark.x_pos_array[-1])
         actual_shark_coordinate_y.append(shark.y_pos_array[-1])
-        list_of_news = test_particle.cluster_over_time_function(particles, actual_shark_coordinate_x, actual_shark_coordinate_y, sim_time, list_of_error_mean)
-        
-        if NUMBER_OF_PARTICLES > 1000:
-                break
+        list_of_error_mean = [30.6571912434255, 15.3476537584506, 10.673935908491, 14.0131348164792, 9.50554975, 10.4405176230198, 10.9698053107658, 11.4691734651412, 8.65145640943371, 9.33960528907452]
+        #list_of_news = test_particle.cluster_over_time_function(particles, actual_shark_coordinate_x, actual_shark_coordinate_y, sim_time, list_of_error_mean)
 
-    sum_errors = sum(tracking_error_list)
-    tracking_error_total = sum_errors/len(tracking_error_list)
-    print("tracking error total", tracking_error_total)
-
-"""
         particle_coordinates = test_particle.particle_coordinates(particles)
         print("+++++++++++++++++++++++++++++++")
         #print(particle_coordinates)
@@ -480,6 +473,8 @@ def main():
         print("===================")
         print(final_new_shark_coordinate_x)
         print("=====================================")
+        if loops >= 280:
+            break
         #print(particle_coordinates)
         
         test_shark.live_graph.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y, actual_shark_coordinate_x, actual_shark_coordinate_y)
@@ -487,10 +482,16 @@ def main():
         plt.pause(.1)
         test_shark.live_graph.ax.clear()
         
+    """
     plt.close()
-    test_grapher_shark.coordinate_plotter(x_mean_over_time, y_mean_over_time, final_new_shark_coordinate_x, final_new_shark_coordinate_y)
+    final_list = test_grapher_shark.coordinate_plotter(x_mean_over_time, y_mean_over_time, final_new_shark_coordinate_x, final_new_shark_coordinate_y, sim_time_list)
+    print(" final sim time list")
+    print(final_list)
     plt.show()
-"""
+    """
+    
+
+
         
 
 if __name__ == "__main__":

@@ -675,17 +675,11 @@ class RobotSim:
             # testing data for displaying particle array
             particle_array = [[0.0, 0.0, 0, 0, 0]]
             
-<<<<<<< HEAD
-            particle_array += [[740 + i, 280 + np.random.randint(-20, 20, dtype='int'), 0, 0, float(i)/50.0] for i in range(50)]
-            
-            particle_array += [[740 + np.random.randint(-20, 20, dtype='int'), 280 + np.random.randint(-20, 20, dtype='int'), 0, 0, 0] for i in range(50)]
-=======
             particle_array += [[np.random.randint(-20, 20, dtype='int'), np.random.randint(-20, 20, dtype='int'), 0, 0, 0] for i in range(50)]
 
             # example of first parameter to update_live_graph function
             planned_traj_array = [["A *", A_star_traj], ["RRT", RRT_traj]]
 
->>>>>>> origin/master
 
             # In order to plot your planned trajectory, you have to wrap your trajectory in another array, where
             #   1st element: the planner's name (either "A *" or "RRT")
@@ -720,10 +714,9 @@ def main():
     test_robot = RobotSim(5.0, 5.0, 0, 0.1)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
-
-    test_robot.setup("./data/sharkTrackingData.csv", [1])
-    test_robot.main_navigation_loop()
     test_robot.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1,2])
+    test_robot.main_navigation_loop()
+    #test_robot.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1,2])
 
     # test_robot.display_auv_trajectory()
 
