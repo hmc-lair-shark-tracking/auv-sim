@@ -14,6 +14,7 @@ import torch.nn.functional as F
 import torchvision.transforms as T  
 
 from motion_plan_state import Motion_plan_state
+from habitatState import HabitatState
 
 # namedtuple allows us to store Experiences as labeled tuples
 Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'))
@@ -184,10 +185,9 @@ def generate_rand_habitats(num_of_habitats):
         hab_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
         hab_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
         hab_size = np.random.randint(2,5)
-        habitats_array.append(Motion_plan_state(x = hab_x, y = hab_y, z=-10, size = hab_size))
+        habitats_array.append(HabitatState(x = hab_x, y = hab_y, z=-10, size = hab_size))
 
     return habitats_array  
-
 
 
 """
@@ -501,6 +501,7 @@ class AuvEnvManager():
             print("reward: ")
             print(reward)
             print("=========================")
+            text = input("stop")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()

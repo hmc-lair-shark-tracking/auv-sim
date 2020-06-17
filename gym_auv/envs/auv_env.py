@@ -41,10 +41,9 @@ R_TIME = -0.01          # negative reward (the longer for the auv to reach the g
 
 # constants for reward with habitats
 R_COLLIDE_100 = -100.0
-R_JUST_MAINTAIN_DIST = 5.0       # when the auv collides with an obstacle
-R_REACHES_NEW_HAB = 15.0         # when the auv arrives at the target
-R_IN_HAB_MAINTAIN_DIST = 0.1           # this is a scaler to help determine immediate reward at a time step
-R_RANGE = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
+R_JUST_MAINTAIN_DIST = 5.0       
+R_IN_HAB = 10.0    
+R_IN_HAB_BASELINE = 5.0         
 
 REPEAT_ACTION_TIME = 5
 
@@ -132,7 +131,7 @@ class AuvEnv(gym.Env):
 
         self.habitats_array = []
         for hab in habitats_array:
-            self.habitats_array.append([hab.x, hab.y, hab.z, hab.size])
+            self.habitats_array.append([hab.x, hab.y, hab.z, hab.size, hab.num_of_time_visited])
         self.habitats_array = np.array(self.habitats_array)
 
         self.observation_space = spaces.Dict({
@@ -213,7 +212,14 @@ class AuvEnv(gym.Env):
         #   - the auv has hit an obstacle
         done = self.check_collision(self.state['auv_pos'])
 
-        reward = self.get_range_reward(self.state['auv_pos'], self.state['shark_pos'], old_range)
+        visited_habitat_index_array = self.check_in_habitat(self.state['auv_pos'])
+
+        # update the number of time visited for each habitat
+        for hab_idx in visited_habitat_index_array:
+            self.habitats_array[hab_idx][4] += 1
+
+        reward = self.get_reward_with_habitats(self.state['auv_pos'], self.state['shark_pos'], old_range, visited_habitat_index_array )
+        # reward = self.get_range_reward(self.state['auv_pos'], self.state['shark_pos'], old_range)
         # reward = self.get_range_time_reward(self.state[0], self.state[1], old_range, timestep)
         # reward = self.get_binary_reward(self.state[0], self.state[1])
 
@@ -256,6 +262,35 @@ class AuvEnv(gym.Env):
             return False
 
 
+    def check_collision(self, auv_pos):
+        """
+        Check if the auv at the current state is hitting any obstacles
+
+        Parameter:
+            auv_pos - a np array [x, y, z, theta]
+        """
+        for obs in self.obstacle_array:
+            distance = self.calculate_range(auv_pos, obs)
+            # obs[3] indicates the size of the obstacle
+            if distance <= obs[3]:
+                print("Hit an obstacle")
+                return True
+        return False
+
+
+    def check_in_habitat(self, auv_pos):
+        """
+        """
+        visited_hab_idx_array = []
+        for i in range(len(self.habitats_array)):
+            hab = self.habitats_array[i]
+            distance = self.calculate_range(auv_pos, hab)
+            if distance <= hab[3]:
+                print("visit habitat #", i)
+                visited_hab_idx_array.append(i)
+        return visited_hab_idx_array
+    
+
     def get_range_reward(self, auv_pos, shark_pos, old_range):
         """
         Return the reward that the auv gets at this state
@@ -274,13 +309,6 @@ class AuvEnv(gym.Env):
             # if auv has gotten closer to the shark, will receive positive reward
             #   else, receive negative reward
             range_diff = old_range - new_range
-
-            # print("^^^^^^^^^^^^^^^^^^^^^^^")
-            # print("old range")
-            # print(old_range)
-            # print("new range")
-            # print(new_range)
-            # print("^^^^^^^^^^^^^^^^^^^^^^^")
             
             reward = R_RANGE * range_diff
             
@@ -326,30 +354,33 @@ class AuvEnv(gym.Env):
             return reward
 
 
-    def get_reward_with_habitats(self, auv_pos, shark_pos, old_range):
-        # if it collides with an obstacle
+    def get_reward_with_habitats(self, auv_pos, shark_pos, old_range, visited_habitat_index_array):
+        # if the auv collides with an obstacle
         if self.check_collision(auv_pos):
             return R_COLLIDE_100
-        # if it finds a new habitat
-        elif self.check_reached_target(auv_pos, shark_pos):
-            return R_ARRIVE
-        # if it's in a habit and it's also within the range
-        elif self.check_collision(auv_pos):
-            return R_COLLIDE
-        # if it's within the range
-        # else
+        # if the auv maintain FOLLOW_DISTANCE with the shark
+        elif self.within_follow_range(auv_pos, shark_pos):
+            print("I am within following distance")
+            reward = R_JUST_MAINTAIN_DIST
+            # if the auv has visited any habitat in this time step
+            for hab_idx in visited_habitat_index_array:
+                hab = self.habitats_array[hab_idx]
+                num_of_time_visited = hab[4]
+                additional_reward = R_IN_HAB/float(num_of_time_visited) + R_IN_HAB_BASELINE
+                reward += additional_reward
+                print("number of time visited")
+                print(num_of_time_visited)
+                print("additional reward")
+                print(additional_reward)
+                print("-----------------------------")
+            print("total reward")
+            print(reward)
+            return reward
         else:
             new_range = self.calculate_range(auv_pos, shark_pos)
             # if auv has gotten closer to the shark, will receive positive reward
             #   else, receive negative reward
             range_diff = old_range - new_range
-
-            # print("^^^^^^^^^^^^^^^^^^^^^^^")
-            # print("old range")
-            # print(old_range)
-            # print("new range")
-            # print(new_range)
-            # print("^^^^^^^^^^^^^^^^^^^^^^^")
             
             reward = R_RANGE * range_diff
             
@@ -368,22 +399,6 @@ class AuvEnv(gym.Env):
         else:
             return -1
     
-
-    def check_collision(self, auv_pos):
-        """
-        Check if the auv at the current state is hitting any obstacles
-
-        Parameter:
-            auv_pos - a np array [x, y, z, theta]
-        """
-        for obs in self.obstacle_array:
-            distance = self.calculate_range(auv_pos, obs)
-            # obs[3] indicates the size of the obstacle
-            if distance <= obs[3]:
-                print("Hit an obstacle")
-                return True
-        return False
-
 
     def reset(self):
         """
