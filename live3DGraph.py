@@ -165,7 +165,7 @@ class Live3DGraph:
             #   but the simulator time interval might be diffent.
             # So we need to increment the index properly so that the newest shark trajectory point is close
             #   to the simulator's current time
-            while shark.index < len(shark.traj_pts_array) and\
+            while shark.index < len(shark.traj_pts_array)-1 and\
                 abs(shark.traj_pts_array[shark.index].time_stamp - sim_time) > (const.SIM_TIME_INTERVAL + 0.1):
                 shark.index += 1
 
