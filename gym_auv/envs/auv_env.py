@@ -40,6 +40,7 @@ R_RANGE = 0.1           # this is a scaler to help determine immediate reward at
 R_TIME = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
 
 # constants for reward with habitats
+R_COLLIDE_100 = -100.0
 R_JUST_MAINTAIN_DIST = 5.0       # when the auv collides with an obstacle
 R_REACHES_NEW_HAB = 15.0         # when the auv arrives at the target
 R_IN_HAB_MAINTAIN_DIST = 0.1           # this is a scaler to help determine immediate reward at a time step
@@ -326,10 +327,11 @@ class AuvEnv(gym.Env):
 
 
     def get_reward_with_habitats(self, auv_pos, shark_pos, old_range):
-        reward = 0.0
         # if it collides with an obstacle
+        if self.check_collision(auv_pos):
+            return R_COLLIDE_100
         # if it finds a new habitat
-        if self.check_reached_target(auv_pos, shark_pos):
+        elif self.check_reached_target(auv_pos, shark_pos):
             return R_ARRIVE
         # if it's in a habit and it's also within the range
         elif self.check_collision(auv_pos):
