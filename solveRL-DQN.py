@@ -27,7 +27,8 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 """
 
 # define the range between the starting point of the auv and shark
-DIST = 200.0
+DIST = 20.0
+SAVE_ORIGINAL_DIST = 20.0
 
 AUV_MIN_X = DIST
 AUV_MAX_X= DIST * 2
@@ -39,8 +40,8 @@ SHARK_MAX_X= DIST * 3
 SHARK_MIN_Y = 0.0
 SHARK_MAX_Y = DIST * 3
 
-NUM_OF_EPISODES = 1000
-MAX_STEP = 1500
+NUM_OF_EPISODES = 10
+MAX_STEP = 10
 
 NUM_OF_EPISODES_TEST = 1000
 MAX_STEP_TEST = 1000
@@ -72,7 +73,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 200
+RENDER_EVERY = 1
+# how many episode should we run a test on the model
+TEST_EVERY = 2
 
 DEBUG = False
 
@@ -170,6 +173,50 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
         obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, z=-5, size = obs_size))
 
     return obstacle_array  
+
+
+def modify_starting_distance(starting_dist):
+    DIST = starting_dist
+
+    AUV_MIN_X = DIST
+    AUV_MAX_X= DIST * 2
+    AUV_MIN_Y = DIST
+    AUV_MAX_Y = DIST * 2
+
+    SHARK_MIN_X = 0.0
+    SHARK_MAX_X= DIST * 3
+    SHARK_MIN_Y = 0.0
+    SHARK_MAX_Y = DIST * 3
+
+
+def restore_original_starting_distance():
+    DIST = SAVE_ORIGINAL_DIST
+
+    AUV_MIN_X = DIST
+    AUV_MAX_X= DIST * 2
+    AUV_MIN_Y = DIST
+    AUV_MAX_Y = DIST * 2
+
+    SHARK_MIN_X = 0.0
+    SHARK_MAX_X= DIST * 3
+    SHARK_MIN_Y = 0.0
+    SHARK_MAX_Y = DIST * 3
+
+
+def calculate_success_and_collision_rate(final_reward_array):
+    success_count = 0
+    collision_count = 0
+    for reward in final_reward_array:
+        if reward == 10.0:
+            success_count += 1
+        elif reward == -10.0:
+            collision_count += 1
+
+    success_rate = float(success_count)/float(final_reward_array) * 100
+
+    collision_rate = float(collision_count)/float(len(final_reward_array)) * 100
+
+    return success_rate, collision_rate
 
 """
 Class for building policy and target neural network
@@ -731,6 +778,9 @@ class DQN():
             if eps % SAVE_EVERY == 0:
                 save_model(self.policy_net, self.target_net)
 
+            if eps % TEST_EVERY == 0:
+                self.test_model_during_training(num_episodes, max_step, 100)
+
         save_model(self.policy_net, self.target_net)
         self.em.close()
         print(self.episode_durations)
@@ -823,12 +873,85 @@ class DQN():
         print("total reward")
         print(total_reward_array)
         print("-----------------")
+    
+
+    def test_model_during_training (self, num_episodes, max_step, starting_dist):
+        # modify the starting distance betweeen the auv and the shark to prepare for testing
+        
+        episode_durations = []
+        final_reward_array = []
+        init_distance_array = []
+
+        # assuming that we are testing the model during training, so we don't need to load the model 
+        self.policy_net.eval()
+        
+        for eps in range(num_episodes):
+            # initialize the starting point of the shark and the auv randomly
+            # receive initial observation state s1 
+            state = self.em.init_env_randomly()
+            
+            init_distance_array.append(calculate_range(state[0], state[1]))
+            episode_durations.append(max_step)
+
+            final_reward_array.append(0.0)
+
+            for t in range(1, max_step):
+                action = self.agent.select_action(state, self.policy_net)
+
+                reward = self.em.take_action(action, t)
+
+                final_reward_array[eps] = reward.item()
+
+                self.em.render(print_state = True, live_graph = False)
+
+                state = self.em.get_state()
+
+                if self.em.done:
+                    episode_durations[eps] = t
+                    break
+               
+            print("+++++++++++++++++++++++++++++")
+            print("Episode # ", eps, "end with reward: ", reward, " used time: ", episode_durations[-1])
+            print("+++++++++++++++++++++++++++++")
+
+        self.em.close()
+
+        self.policy_net.train()
+
+        print("final sums of time")
+        print(episode_durations)
+        print("average time")
+        print(np.mean(episode_durations))
+        print("-----------------")
+
+        text = input("stop")
+
+        print("average initial distances")
+        print(np.mean(init_distance_array))
+        print("-----------------")
+
+        text = input("stop")
+
+        print("final reward")
+        print(final_reward_array)
+        print("-----------------")
+
+        success_rate, collision_rate = calculate_success_and_collision_rate(final_reward_array)
+
+        print("success_rate")
+        print(success_rate)
+        print("collision_rate")
+        print(collision_rate)
+
+        text = input("stop")
+
+        restore_original_starting_distance()
 
     
 def main():
     dqn = DQN(N_V, N_W)
-    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=True)
-    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=False)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False)
+    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=False)
 
 if __name__ == "__main__":
     main()

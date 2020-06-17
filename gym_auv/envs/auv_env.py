@@ -34,7 +34,7 @@ DELTA_T = 0.1
 END_GAME_RADIUS = 3.0
 
 # constants for reward
-R_COLLIDE = -10.0       # when the auv collides with an obstacle
+R_COLLIDE = -100.0       # when the auv collides with an obstacle
 R_ARRIVE = 10.0         # when the auv arrives at the target
 R_RANGE = 0.1           # this is a scaler to help determine immediate reward at a time step
 R_TIME = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
