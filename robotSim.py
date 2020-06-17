@@ -245,7 +245,7 @@ class RobotSim:
             result = path_planning.planning(animation=False)
             if result is not None:
                 path = result[1]
-                cost = cost_tesing.habitat_time_cost_func(path, result[0], self.get_habitats(), weights=[1,5,5])
+                cost = cost_tesing.habitat_num_cost_func(path, result[0], self.get_habitats(), weights=[1,5,5])
                 if cost[0] < cost_min:
                     cost_min = cost[0]
                     shortest_path = path
@@ -489,7 +489,7 @@ class RobotSim:
         return traj_list
 
 
-    def load_shark_testing_trajectories(self, filepath):
+    def load_shark_testing_trajectories(self, x_pos_filepath, y_pos_filepath):
         """
         Load shark tracking data from the csv file specified by the filepath
         Store all the trajectories in an array of SharkTrajectory objects
@@ -500,39 +500,29 @@ class RobotSim:
         """
         shark_testing_trajectories = []
 
-        with open(filepath, newline='') as csvfile:
+        all_sharks_x_pos_array = []
+        all_sharks_y_pos_array = []
+
+
+        with open(x_pos_filepath, newline='') as csvfile:
             data_reader = csv.reader(csvfile, delimiter=',') 
-            line_counter = 0
-            x_pos_array = []
-            x_vel_array = []
-            y_pos_array = []
-            y_vel_array = []
 
             for row in data_reader:
-                # 4 rows are grouped together to represent the states of a shark
-                if line_counter % 4 == 0:
-                    # row 0 contains the x position
-                    x_pos_array = row
-                elif line_counter % 4 == 1:
-                     # row 1 contains the x velocity
-                    x_vel_array = row
-                elif line_counter % 4 == 2:         
-                    # row 2 row contains the y positions
-                    y_pos_array = row
-                elif line_counter % 4 == 3:
-                    y_vel_array = row
-                    shark_testing_trajectories.append(\
-                        SharkTrajectory(line_counter//4, x_pos_array, y_pos_array, x_vel_array, y_vel_array))
+                all_sharks_x_pos_array.append(row)
                 
-                # row 1 contains the velocity in x direction
-                # row 3 contains the velocity in y direction
-                # velocity are not relevant in creating trajectories, so they are ignored
-                line_counter += 1
+        with open(y_pos_filepath, newline='') as csvfile:
+            data_reader = csv.reader(csvfile, delimiter=',') 
+
+            for row in data_reader:
+                all_sharks_y_pos_array.append(row)
+
+        for shark_id in range(len(all_sharks_x_pos_array)):
+            shark_testing_trajectories.append(SharkTrajectory(shark_id, all_sharks_x_pos_array[shark_id], all_sharks_y_pos_array[shark_id]))
         
         return shark_testing_trajectories
 
 
-    def setup(self, data_filepath, shark_id_array = []):
+    def setup(self, x_pos_filepath, y_pos_filepath, shark_id_array = []):
         """
         Run this function if we want to track sharks based on their trajectory data in csv file
 
@@ -542,13 +532,18 @@ class RobotSim:
                 eg. for the sharkTrackingData.csv (with 32 sharks), the available ids have the range [0, 31]
         """
         # load the array of 32 shark trajectories for testing
-        shark_testing_trajectories = self.load_shark_testing_trajectories(data_filepath)
+        shark_testing_trajectories = self.load_shark_testing_trajectories(x_pos_filepath, y_pos_filepath)
         
+        print(shark_testing_trajectories)
+        text = input("stop")
         # based on the id of the shark, build an array of shark that we will track 
         # for this simulation
         self.live_graph.shark_array = list(map(lambda i: shark_testing_trajectories[i],\
             shark_id_array))
         
+        print(self.live_graph.shark_array)
+        text = input("stop")
+
         self.live_graph.load_shark_labels()
     
 
@@ -639,31 +634,35 @@ class RobotSim:
         while self.live_graph.run_sim:
             
             auv_sensor_data = self.get_auv_sensor_measurements()
-            '''print("==================")
+
+            print("==================")
             print("Curr Auv Sensor Measurements [x, y, z, theta, time]: " +\
-                str(auv_sensor_data))'''
+                str(auv_sensor_data))
   
             shark_state_dict = self.get_all_sharks_state()
-            '''print("==================")
-            print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))'''
+            print("==================")
+            print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
 
             has_new_data = self.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
 
 
             if has_new_data == True:
-                '''print("======NEW DATA=======")
+                print("======NEW DATA=======")
                 print("All The Shark Sensor Measurements [range, bearing]: " +\
-                    str(self.shark_sensor_data_dict))'''
+                    str(self.shark_sensor_data_dict))
             
             # example of how to indicate the obstacles and plot them
             obstacle_array = [Motion_plan_state(757,243, size=2),Motion_plan_state(763,226, size=5)]
 
             # testing data for plotting RRT_traj
-            boundary = [Motion_plan_state(0,0), Motion_plan_state(1000,1000)]
+            boundary = [Motion_plan_state(-500, -500), Motion_plan_state(500,500)]
 
             #condition to replan trajectory
             if self.curr_time == 0 or self.curr_time - t_start >= self.replan_time:
+                text = input("before replan")
                 RRT_traj = self.replan_trajectory("RRT", auv_sensor_data, shark_state_dict[1], obstacle_array, boundary)
+                print(RRT_traj)
+                text = input("after replan")
                 new_trajectory = True
                 t_start = self.curr_time
             else:
@@ -712,6 +711,11 @@ class RobotSim:
             #   1st element: the planner's name (either "A *" or "RRT")
             #   2nd element: the list of Motion_plan_state returned by your planner
             # Use the "planned_traj_array" as an example
+            
+            planned_traj_array = []
+            particle_array = []
+            obstacle_array = []
+
             self.plot(show_live_graph, planned_traj_array, particle_array, obstacle_array)
             
             self.time_array.append(self.curr_time)
@@ -734,17 +738,16 @@ class RobotSim:
 
 
 def main():
-
-    pos = create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
-    test_robot = RobotSim(pos[0], pos[1], 0, 0.1)
+    # pos = create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
+    test_robot = RobotSim(0.0, 0.0, 0, 0.1)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
-    test_robot.setup("./data/sharkTrackingData.csv", [1,2])
+    test_robot.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1,2])
 
-    test_robot.display_auv_trajectory()
+    # test_robot.display_auv_trajectory()
 
     # to not show that live_graph, you can pass in "False"
-    # test_robot.main_navigation_loop(False)
+    test_robot.main_navigation_loop(True)
 
 
 if __name__ == "__main__":
