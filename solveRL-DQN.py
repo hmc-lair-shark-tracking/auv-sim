@@ -27,7 +27,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 """
 
 # define the range between the starting point of the auv and shark
-DIST = 20.0
+DIST = 200.0
 
 AUV_MIN_X = DIST
 AUV_MAX_X= DIST * 2
@@ -42,7 +42,7 @@ SHARK_MAX_Y = DIST * 3
 NUM_OF_EPISODES = 1000
 MAX_STEP = 1500
 
-NUM_OF_EPISODES_TEST = 3
+NUM_OF_EPISODES_TEST = 1000
 MAX_STEP_TEST = 1000
 
 N_V = 7
@@ -72,7 +72,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 100
+RENDER_EVERY = 200
 
 DEBUG = False
 
@@ -163,7 +163,7 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
     for _ in range(num_of_obstacles):
         obs_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
         obs_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
-        obs_size = np.random.randint(1,5)
+        obs_size = np.random.randint(1,11)
         while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array):
             obs_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
             obs_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
@@ -808,7 +808,7 @@ class DQN():
 
         print("all the traveled distances")
         print(traveled_dist_array)
-        print("average traveled dissta")
+        print("average traveled distances")
         print(np.mean(traveled_dist_array))
         print("-----------------")
 
@@ -827,8 +827,8 @@ class DQN():
     
 def main():
     dqn = DQN(N_V, N_W)
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False)
-    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=True)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=True)
+    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=False)
 
 if __name__ == "__main__":
     main()
