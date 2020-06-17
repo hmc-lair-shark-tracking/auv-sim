@@ -45,8 +45,8 @@ CLIP_MIN_VAL = 0.0
 NUM_OF_EPISODES = 1000
 MAX_STEP = 1500
 
-NUM_OF_EPISODES_TEST = 3
-MAX_STEP_TEST = 1000
+NUM_OF_EPISODES_TEST = 1000
+MAX_STEP_TEST = 2000
 
 N_V = 7
 N_W = 7
@@ -176,28 +176,35 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
 
 
 def clip_value_to_range(value, target_min, target_max):
-        """
-        From: https://stackoverflow.com/questions/49911206/how-to-restrict-output-of-a-neural-net-to-a-specific-range
-        """
-        # tanh gives you range between -1 and 1, so this gives you range between 0, 2
-        # new_value = value + 1
-        new_value = np.tanh(value) + 1 
-        scale = (target_max - target_min) / 2.0
-        return new_value * scale + target_min
+    """
+    From: https://stackoverflow.com/questions/49911206/how-to-restrict-output-of-a-neural-net-to-a-specific-range
+    """
+    # tanh gives you range between -1 and 1, so this gives you range between 0, 2
+    # new_value = value + 1
+    new_value = np.tanh(value) + 1 
+    scale = (target_max - target_min) / 2.0
+    return new_value * scale + target_min
 
 
 def clip_state_to_range(state):
-        """
-        Parameter:
-            it's a numpy array
-        """
-        new_state_x = clip_value_to_range(state[0], CLIP_MIN_VAL, CLIP_MAX_VAL)
-        new_state_y = clip_value_to_range(state[1], CLIP_MIN_VAL, CLIP_MAX_VAL)
+    """
+    Parameter:
+        state - numpy array
+    """
+    new_state_x = clip_value_to_range(state[0], CLIP_MIN_VAL, CLIP_MAX_VAL)
+    new_state_y = clip_value_to_range(state[1], CLIP_MIN_VAL, CLIP_MAX_VAL)
 
-        new_state = np.array([new_state_x, new_state_y, state[2], state[3]])
+    new_state = np.array([new_state_x, new_state_y, state[2], state[3]])
 
-        return new_state
+    return new_state
+        
+def scale_state(state, scale):
+    new_state_x = state[0] * scale
+    new_state_y = state[1] * scale
 
+    new_state = np.array([new_state_x, new_state_y, state[2], state[3]])
+
+    return new_state
 
 """
 Class for building policy and target neural network
@@ -778,9 +785,9 @@ class DQN():
         self.load_trained_network()
         self.policy_net.eval()
 
-        scale_states = False
-        if DIST > 100:
-            scale_states = True
+        scale = 1.0
+        if DIST > 100.0:
+            scale = 100.0/(DIST*4)
         
         for eps in range(num_episodes):
             # initialize the starting point of the shark and the auv randomly
@@ -798,22 +805,21 @@ class DQN():
             reward = 0
 
             for t in range(1, max_step):
-                print("pre-processed")
-                print(state)
-                scaled_auv_pos = clip_state_to_range(state[0])
-                scaled_shark_pos = clip_state_to_range(state[1])
-                print("scaled position")
-                print(scaled_auv_pos)
-                print(scaled_shark_pos)
+                # print("pre-processed")
+                # print(state)
+                scaled_auv_pos = scale_state(state[0], scale)
+                scaled_shark_pos = scale_state(state[1], scale)
 
-                scaled_state = (scaled_auv_pos, scaled_auv_pos, state[2])
+                scaled_state = (scaled_auv_pos, scaled_shark_pos, state[2])
 
-                print("-----")
-                print("scaled states")
-                print(scaled_state)
+                # print("-----")
+                # print("scaled states")
+                # print(scaled_state)
+                # print("--------------------------")
                 # text = input("stop")
 
                 action = self.agent.select_action(scaled_state, self.policy_net)
+                # action = self.agent.select_action(state, self.policy_net)
 
                 reward = self.em.take_action(action, t)
 
@@ -875,7 +881,7 @@ class DQN():
 def main():
     dqn = DQN(N_V, N_W)
     # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=True)
-    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=True)
+    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=False)
 
 if __name__ == "__main__":
     main()
