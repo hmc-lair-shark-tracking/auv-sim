@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from motion_plan_state import Motion_plan_state
-from cost import Cost
+from path_planning.cost import Cost
 #from shortest_rrt import Shrt_path
 
 show_animation = True

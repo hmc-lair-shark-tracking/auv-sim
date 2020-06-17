@@ -741,10 +741,10 @@ def main():
     # the second parameter specify the ids of sharks that we want to track
     test_robot.setup("./data/sharkTrackingData.csv", [1,2])
 
-    test_robot.display_auv_trajectory()
+    # test_robot.display_auv_trajectory()
 
     # to not show that live_graph, you can pass in "False"
-    # test_robot.main_navigation_loop(False)
+    test_robot.main_navigation_loop(True)
 
 
 if __name__ == "__main__":
