@@ -1,11 +1,16 @@
-import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.widgets import Button
 from matplotlib.widgets import CheckButtons
 from matplotlib.patches import Rectangle
-import numpy as np
+from catalina import create_cartesian 
+from motion_plan_state import Motion_plan_state
 
+import numpy as np
 import constants as const
+import matplotlib.pyplot as plt
+import matplotlib.path as mpath
+import matplotlib.patches as mpatches
+import catalina
 
 """
 Uses matplotlib to generate live 3D Graph while the simulator is running
@@ -160,7 +165,7 @@ class Live3DGraph:
             #   but the simulator time interval might be diffent.
             # So we need to increment the index properly so that the newest shark trajectory point is close
             #   to the simulator's current time
-            while shark.index < len(shark.traj_pts_array) and\
+            while shark.index < len(shark.traj_pts_array)-1 and\
                 abs(shark.traj_pts_array[shark.index].time_stamp - sim_time) > (const.SIM_TIME_INTERVAL + 0.1):
                 shark.index += 1
 
@@ -363,5 +368,63 @@ class Live3DGraph:
         plt.title('Summary of the auv and shark trajectories during the simulation')
 
         plt.legend()
+
+        plt.show()
+
+    def plot_2d_astar_traj(self, astar_x_array, astar_y_array):
+        """
+        Plot a trajectory made by A* algorithm with defined boundaries and obstacles
+
+        Parameter:
+            astar_x_array: a list of position tuples of two elements (x, y) in cartesian coordinates 
+            astar_y_array: a list of position tuples of two elements (x, y) in cartesian coordinates 
+        """
+
+        plt.close()
+        
+        fig, ax = plt.subplots()
+
+        # plot the boundaries as polygon lines
+        Path = mpath.Path
+        path_data = []
+
+        for i in range(len(catalina.BOUNDARIES)): 
+            pos = create_cartesian((catalina.BOUNDARIES[i].x, catalina.BOUNDARIES[i].y), catalina.ORIGIN_BOUND)
+            if i == 0: 
+                path_data.append((Path.MOVETO, pos))
+            else:
+                path_data.append((Path.LINETO, pos))
+
+        last = create_cartesian((catalina.BOUNDARIES[0].x, catalina.BOUNDARIES[0].y), catalina.ORIGIN_BOUND)
+        path_data.append((Path.CLOSEPOLY, last))
+
+        codes, verts = zip(*path_data)
+        path = mpath.Path(verts, codes)
+        patch = mpatches.PathPatch(path, facecolor=None, alpha=0)
+
+        ax.add_patch(patch) 
+
+        # plot obstacels as circles 
+        for obs in catalina.OBSTACLES:
+            pos_circle = create_cartesian((obs.x, obs.y), catalina.ORIGIN_BOUND)
+            ax.add_patch(plt.Circle(pos_circle, obs.size, color = '#000000', fill = False))
+        
+        # plot boats as circles
+        for boat in catalina.BOATS:
+            pos_boat = create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
+            ax.add_patch(plt.Circle(pos_boat, boat.size, color = '#000000', fill = False))
+        
+        for habitat in catalina.HABITATS:
+            pos_habitat = create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
+            ax.add_patch(plt.Circle(pos_habitat, habitat.size, color = 'b', fill = False))
+        
+        x, y = zip(*path.vertices)
+        line, = ax.plot(x, y, 'go-')
+
+        ax.grid()
+        ax.axis('equal')
+
+        # plot trajectory
+        plt.plot(astar_x_array, astar_y_array, marker = ',', color = 'r', label='auv')
 
         plt.show()
