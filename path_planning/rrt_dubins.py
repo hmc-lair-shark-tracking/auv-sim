@@ -5,10 +5,16 @@ import time
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
+import matplotlib.path as mpath
+import matplotlib.patches as mpatches
 import numpy as np
+from shapely.wkt import loads as load_wkt 
+from shapely.geometry import Polygon, Point
 
 from motion_plan_state import Motion_plan_state
-from path_planning.cost import Cost
+
+from cost import Cost
+import catalina
 #from shortest_rrt import Shrt_path
 
 show_animation = True
@@ -18,19 +24,46 @@ class RRT:
     """
     Class for RRT planning
     """
-    def __init__(self, initial_location, goal_location, obstacle_list, boundary, exp_rate = 1, dist_to_end = 1, diff_max = 0.5, freq = 20):
+    def __init__(self, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 20):
         '''setting parameters:
             initial_location: initial Motion_plan_state of AUV, [x, y, z, theta, v, w, time_stamp]
             goal_location: Motion_plan_state of the shark, [x, y, z]
             obstacle_list: Motion_plan_state of obstacles [[x1, y1, z1, size1], [x2, y2, z2, size2] ...]
             boundary: max & min Motion_plan_state of the configuration space [[x_min, y_min, z_min],[x_max, y_max, z_max]]'''
-        self.start = initial_location
-        self.goal = goal_location
-        self.min_area = boundary[0]
-        self.max_area = boundary[1]
-        self.obstacle_list = obstacle_list
-        self.mps_list = [] # a list of motion_plan_state
+        #initialize start, goal, obstacle, boundary, habitats for path planning
+        start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
+        self.start = Motion_plan_state(start[0], start[1])
+
+        goal = catalina.create_cartesian(catalina.GOAL, catalina.ORIGIN_BOUND)
+        self.start = Motion_plan_state(goal[0], goal[1])
+
+        self.boundary = []
+        for b in catalina.BOUNDARIES:
+            pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
+            self.boundary.append(Motion_plan_state(pos[0], pos[1]))
+        #initialize corners for boundaries
+        coords = []
+        for corner in self.boundary: 
+            coords.append((corner.x, corner.y))
+        self.boundary_poly = Polygon(coords)
+    
+        self.obstacles = []
+        for ob in catalina.OBSTACLES:
+            pos = catalina.create_cartesian((ob.x, ob.y), catalina.ORIGIN_BOUND)
+            self.obstacles.append(Motion_plan_state(pos[0], pos[1], size=ob.size))
+        self.boat_list = []
+        for boat in catalina.BOATS:
+            pos = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
+            self.boat_list.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
+        self.obstacle_list = self.obstacles + self.boat_list
+
+        #testing data for habitats
         self.habitats = []
+        for habitat in catalina.HABITATS:
+            pos = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
+            self.habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
+        
+        self.mps_list = [] # a list of motion_plan_state
         self.time_bin = {}
 
         #if minimum path length is not achieved within maximum iteration, return the latest path
@@ -42,14 +75,13 @@ class RRT:
         self.diff_max = diff_max
         self.freq = freq
 
-    def exploring(self, habitats, plot_interval, bin_interval, v, traj_time_stamp=False, max_plan_time=5.0, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1]):
+    def exploring(self, plot_interval, bin_interval, v, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1]):
         """
         rrt path planning without setting a specific goal, rather try to explore the configuration space as much as possible
         calculate cost while expand and keep track of the current optimal cost path
         max_iter: maximum iteration for the tree to expand
         plan_time: expand by randomly picking a time stamp and find the motion_plan_state along the path with smallest time difference
         """
-        self.habitats = habitats
 
         #keep track of the motion_plan_state whose path is optimal
         opt_cost = [float("inf")]
@@ -60,7 +92,7 @@ class RRT:
         longest_traj_time = 0
 
         #keep track of the longest single path in the tree to normalize every path length
-        peri_boundary = 2 * (self.max_area.x - self.min_area.x) + 2 * (self.max_area.y - self.min_area.y)
+        peri_boundary = self.cal_boundary_peri()
 
         #initialize cost function
         cal_cost = Cost()
@@ -100,9 +132,8 @@ class RRT:
                     closest_mps = self.get_closest_mps(ran_mps, self.mps_list)
                     if closest_mps.traj_time_stamp > max_traj_time:
                         continue
-                
                 new_mps = self.steer(closest_mps, self.dist_to_end, self.diff_max, self.freq, v, traj_time_stamp)  
-
+                
                 if self.check_collision(new_mps, self.obstacle_list):
                     new_mps.parent = closest_mps
                     path = self.generate_final_course(new_mps)
@@ -128,7 +159,7 @@ class RRT:
                             opt_path = [new_mps.length, path]
                 
             opt_cost_list.append(opt_cost[0])
-
+        print(longest_traj_time)
         if int(opt_cost[0]) == 0:
             return None
         return {"path length": opt_path[0], "path": opt_path[1], "cost": opt_cost, "cost list": opt_cost_list}
@@ -280,8 +311,13 @@ class RRT:
         return path
 
     def get_random_mps(self, size_max=15):
-        ran_x = random.uniform(self.min_area.x, self.max_area.x)
-        ran_y = random.uniform(self.min_area.y, self.max_area.y)
+        x_max = max([mps.x for mps in self.boundary])
+        x_min = min([mps.x for mps in self.boundary])
+        y_max = max([mps.y for mps in self.boundary])
+        y_min = min([mps.y for mps in self.boundary])
+
+        ran_x = random.uniform(x_min, x_max)
+        ran_y = random.uniform(y_min, y_max)
         ran_theta = random.uniform(-math.pi, math.pi)
         ran_size = random.uniform(0, size_max)
         mps = Motion_plan_state(ran_x, ran_y, theta=ran_theta, size=ran_size)
@@ -289,29 +325,62 @@ class RRT:
         
         return mps
 
-    def draw_graph(self, rnd=None):
-        plt.clf()
+    def draw_graph(self, traj_path, rnd=None):
+        #plt.clf()
+        
+        _, ax = plt.subplots()
         # for stopping simulation with the esc key.
         plt.gcf().canvas.mpl_connect('key_release_event',
                                      lambda event: [exit(0) if event.key == 'escape' else None])
         if rnd is not None:
             plt.plot(rnd.x, rnd.y, "^k")
+
+        # plot the boundaries as polygon lines
+        Path = mpath.Path
+        path_data = []
+
+        for i in range(len(catalina.BOUNDARIES)): 
+            pos = catalina.create_cartesian((catalina.BOUNDARIES[i].x, catalina.BOUNDARIES[i].y), catalina.ORIGIN_BOUND)
+            if i == 0: 
+                path_data.append((Path.MOVETO, pos))
+            else:
+                path_data.append((Path.LINETO, pos))
+
+        last = catalina.create_cartesian((catalina.BOUNDARIES[0].x, catalina.BOUNDARIES[0].y), catalina.ORIGIN_BOUND)
+        path_data.append((Path.CLOSEPOLY, last))
+
+        codes, verts = zip(*path_data)
+        path = mpath.Path(verts, codes)
+        patch = mpatches.PathPatch(path, facecolor=None, alpha=0)
+
+        ax.add_patch(patch)
+
         for mps in self.mps_list:
             if mps.parent:
                 plt.plot([point.x for point in mps.path], [point.y for point in mps.path], '-g')
 
-        for obstacle in self.obstacle_list:
-            self.plot_circle(obstacle.x, obstacle.y, obstacle.size)
+        # plot obstacels as circles 
+        for obs in catalina.OBSTACLES:
+            pos_circle = catalina.create_cartesian((obs.x, obs.y), catalina.ORIGIN_BOUND)
+            ax.add_patch(plt.Circle(pos_circle, obs.size, color = '#000000', fill = False))
+        
+        # plot boats as circles
+        for boat in catalina.BOATS:
+            pos_boat = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
+            ax.add_patch(plt.Circle(pos_boat, boat.size, color = '#000000', fill = False))
+        
+        for habitat in catalina.HABITATS:
+            pos_habitat = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
+            ax.add_patch(plt.Circle(pos_habitat, habitat.size, color = 'b', fill = False))
 
-        for habitat in self.habitats:
-            self.plot_circle(habitat.x, habitat.y, habitat.size, color="-r")
-
+        ax.grid()
+        ax.axis('equal')
         plt.plot(self.start.x, self.start.y, "xr")
-        #plt.plot(self.goal.x, self.goal.y, "xr")
-        plt.axis("equal")
-        plt.axis([self.min_area.x, self.max_area.x, self.min_area.y, self.max_area.y])
+        plt.plot([mps.x for mps in traj_path], [mps.y for mps in traj_path], '-r')
         plt.grid(True)
-        plt.pause(0.01)
+        plt.show()
+        #plt.plot(self.goal.x, self.goal.y, "xr")
+        # plot trajectory
 
     @staticmethod
     def plot_circle(x, y, size, color="-b"):  # pragma: no cover
@@ -431,8 +500,8 @@ class RRT:
                 return False  # collision
         
         for point in mps.path:
-            if point.x < self.min_area.x or point.x > self.max_area.x \
-                or point.y < self.min_area.y or point.y > self.max_area.y:
+            point = Point(point.x, point.y)
+            if not point.within(self.boundary_poly):
                 return False
 
         return True  # safe
@@ -442,7 +511,6 @@ class RRT:
             d, _ = self.get_distance_angle(obstacle, mps)
             if d <= obstacle.size:
                 return False
-        
         return True
 
     def get_distance_angle(self, start_mps, end_mps):
@@ -459,10 +527,17 @@ class RRT:
             length += math.sqrt((path[i].x-path[i-1].x)**2 + (path[i].y-path[i-1].y)**2)
         return length
     
+    def cal_boundary_peri(self):
+        peri = 0
+        for i in range(len(self.boundary)-1):
+            dist, _ = self.get_distance_angle(self.boundary[i], self.boundary[i+1])
+            peri += dist
+        
+        return peri
+    
     def plot_performance(self, time_list, perf_list):
-        fig, ax = plt.subplots()
+        _, ax = plt.subplots()
         ax.plot(time_list, perf_list)
-
         # Add some text for labels, title and custom x-axis tick labels, etc.
         ax.set_ylabel('optimal sum cost')
         ax.set_title('RRT performance')
@@ -471,26 +546,14 @@ class RRT:
         plt.show()
 
 def main():
-    start = Motion_plan_state(10,15)
-    goal = Motion_plan_state(7,4)
-    boundary = [Motion_plan_state(0,0), Motion_plan_state(100,100)]
-    obstacle_array = [Motion_plan_state(5,7, size=5),Motion_plan_state(14,22, size=3), Motion_plan_state(50, 20, size=6), Motion_plan_state(60,80, size=3), \
-        Motion_plan_state(20, 80, size=5), Motion_plan_state(75, 40, size=5)]
-    habitats = [Motion_plan_state(63,23, size=5), Motion_plan_state(12,45,size=7), Motion_plan_state(51,36,size=5), Motion_plan_state(45,82,size=5),\
-        Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
-    rrt = RRT(start, goal, obstacle_array, boundary)
+    rrt = RRT()
     #path = rrt.planning(animation=False, min_length=0)
-    path = rrt.exploring(habitats, 0.5, 5, 1, True, 10.0, 500.0, True, [1,-4.5, -4.5])
+    path = rrt.exploring(0.5, 5, 1, True, 10.0, 500.0, True, [1, -4.5, -4.5])
     print(path["cost"])
 
     # Draw final path
-    if path is not None:
-        plt.figure(1)  
-        rrt.draw_graph()
-        plt.plot([mps.x for mps in path["path"]], [mps.y for mps in path["path"]], '-r')
-        plt.grid(True)
-        plt.pause(0.01)
-        plt.show()
+    rrt.draw_graph(path["path"])
+        
 
 
 if __name__ == '__main__':

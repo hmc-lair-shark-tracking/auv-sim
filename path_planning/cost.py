@@ -93,6 +93,7 @@ class Cost:
         for i in range(len(habitats)):
             for mps in path:
                 dist = math.sqrt((habitats[i].x-mps.x) **2 + (habitats[i].y-mps.y) **2)
+                #print(dist, habitats[i].size)
                 if dist <= habitats[i].size:
                     visited[i+1] = True
                     cost[2] += w3
