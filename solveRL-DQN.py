@@ -31,21 +31,11 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 20.0
 
-AUV_MIN_X = DIST
-AUV_MAX_X= DIST * 2
-AUV_MIN_Y = DIST
-AUV_MAX_Y = DIST * 2
+NUM_OF_EPISODES = 10
+MAX_STEP = 10
 
-SHARK_MIN_X = 0.0
-SHARK_MAX_X= DIST * 3
-SHARK_MIN_Y = 0.0
-SHARK_MAX_Y = DIST * 3
-
-NUM_OF_EPISODES = 1000
-MAX_STEP = 1000
-
-NUM_OF_EPISODES_TEST = 3
-MAX_STEP_TEST = 1000
+NUM_OF_EPISODES_TEST = 10
+MAX_STEP_TEST = 10
 
 N_V = 7
 N_W = 7
@@ -75,7 +65,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 200
+RENDER_EVERY = 250
+# how many episode should we run a test on the model
+TEST_EVERY = 2
 
 DEBUG = False
 
@@ -162,20 +154,20 @@ def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_p
     return auv_overlaps or shark_overlaps or obs_overlaps
 
 
-def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
+def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shark_min_x, shark_max_x,  shark_min_y, shark_max_y):
     """
     """
     obstacle_array = []
     for _ in range(num_of_obstacles):
-        obs_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
-        obs_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
+        obs_x = np.random.uniform(shark_min_x, shark_max_x)
+        obs_y = np.random.uniform(shark_min_y, shark_max_y)
         obs_size = np.random.randint(1,5)
         while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array):
-            obs_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
-            obs_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
+            obs_x = np.random.uniform(shark_min_x, shark_max_x)
+            obs_y = np.random.uniform(shark_min_y, shark_max_y)
         obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, z=-5, size = obs_size))
 
-    return obstacle_array  
+    return obstacle_array   
 
 
 def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
@@ -190,17 +182,17 @@ def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
     return hab_overlaps
 
 
-def generate_rand_habitats(num_of_habitats):
+def generate_rand_habitats(num_of_habitats, shark_min_x, shark_max_x,  shark_min_y, shark_max_y):
     """
     """
     habitats_array = []
     for _ in range(num_of_habitats):
-        hab_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
-        hab_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
+        hab_x = np.random.uniform(shark_min_x, shark_max_x)
+        hab_y = np.random.uniform(shark_min_y, shark_max_y)
         hab_size = np.random.randint(4,11)
         while validate_new_habitat([hab_x, hab_y], hab_size, habitats_array):
-            hab_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
-            hab_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
+            hab_x = np.random.uniform(shark_min_x, shark_max_x)
+            hab_y = np.random.uniform(shark_min_y, shark_max_y)
         habitats_array.append(HabitatState(x = hab_x, y = hab_y, z=-10, size = hab_size))
 
     return habitats_array  
@@ -445,13 +437,23 @@ class AuvEnvManager():
         self.possible_actions = self.env.actions_range(N_v, N_w)
 
     
-    def init_env_randomly(self):
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(AUV_MIN_X, AUV_MAX_X), y = np.random.uniform(AUV_MIN_Y, AUV_MAX_Y), z = -5.0, theta = 0)
-        shark_init_pos = Motion_plan_state(x = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y), y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
-        obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES)
-        habitats_array = generate_rand_habitats(NUM_OF_HABITATS)
+    def init_env_randomly(self, dist = DIST):
+        auv_min_x = dist
+        auv_max_x = dist * 2
+        auv_min_y = dist
+        auv_max_y = dist * 2
 
-        
+        shark_min_x = 0.0
+        shark_max_x = dist * 3
+        shark_min_y = 0.0
+        shark_max_y = dist * 3
+
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = 0)
+        shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+        obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
+        habitats_array = generate_rand_habitats(NUM_OF_HABITATS, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
+
+
         print("===============================")
         print("Starting Positions")
         print(auv_init_pos)
@@ -461,6 +463,7 @@ class AuvEnvManager():
         print("-")
         print(habitats_array)
         print("===============================")
+
         if DEBUG:
             text = input("stop")
 
@@ -632,6 +635,32 @@ class DQN():
         self.target_net.load_state_dict(torch.load('checkpoint_target.pth'))
 
 
+    def plot_total_rewards (self, starting_distance, episode_array, total_reward_array, collision_rate_array):
+        # close plot if there is any
+        plt.close()
+
+        fig = plt.figure(figsize= [10, 8])
+
+        ax_r = fig.add_subplot(2, 1, 1)
+        ax_c = fig.add_subplot(2, 1, 2)
+
+        ax_r.plot(episode_array, total_reward_array)
+        ax_c.plot(episode_array, collision_rate_array)
+
+        ax_r.scatter(episode_array, total_reward_array, color='b')
+        ax_c.scatter(episode_array, collision_rate_array, color='b')
+
+        ax_r.set_title("total reward vs episodes at range = " + str(starting_distance) + "m")
+        ax_c.set_title("collision rate vs episodes at range = " + str(starting_distance) + "m")
+
+        ax_r.set_ylabel("total reward")
+
+        ax_c.set_xlabel("number of episodes trained")
+        ax_c.set_ylabel("collision rate (%)")
+
+        plt.show()
+
+
     def save_real_experiece(self, state, next_state, action, timestep):
         old_range = calculate_range(state['auv_pos'], state['shark_pos'])
 
@@ -733,15 +762,19 @@ class DQN():
 
 
     def train(self, num_episodes, max_step, load_prev_training = False, use_HER = True):
-        self.episode_durations = []
-        self.avg_loss_in_training = []
+        episode_durations = []
+        avg_loss_in_training = []
         total_reward_in_training = []
+
+        episodes_that_got_tested = []
+        avg_total_reward_in_testing = []
+        collision_rate_array = []
 
         if load_prev_training:
             # if we want to continue training an already trained network
             self.load_trained_network()
         
-        for eps in range(num_episodes):
+        for eps in range(1, num_episodes+1):
             # initialize the starting point of the shark and the auv randomly
             # receive initial observation state s1 
             state = self.em.init_env_randomly()
@@ -777,7 +810,7 @@ class DQN():
                     iteration = t
                     break
             
-            self.episode_durations.append(iteration)
+            episode_durations.append(iteration)
 
             total_reward_in_training.append(eps_reward)
 
@@ -801,7 +834,7 @@ class DQN():
 
             if self.loss_in_eps != []:
                 avg_loss = np.mean(self.loss_in_eps)
-                self.avg_loss_in_training.append(avg_loss)
+                avg_loss_in_training.append(avg_loss)
                 print("+++++++++++++++++++++++++++++")
                 print("Episode # ", eps, "end with reward: ", score, "average loss", avg_loss, " used time: ", iteration)
                 print("+++++++++++++++++++++++++++++")
@@ -817,18 +850,40 @@ class DQN():
             if eps % SAVE_EVERY == 0:
                 save_model(self.policy_net, self.target_net)
 
+            if eps % TEST_EVERY == 0:
+                episodes_that_got_tested.append(eps)
+
+                avg_total_reward, collision_rate = self.test_model_during_training(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, DIST)
+
+                avg_total_reward_in_testing.append(avg_total_reward)
+                collision_rate_array.append(collision_rate)
+
+                
         save_model(self.policy_net, self.target_net)
+
         self.em.close()
+
+        self.plot_total_rewards(DIST, episodes_that_got_tested, avg_total_reward_in_testing, collision_rate_array)
+
         print("episode duration")
-        print(self.episode_durations)
+        print(episode_durations)
         text = input("stop")
 
         print("average loss")
-        print(self.avg_loss_in_training)
+        print(avg_loss_in_training)
         text = input("stop")
 
-        print("total reward")
+        print("total reward in training")
         print(total_reward_in_training)
+
+        text = input("stop")
+
+        print("episodes that gets tested")
+        print(episodes_that_got_tested)
+        text = input("stop")
+
+        print("avg total reward in testing")
+        print(avg_total_reward_in_testing)
 
     
     def test(self, num_episodes, max_step, show_live_graph = False):
@@ -918,11 +973,62 @@ class DQN():
         print(total_reward_array)
         print("-----------------")
 
+
+    def test_model_during_training (self, num_episodes, max_step, starting_dist):
+        # modify the starting distance betweeen the auv and the shark to prepare for testing
+        episode_durations = []
+        total_reward_array = []
+        collision_count = 0
+
+        # assuming that we are testing the model during training, so we don't need to load the model 
+        self.policy_net.eval()
+        
+        for eps in range(num_episodes):
+            # initialize the starting point of the shark and the auv randomly
+            # receive initial observation state s1 
+            state = self.em.init_env_randomly(starting_dist)
+            
+            episode_durations.append(max_step)
+
+            eps_reward = 0.0
+
+            for t in range(1, max_step):
+                action = self.agent.select_action(state, self.policy_net)
+
+                reward = self.em.take_action(action, t)
+
+                eps_reward += reward.item()
+
+                self.em.render(print_state = False, live_graph = False)
+
+                state = self.em.get_state()
+
+                if self.em.done:
+                    # because the only way for an episode to terminate is when collision happens,
+                    # we can count the number of collisions this way
+                    collision_count += 1
+                    episode_durations[eps] = t
+                    break
+               
+            print("+++++++++++++++++++++++++++++")
+            print("Test Episode # ", eps, "end with reward: ", eps_reward, " used time: ", episode_durations[-1])
+            print("+++++++++++++++++++++++++++++")
+
+            total_reward_array.append(eps_reward)
+
+        self.policy_net.train()
+
+        avg_total_reward = np.mean(total_reward_array)
+
+        collision_rate = float(collision_count) / float(num_episodes) * 100
+
+        return avg_total_reward, collision_rate
     
+
 def main():
     dqn = DQN(N_V, N_W)
-    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False)
-    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=True)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False)
+    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=True)
 
 if __name__ == "__main__":
     main()

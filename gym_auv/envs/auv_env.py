@@ -268,7 +268,7 @@ class AuvEnv(gym.Env):
     def within_follow_range(self, auv_pos, shark_pos):
         auv_shark_range = self.calculate_range(auv_pos, shark_pos)
         if auv_shark_range <= FOLLOWING_RADIUS:
-            print("Within the following range")
+            # print("Within the following range")
             return True
         else:
             return False
@@ -298,7 +298,7 @@ class AuvEnv(gym.Env):
             hab = habitats_array[i]
             distance = self.calculate_range(auv_pos, hab)
             if distance <= hab[3]:
-                print("visit habitat #", i)
+                # print("visit habitat #", i)
                 visited_hab_idx_array.append(i)
         return visited_hab_idx_array
     
