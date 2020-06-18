@@ -12,6 +12,7 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T  
+import copy
 
 from motion_plan_state import Motion_plan_state
 from habitatState import HabitatState
@@ -40,8 +41,8 @@ SHARK_MAX_X= DIST * 3
 SHARK_MIN_Y = 0.0
 SHARK_MAX_Y = DIST * 3
 
-NUM_OF_EPISODES = 10
-MAX_STEP = 20
+NUM_OF_EPISODES = 1000
+MAX_STEP = 1000
 
 NUM_OF_EPISODES_TEST = 3
 MAX_STEP_TEST = 1000
@@ -74,9 +75,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 1
+RENDER_EVERY = 200
 
-DEBUG = True
+DEBUG = False
 
 """
 ============================================================================
@@ -177,14 +178,29 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
     return obstacle_array  
 
 
+def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
+    """
+    Helper function for checking whether the newly habitat generated is valid or not
+    """
+    hab_overlaps = False
+    for hab in habitats_array:
+        if calculate_range([hab.x, hab.y], new_habitat) <= (new_hab_size + hab.size):
+            hab_overlaps = True
+            break
+    return hab_overlaps
+
+
 def generate_rand_habitats(num_of_habitats):
     """
     """
     habitats_array = []
     for _ in range(num_of_habitats):
-        hab_x = np.random.uniform(AUV_MIN_X, AUV_MAX_X)
-        hab_y = np.random.uniform(AUV_MIN_Y, AUV_MAX_Y)
-        hab_size = np.random.randint(5,11)
+        hab_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
+        hab_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
+        hab_size = np.random.randint(4,11)
+        while validate_new_habitat([hab_x, hab_y], hab_size, habitats_array):
+            hab_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
+            hab_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
         habitats_array.append(HabitatState(x = hab_x, y = hab_y, z=-10, size = hab_size))
 
     return habitats_array  
@@ -539,7 +555,11 @@ class AuvEnvManager():
 
         return torch.tensor([reward], device=self.device).float()
 
+    def get_reward_with_habitats(self, auv_pos, shark_pos, old_range, habitats_array, visited_habitat_index_array):
 
+        reward = self.env.get_reward_with_habitats(auv_pos, shark_pos, old_range, habitats_array, visited_habitat_index_array)
+
+        return torch.tensor([reward], device=self.device).float()
 
 """
 Use QValues class's 
@@ -617,15 +637,20 @@ class DQN():
 
         visited_habitat_index_array = self.em.env.check_in_habitat(next_state['auv_pos'], next_state['habitats_pos'])
 
-        reward = self.em.env.get_reward_with_habitats(next_state['auv_pos'], next_state['shark_pos'], old_range,\
+        reward = self.em.get_reward_with_habitats(next_state['auv_pos'], next_state['shark_pos'], old_range,\
             next_state['habitats_pos'], visited_habitat_index_array)
 
         self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
 
-        print("**********************")
-        print("real experience")
-        print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
-        text = input("stop")
+        # print("**********************")
+        # print("state")
+        # print(state)
+        # print("next state")
+        # print(next_state)
+        # print("------------")
+        # print("real experience")
+        # print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
+        # text = input("stop")
 
     
     def generate_extra_goals(self, time_step, next_state_array):
@@ -663,15 +688,20 @@ class DQN():
             
             old_range = calculate_range(new_curr_state['auv_pos'], new_curr_state['shark_pos'])
 
-            reward = self.em.env.get_reward_with_habitats(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range,\
+            reward = self.em.get_reward_with_habitats(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range,\
                 new_next_state['habitats_pos'], visited_habitat_index_array)
             
             self.memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
 
-            print("^^^^^^^^^^^^^^^^^^^^^^^^^^^")
-            print("HER experience")
-            print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
-            text = input("stop")
+            # print("^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+            # print("state")
+            # print(new_curr_state)
+            # print("next state")
+            # print(new_next_state)
+            # print("------------")
+            # print("HER experience")
+            # print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
+            # text = input("stop")
     
 
     def update_neural_net(self):
@@ -705,6 +735,7 @@ class DQN():
     def train(self, num_episodes, max_step, load_prev_training = False, use_HER = True):
         self.episode_durations = []
         self.avg_loss_in_training = []
+        total_reward_in_training = []
 
         if load_prev_training:
             # if we want to continue training an already trained network
@@ -732,12 +763,13 @@ class DQN():
                 action_array.append(action)
 
                 score = self.em.take_action(action, t)
+                eps_reward += score.item()
 
-                next_state = self.em.get_state()
+                next_state = copy.deepcopy(self.em.get_state())
                 next_state_array.append(next_state)
 
-                if eps % RENDER_EVERY == 0:
-                    self.em.render(print_state = False, live_graph = True)
+                # if eps % RENDER_EVERY == 0:
+                #     self.em.render(print_state = False, live_graph = True)
 
                 state = next_state
 
@@ -746,6 +778,8 @@ class DQN():
                     break
             
             self.episode_durations.append(iteration)
+
+            total_reward_in_training.append(eps_reward)
 
             # reset the state before we start updating the neural network
             state = self.em.reset()
@@ -785,9 +819,16 @@ class DQN():
 
         save_model(self.policy_net, self.target_net)
         self.em.close()
+        print("episode duration")
         print(self.episode_durations)
+        text = input("stop")
+
         print("average loss")
         print(self.avg_loss_in_training)
+        text = input("stop")
+
+        print("total reward")
+        print(total_reward_in_training)
 
     
     def test(self, num_episodes, max_step, show_live_graph = False):
@@ -840,6 +881,7 @@ class DQN():
             print("Episode # ", eps, "end with reward: ", reward, " used time: ", episode_durations[-1])
             print("+++++++++++++++++++++++++++++")
 
+
         self.em.close()
 
         print("final sums of time")
@@ -879,8 +921,8 @@ class DQN():
     
 def main():
     dqn = DQN(N_V, N_W)
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False)
-    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=True)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False)
+    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=True)
 
 if __name__ == "__main__":
     main()

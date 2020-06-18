@@ -42,10 +42,11 @@ R_RANGE = 0.1           # this is a scaler to help determine immediate reward at
 R_TIME = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
 
 # constants for reward with habitats
-R_COLLIDE_100 = -100.0
-R_MAINTAIN_DIST = 10.0       
-R_IN_HAB = 10.0    
-R_IN_HAB_BASELINE = 5.0         
+R_COLLIDE_100 = -1000.0
+R_MAINTAIN_DIST = 5.0       
+R_IN_HAB = 5.0    
+R_IN_HAB_BASELINE = 5.0 
+R_NEW_HAB = 10.0        
 
 REPEAT_ACTION_TIME = 5
 
@@ -216,15 +217,11 @@ class AuvEnv(gym.Env):
 
         visited_habitat_index_array = self.check_in_habitat(self.state['auv_pos'], self.habitats_array)
 
-        print("================================")
-        print("visited habitat index array")
-        print(visited_habitat_index_array)
-        text = input("stop")
-
         self.habitats_array = self.update_num_time_visited_for_habitats(self.habitats_array, visited_habitat_index_array)
-        self.state['habitats_pos'] = self.habitats_array
 
-        reward = self.get_reward_with_habitats(self.state['auv_pos'], self.state['shark_pos'], old_range, self.habitats_array,visited_habitat_index_array)
+        self.state['habitats_pos'] = copy.deepcopy(self.habitats_array)
+
+        reward = self.get_reward_with_habitats(self.state['auv_pos'], self.state['shark_pos'], old_range, self.state['habitats_pos'],visited_habitat_index_array)
         # reward = self.get_range_reward(self.state['auv_pos'], self.state['shark_pos'], old_range)
         # reward = self.get_range_time_reward(self.state[0], self.state[1], old_range, timestep)
         # reward = self.get_binary_reward(self.state[0], self.state[1])
@@ -386,40 +383,31 @@ class AuvEnv(gym.Env):
             return R_COLLIDE_100
         # if the auv maintain FOLLOW_DISTANCE with the shark
         elif self.within_follow_range(auv_pos, shark_pos):
-            print("I am within following distance")
             reward = R_MAINTAIN_DIST
             # if the auv has visited any habitat in this time step
             for hab_idx in visited_habitat_index_array:
                 hab = habitats_array[hab_idx]
                 num_of_time_visited = hab[4]
-                additional_reward = R_IN_HAB/float(num_of_time_visited) + R_IN_HAB_BASELINE
-                reward += additional_reward
-
-                print("number of time visited")
-                print(num_of_time_visited)
-                print("additional reward")
-                print(additional_reward)
-                print("-----------------------------")
-            print("total reward")
-            print(reward)
+                # when the habitat is visited for the first time
+                if num_of_time_visited == 1:
+                    reward += R_NEW_HAB
+                elif num_of_time_visited > 1:
+                    reward += R_IN_HAB
             return reward
         elif visited_habitat_index_array != []:
             reward = 0.0
+            # if the auv has visited any habitat in this time step
             for hab_idx in visited_habitat_index_array:
                 hab = habitats_array[hab_idx]
                 num_of_time_visited = hab[4]
-                additional_reward = R_IN_HAB/float(num_of_time_visited) + R_IN_HAB_BASELINE
-                reward += additional_reward
-
-                print("number of time visited")
-                print(num_of_time_visited)
-                print("additional reward")
-                print(additional_reward)
-                print("-----------------------------")
-            print("total reward")
-            print(reward)
+                # when the habitat is visited for the first time
+                if num_of_time_visited == 1:
+                    reward += R_NEW_HAB
+                elif num_of_time_visited > 1:
+                    reward += R_IN_HAB
             return reward
         else:
+            print("else case in reward")
             new_range = self.calculate_range(auv_pos, shark_pos)
             # if auv has gotten closer to the shark, will receive positive reward
             #   else, receive negative reward
@@ -499,7 +487,7 @@ class AuvEnv(gym.Env):
 
         self.live_graph.plot_entity(self.shark_x_array_rl, self.shark_y_array_rl, self.shark_z_array_rl, label = 'shark', color = 'b', marker = ',')
 
-        goal_region = Circle((shark_pos[0],shark_pos[1]), radius=END_GAME_RADIUS, color='b', fill=False)
+        goal_region = Circle((shark_pos[0],shark_pos[1]), radius=FOLLOWING_RADIUS, color='b', fill=False)
         self.live_graph.ax.add_patch(goal_region)
         Art3d.pathpatch_2d_to_3d(goal_region, z = shark_pos[2], zdir='z')
 
@@ -520,7 +508,7 @@ class AuvEnv(gym.Env):
         plt.draw()
 
         # pause so the plot can be updated
-        plt.pause(0.001)
+        plt.pause(0.0001)
 
         self.live_graph.ax.clear()
 
