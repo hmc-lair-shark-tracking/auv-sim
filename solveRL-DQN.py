@@ -29,8 +29,8 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 20.0
 
-NUM_OF_EPISODES = 10
-MAX_STEP = 10
+NUM_OF_EPISODES = 1000
+MAX_STEP = 1500
 
 NUM_OF_EPISODES_TEST = 1000
 MAX_STEP_TEST = 1000
@@ -62,9 +62,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 1
+RENDER_EVERY = 1000
 # how many episode should we run a test on the model
-TEST_EVERY = 2
+TEST_EVERY = 100
 
 DEBUG = False
 
@@ -155,7 +155,7 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shar
     for _ in range(num_of_obstacles):
         obs_x = np.random.uniform(shark_min_x, shark_max_x)
         obs_y = np.random.uniform(shark_min_y, shark_max_y)
-        obs_size = np.random.randint(1,11)
+        obs_size = np.random.randint(1,5)
         while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array):
             obs_x = np.random.uniform(shark_min_x, shark_max_x)
             obs_y = np.random.uniform(shark_min_y, shark_max_y)
@@ -170,7 +170,7 @@ def calculate_success_and_collision_rate(final_reward_array):
     for reward in final_reward_array:
         if reward == 10.0:
             success_count += 1
-        elif reward == -10.0:
+        elif reward == -100.0:
             collision_count += 1
 
     success_rate = float(success_count)/float(len(final_reward_array)) * 100
@@ -606,6 +606,31 @@ class DQN():
         self.target_net.load_state_dict(torch.load('checkpoint_target.pth'))
 
 
+    def plot_success_collision(self, starting_distance, episode_array, success_rate_array, collision_rate_array):
+        # close plot if there is any
+        plt.close()
+
+        fig = plt.figure(figsize= [10, 8])
+
+        ax_s = fig.add_subplot(2, 1, 1)
+        ax_c = fig.add_subplot(2, 1, 2)
+
+        ax_s.plot(episode_array, success_rate_array)
+        ax_c.plot(episode_array, collision_rate_array)
+
+        ax_s.scatter(episode_array, success_rate_array, color='b')
+        ax_c.scatter(episode_array, collision_rate_array, color='b')
+
+        ax_s.set_title("success rate vs episodes at range = " + str(starting_distance) + "m")
+        ax_c.set_title("collision rate vs episodes at range = " + str(starting_distance) + "m")
+
+        ax_s.set_ylabel("success rate (%)")
+        ax_c.set_xlabel("number of episodes trained")
+        ax_c.set_ylabel("collision rate (%)")
+
+        plt.show()
+
+
     def save_real_experiece(self, state, next_state, action, timestep):
         old_range = calculate_range(state[0], state[1])
 
@@ -672,20 +697,19 @@ class DQN():
         self.episode_durations = []
         self.avg_loss_in_training = []
         self.episodes_that_gets_tested = []
-        self.success_rate_array = []
-        self.collision_rate_array = []
+        self.success_rate_array_curr_range = []
+        self.collision_rate_array_curr_range = []
+        self.success_rate_array_100m = []
+        self.collision_rate_array_100m = []
 
         if load_prev_training:
             # if we want to continue training an already trained network
             self.load_trained_network()
         
-        for eps in range(num_episodes):
+        for eps in range(1, num_episodes+1):
             # initialize the starting point of the shark and the auv randomly
             # receive initial observation state s1 
             state = self.em.init_env_randomly()
-
-            # reward received in this episode
-            eps_reward = 0
 
             action_array = []
             next_state_array = []
@@ -753,15 +777,25 @@ class DQN():
                 save_model(self.policy_net, self.target_net)
 
             if eps % TEST_EVERY == 0:
-                success_rate, collision_rate = self.test_model_during_training(num_episodes, max_step, 100)
-
                 self.episodes_that_gets_tested.append(eps)
-                self.success_rate_array.append(success_rate)
-                self.collision_rate_array.append(collision_rate)
+
+                success_rate, collision_rate = self.test_model_during_training(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, DIST)
+
+                self.success_rate_array_curr_range.append(success_rate)
+                self.collision_rate_array_curr_range.append(collision_rate)
+
+                success_rate, collision_rate = self.test_model_during_training(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, 100)
+
+                self.success_rate_array_100m.append(success_rate)
+                self.collision_rate_array_100m.append(collision_rate)
 
         save_model(self.policy_net, self.target_net)
 
         self.em.close()
+
+        self.plot_success_collision(DIST, self.episodes_that_gets_tested, self.success_rate_array_curr_range, self.collision_rate_array_curr_range)
+
+        self.plot_success_collision(100, self.episodes_that_gets_tested, self.success_rate_array_100m, self.collision_rate_array_100m)
 
         print("episode durations")
         print(self.episode_durations)
@@ -776,12 +810,19 @@ class DQN():
         text = input("stop")
 
         print("success rate array")
-        print(self.success_rate_array)
+        print(self.success_rate_array_curr_range)
         text = input("stop")
 
         print("collision rate array")
-        print(self.collision_rate_array)
-        
+        print(self.collision_rate_array_curr_range)
+        text = input("stop")
+
+        print("success rate array 100m")
+        print(self.success_rate_array_100m)
+        text = input("stop")
+
+        print("collision rate array 100m")
+        print(self.collision_rate_array_100m)
 
     
     def test(self, num_episodes, max_step, show_live_graph = False):
@@ -876,7 +917,6 @@ class DQN():
         
         episode_durations = []
         final_reward_array = []
-        init_distance_array = []
 
         # assuming that we are testing the model during training, so we don't need to load the model 
         self.policy_net.eval()
@@ -886,7 +926,6 @@ class DQN():
             # receive initial observation state s1 
             state = self.em.init_env_randomly(starting_dist)
             
-            init_distance_array.append(calculate_range(state[0], state[1]))
             episode_durations.append(max_step)
 
             final_reward_array.append(0.0)
@@ -898,7 +937,7 @@ class DQN():
 
                 final_reward_array[eps] = reward.item()
 
-                self.em.render(print_state = True, live_graph = False)
+                self.em.render(print_state = False, live_graph = False)
 
                 state = self.em.get_state()
 
@@ -907,46 +946,19 @@ class DQN():
                     break
                
             print("+++++++++++++++++++++++++++++")
-            print("Episode # ", eps, "end with reward: ", reward, " used time: ", episode_durations[-1])
+            print("Test Episode # ", eps, "end with reward: ", reward, " used time: ", episode_durations[-1])
             print("+++++++++++++++++++++++++++++")
-
-        self.em.close()
 
         self.policy_net.train()
 
-        print("final sums of time")
-        print(episode_durations)
-        print("average time")
-        print(np.mean(episode_durations))
-        print("-----------------")
-
-        text = input("stop")
-
-        print("average initial distances")
-        print(np.mean(init_distance_array))
-        print("-----------------")
-
-        text = input("stop")
-
-        print("final reward")
-        print(final_reward_array)
-        print("-----------------")
-
         success_rate, collision_rate = calculate_success_and_collision_rate(final_reward_array)
-
-        print("success_rate")
-        print(success_rate)
-        print("collision_rate")
-        print(collision_rate)
-
-        text = input("stop")
 
         return success_rate, collision_rate
 
     
 def main():
     dqn = DQN(N_V, N_W)
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=True)
     # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=False)
 
 if __name__ == "__main__":
