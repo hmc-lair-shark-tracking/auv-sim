@@ -371,7 +371,7 @@ class Live3DGraph:
 
         plt.show()
 
-    def plot_2d_astar_traj(self, astar_x_array, astar_y_array):
+    def plot_2d_astar_traj(self, x_array, y_array):
         """
         Plot a trajectory made by A* algorithm with defined boundaries and obstacles
 
@@ -417,7 +417,7 @@ class Live3DGraph:
         for habitat in catalina.HABITATS:
             pos_habitat = create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
             ax.add_patch(plt.Circle(pos_habitat, habitat.size, color = 'b', fill = False))
-        
+
         x, y = zip(*path.vertices)
         line, = ax.plot(x, y, 'go-')
 
@@ -425,6 +425,6 @@ class Live3DGraph:
         ax.axis('equal')
 
         # plot trajectory
-        plt.plot(astar_x_array, astar_y_array, marker = ',', color = 'r', label='auv')
+        plt.plot(x_array, y_array, marker = ',', color = 'r', label='auv')
 
         plt.show()

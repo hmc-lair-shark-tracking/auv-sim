@@ -12,6 +12,7 @@ from shapely.wkt import loads as load_wkt
 from shapely.geometry import Polygon, Point
 
 from motion_plan_state import Motion_plan_state
+
 from cost import Cost
 import catalina
 #from shortest_rrt import Shrt_path
