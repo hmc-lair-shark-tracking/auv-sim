@@ -98,7 +98,7 @@ class RobotSim:
         # using dictionary so we can access the state of a shark based on its id quickly?
         shark_state_dict = {}
 
-
+        print(self.live_graph.shark_array)
         for shark in self.live_graph.shark_array:
             shark_state_dict[shark.id] = shark.get_curr_position()
 
@@ -194,7 +194,7 @@ class RobotSim:
             self.curr_traj_pt_index = 0
 
         while (self.curr_traj_pt_index < len(trajectory)-1) and\
-            (self.curr_time + const.TRAJ_LOOK_AHEAD_TIME) > trajectory[self.curr_traj_pt_index].time_stamp: 
+            (self.curr_time + const.TRAJ_LOOK_AHEAD_TIME) > trajectory[self.curr_traj_pt_index].traj_time_stamp: 
             self.curr_traj_pt_index += 1
 
         return trajectory[self.curr_traj_pt_index]
@@ -577,15 +577,15 @@ class RobotSim:
                 str(auv_sensor_data))"""
   
             shark_state_dict = self.get_all_sharks_state()
-            """print("==================")
-            print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))"""
+            print("==================")
+            print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
 
             has_new_data = self.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
 
-            if has_new_data == True:
+            '''if has_new_data == True:
                 print("======NEW DATA=======")
                 print("All The Shark Sensor Measurements [range, bearing]: " +\
-                    str(self.shark_sensor_data_dict))
+                    str(self.shark_sensor_data_dict))'''
             
             # example of how to indicate the obstacles and plot them
             obstacle_array = [Motion_plan_state(757,243, size=2),Motion_plan_state(763,226, size=5)]
@@ -598,15 +598,17 @@ class RobotSim:
                 Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
 
             #condition to replan trajectory
-            if self.curr_time == 0 or self.curr_time - t_start >= self.replan_time:
+            '''if self.curr_time == 0 or self.curr_time - t_start >= self.replan_time:
                 RRT_traj = self.replan_trajectory("RRT", auv_sensor_data, shark_state_dict[1], obstacle_array, boundary, habitats)
                 new_trajectory = True
                 t_start = self.curr_time
             else:
-                new_trajectory = False
+                new_trajectory = False'''
+            RRT_traj = [Motion_plan_state(0.0, 0.0)]
+            RRT_traj += [Motion_plan_state(i, i) for i in range(50)]
             
             # test trackTrajectory
-            tracking_pt = self.track_trajectory(RRT_traj, new_trajectory)
+            tracking_pt = self.track_trajectory(RRT_traj, new_trajectory=False)
             '''print("==================")
             print ("Currently tracking point: " + str(tracking_pt))'''
             
