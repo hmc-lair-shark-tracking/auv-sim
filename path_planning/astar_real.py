@@ -141,9 +141,7 @@ class astar:
         else:
             False
 
-
     def astar(self, obs_lst, boundary_list): 
-
         """
         Find the optimal path from start to goal avoiding given obstacles 
 
@@ -153,11 +151,9 @@ class astar:
             goal - a tuple of two elements: x and y coordinates
         """
 
-
         start_node = Node(None, self.start)
         start_node.g = start_node.h = start_node.f = 0
         end_node = Node(None, self.goal)
-
         end_node.g = end_node.h = end_node.f = 0
 
         open_list = [] # hold neighbors of the expanded nodes
@@ -214,9 +210,7 @@ class astar:
                 dist_child_current = self.euclidean_dist(child.position, current_node.position)
 
                 child.g = current_node.g + dist_child_current
-
                 child.h = self.euclidean_dist(child.position, self.goal) # distance from child to end goal
-
                 child.f = child.g + child.h
 
                 # check if child exists in the open list and have bigger g 

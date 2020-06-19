@@ -12,7 +12,6 @@ from shapely.wkt import loads as load_wkt
 from shapely.geometry import Polygon, Point
 
 from motion_plan_state import Motion_plan_state
-
 from cost import Cost
 import catalina
 #from shortest_rrt import Shrt_path
@@ -24,44 +23,24 @@ class RRT:
     """
     Class for RRT planning
     """
-    def __init__(self, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 20):
+    def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 50):
         '''setting parameters:
             initial_location: initial Motion_plan_state of AUV, [x, y, z, theta, v, w, time_stamp]
             goal_location: Motion_plan_state of the shark, [x, y, z]
             obstacle_list: Motion_plan_state of obstacles [[x1, y1, z1, size1], [x2, y2, z2, size2] ...]
             boundary: max & min Motion_plan_state of the configuration space [[x_min, y_min, z_min],[x_max, y_max, z_max]]'''
         #initialize start, goal, obstacle, boundary, habitats for path planning
-        start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
-        self.start = Motion_plan_state(start[0], start[1])
-
-        goal = catalina.create_cartesian(catalina.GOAL, catalina.ORIGIN_BOUND)
-        self.start = Motion_plan_state(goal[0], goal[1])
-
-        self.boundary = []
-        for b in catalina.BOUNDARIES:
-            pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
-            self.boundary.append(Motion_plan_state(pos[0], pos[1]))
+        self.start = start
+        self.goal = goal
+        self.boundary = boundary
         #initialize corners for boundaries
         coords = []
         for corner in self.boundary: 
             coords.append((corner.x, corner.y))
         self.boundary_poly = Polygon(coords)
-    
-        self.obstacles = []
-        for ob in catalina.OBSTACLES:
-            pos = catalina.create_cartesian((ob.x, ob.y), catalina.ORIGIN_BOUND)
-            self.obstacles.append(Motion_plan_state(pos[0], pos[1], size=ob.size))
-        self.boat_list = []
-        for boat in catalina.BOATS:
-            pos = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
-            self.boat_list.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
-        self.obstacle_list = self.obstacles + self.boat_list
-
+        self.obstacle_list = obstacles
         #testing data for habitats
-        self.habitats = []
-        for habitat in catalina.HABITATS:
-            pos = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
-            self.habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
+        self.habitats = habitats
         
         self.mps_list = [] # a list of motion_plan_state
         self.time_bin = {}
@@ -159,7 +138,6 @@ class RRT:
                             opt_path = [new_mps.length, path]
                 
             opt_cost_list.append(opt_cost[0])
-        print(longest_traj_time)
         if int(opt_cost[0]) == 0:
             return None
         return {"path length": opt_path[0], "path": opt_path[1], "cost": opt_cost, "cost list": opt_cost_list}
@@ -545,8 +523,35 @@ class RRT:
 
         plt.show()
 
-def main():
-    rrt = RRT()
+'''def main():
+    start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
+    start = Motion_plan_state(start[0], start[1])
+
+    goal = catalina.create_cartesian(catalina.GOAL, catalina.ORIGIN_BOUND)
+    goal = Motion_plan_state(goal[0], goal[1])
+
+    obstacles = []
+    for ob in catalina.OBSTACLES:
+        pos = catalina.create_cartesian((ob.x, ob.y), catalina.ORIGIN_BOUND)
+        obstacles.append(Motion_plan_state(pos[0], pos[1], size=ob.size))
+        
+    boundary = []
+    for b in catalina.BOUNDARIES:
+        pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
+        boundary.append(Motion_plan_state(pos[0], pos[1]))
+        
+    boat_list = []
+    for boat in catalina.BOATS:
+        pos = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
+        boat_list.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
+        
+        #testing data for habitats
+    habitats = []
+    for habitat in catalina.HABITATS:
+        pos = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
+        habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
+    
+    rrt = RRT(goal, goal, boundary, obstacles, habitats)
     #path = rrt.planning(animation=False, min_length=0)
     path = rrt.exploring(0.5, 5, 1, True, 10.0, 500.0, True, [1, -4.5, -4.5])
     print(path["cost"])
@@ -557,4 +562,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main()'''
