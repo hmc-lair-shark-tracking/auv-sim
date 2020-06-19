@@ -43,7 +43,7 @@ R_TIME = -0.01          # negative reward (the longer for the auv to reach the g
 
 # constants for reward with habitats
 R_COLLIDE_100 = -1000.0
-R_MAINTAIN_DIST = 1.0       
+R_MAINTAIN_DIST = 3.0       
 R_IN_HAB = 5.0    
 R_NEW_HAB = 10.0        
 

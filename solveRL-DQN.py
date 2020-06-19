@@ -29,13 +29,13 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 """
 
 # define the range between the starting point of the auv and shark
-DIST = 20.0
+DIST = 40.0
 
-NUM_OF_EPISODES = 10
-MAX_STEP = 10
+NUM_OF_EPISODES = 500
+MAX_STEP = 1000
 
-NUM_OF_EPISODES_TEST = 10
-MAX_STEP_TEST = 10
+NUM_OF_EPISODES_TEST = 500
+MAX_STEP_TEST = 1000
 
 N_V = 7
 N_W = 7
@@ -56,8 +56,8 @@ NUM_GOALS_SAMPLED_HER = 4
 
 TARGET_UPDATE = 10
 
-NUM_OF_OBSTACLES = 4
-NUM_OF_HABITATS = 6
+NUM_OF_OBSTACLES = 8
+NUM_OF_HABITATS = 18
 STATE_SIZE = 8 + NUM_OF_OBSTACLES * 4 + NUM_OF_HABITATS * 5
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -65,9 +65,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 1
+RENDER_EVERY = 250
 # how many episode should we run a test on the model
-TEST_EVERY = 2
+TEST_EVERY = 100
 
 DEBUG = False
 
@@ -161,7 +161,7 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shar
     for _ in range(num_of_obstacles):
         obs_x = np.random.uniform(shark_min_x, shark_max_x)
         obs_y = np.random.uniform(shark_min_y, shark_max_y)
-        obs_size = np.random.randint(1,5)
+        obs_size = np.random.randint(1,11)
         while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array):
             obs_x = np.random.uniform(shark_min_x, shark_max_x)
             obs_y = np.random.uniform(shark_min_y, shark_max_y)
@@ -182,17 +182,20 @@ def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
     return hab_overlaps
 
 
-def generate_rand_habitats(num_of_habitats, shark_min_x, shark_max_x,  shark_min_y, shark_max_y):
+def generate_rand_habitats(num_of_habitats, habitat_bound_min_x, habitat_bound_max_x,  habitat_bound_min_y, habitat_bound_max_y):
     """
     """
     habitats_array = []
     for _ in range(num_of_habitats):
-        hab_x = np.random.uniform(shark_min_x, shark_max_x)
-        hab_y = np.random.uniform(shark_min_y, shark_max_y)
-        hab_size = np.random.randint(8,13)
-        while validate_new_habitat([hab_x, hab_y], hab_size, habitats_array):
-            hab_x = np.random.uniform(shark_min_x, shark_max_x)
-            hab_y = np.random.uniform(shark_min_y, shark_max_y)
+        hab_x = np.random.uniform(habitat_bound_min_x, habitat_bound_max_x)
+        hab_y = np.random.uniform(habitat_bound_min_y, habitat_bound_max_y)
+        hab_size = np.random.randint(8,21)
+        # to prevent this from going into an infinite loop
+        counter = 0
+        while validate_new_habitat([hab_x, hab_y], hab_size, habitats_array) and counter < 100:
+            hab_x = np.random.uniform(habitat_bound_min_x, habitat_bound_max_x)
+            hab_y = np.random.uniform(habitat_bound_min_y, habitat_bound_max_y)
+            counter += 1
         habitats_array.append(HabitatState(x = hab_x, y = hab_y, z=-10, size = hab_size))
 
     return habitats_array  
@@ -438,20 +441,25 @@ class AuvEnvManager():
 
     
     def init_env_randomly(self, dist = DIST):
-        auv_min_x = dist
+        auv_min_x = dist * 2
         auv_max_x = dist * 2
-        auv_min_y = dist
-        auv_max_y = dist * 2
+        auv_min_y = dist * 4
+        auv_max_y = dist * 4
 
-        shark_min_x = 0.0
-        shark_max_x = dist * 3
-        shark_min_y = 0.0
-        shark_max_y = dist * 3
+        shark_min_x = dist
+        shark_max_x = dist * 5
+        shark_min_y = dist
+        shark_max_y = dist * 5
+
+        habitat_bound_min_x = 0.0
+        habitat_bound_max_x = dist * 6
+        habitat_bound_min_y = 0.0
+        habitat_bound_max_y = dist * 6
 
         auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = 0)
         shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
         obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
-        habitats_array = generate_rand_habitats(NUM_OF_HABITATS, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
+        habitats_array = generate_rand_habitats(NUM_OF_HABITATS, habitat_bound_min_x, habitat_bound_max_x, habitat_bound_min_y, habitat_bound_max_y)
 
 
         print("===============================")
@@ -960,6 +968,10 @@ class DQN():
 
                 self.update_neural_net()
 
+            print("*********************************")
+            print("final state")
+            print(state)
+
             if self.loss_in_eps != []:
                 avg_loss = np.mean(self.loss_in_eps)
                 avg_loss_in_training.append(avg_loss)
@@ -1195,7 +1207,7 @@ class DQN():
 
 def main():
     dqn = DQN(N_V, N_W)
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False, render_3D_plot=True)
     # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=True)
 
 if __name__ == "__main__":
