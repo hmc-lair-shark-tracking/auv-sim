@@ -31,11 +31,11 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 20.0
 
-NUM_OF_EPISODES = 500
-MAX_STEP = 1000
+NUM_OF_EPISODES = 10
+MAX_STEP = 10
 
-NUM_OF_EPISODES_TEST = 500
-MAX_STEP_TEST = 1000
+NUM_OF_EPISODES_TEST = 10
+MAX_STEP_TEST = 10
 
 N_V = 7
 N_W = 7
@@ -57,7 +57,7 @@ NUM_GOALS_SAMPLED_HER = 4
 TARGET_UPDATE = 10
 
 NUM_OF_OBSTACLES = 4
-NUM_OF_HABITATS = 4
+NUM_OF_HABITATS = 6
 STATE_SIZE = 8 + NUM_OF_OBSTACLES * 4 + NUM_OF_HABITATS * 5
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -65,9 +65,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 250
+RENDER_EVERY = 1
 # how many episode should we run a test on the model
-TEST_EVERY = 100
+TEST_EVERY = 2
 
 DEBUG = False
 
@@ -189,7 +189,7 @@ def generate_rand_habitats(num_of_habitats, shark_min_x, shark_max_x,  shark_min
     for _ in range(num_of_habitats):
         hab_x = np.random.uniform(shark_min_x, shark_max_x)
         hab_y = np.random.uniform(shark_min_y, shark_max_y)
-        hab_size = np.random.randint(4,11)
+        hab_size = np.random.randint(8,13)
         while validate_new_habitat([hab_x, hab_y], hab_size, habitats_array):
             hab_x = np.random.uniform(shark_min_x, shark_max_x)
             hab_y = np.random.uniform(shark_min_y, shark_max_y)
@@ -635,30 +635,159 @@ class DQN():
         self.target_net.load_state_dict(torch.load('checkpoint_target.pth'))
 
 
-    def plot_total_rewards (self, starting_distance, episode_array, total_reward_array, collision_rate_array):
+    def plot_summary_graph (self, episode_array, upper_plot_y_data, upper_plot_ylabel, upper_plot_title, lower_plot_y_data, lower_plot_ylabel, lower_plot_title):
         # close plot if there is any
         plt.close()
 
         fig = plt.figure(figsize= [10, 8])
 
-        ax_r = fig.add_subplot(2, 1, 1)
-        ax_c = fig.add_subplot(2, 1, 2)
+        ax_upper = fig.add_subplot(2, 1, 1)
+        ax_lower = fig.add_subplot(2, 1, 2)
 
-        ax_r.plot(episode_array, total_reward_array)
-        ax_c.plot(episode_array, collision_rate_array)
+        ax_upper.plot(episode_array, upper_plot_y_data)
+        ax_lower.plot(episode_array, lower_plot_y_data)
 
-        ax_r.scatter(episode_array, total_reward_array, color='b')
-        ax_c.scatter(episode_array, collision_rate_array, color='b')
+        ax_upper.scatter(episode_array, upper_plot_y_data, color='b')
+        ax_lower.scatter(episode_array, lower_plot_y_data, color='b')
 
-        ax_r.set_title("total reward vs episodes at range = " + str(starting_distance) + "m")
-        ax_c.set_title("collision rate vs episodes at range = " + str(starting_distance) + "m")
+        ax_upper.set_title(upper_plot_title)
+        ax_lower.set_title(lower_plot_title)
 
-        ax_r.set_ylabel("total reward")
+        ax_upper.set_ylabel(upper_plot_ylabel)
 
-        ax_c.set_xlabel("number of episodes trained")
-        ax_c.set_ylabel("collision rate (%)")
+        ax_lower.set_xlabel("number of episodes trained")
+        ax_lower.set_ylabel(lower_plot_ylabel)
 
         plt.show()
+    
+
+    def plot_intermediate_testing_result(self, starting_distance, episode_array, result_array):
+        """
+        Plot the following graphs
+            1.  average total reward vs episodes
+                average distance between auv and the shark vs episodes
+            2.  collision rate vs epsiodes
+                collision rate (normalized) vs  episodes
+            3.  number of unique habitats visited vs episodes
+                number of unique habitats visited (normalized) vs episodes
+            4.  average timestep spent in the habitat vs episodes
+                average timestep spent in the habitat (normalized) vs episodes
+        """
+        # for plot #1 
+        avg_total_reward_array = []
+        avg_dist_btw_auv_shark_array = []
+
+        # for plot #2
+        collision_rate_array = []
+        collision_rate_array_norm = []
+
+        # for plot #3
+        avg_unique_hab_visited_array = []
+        avg_unique_hab_visited_array_norm = []
+
+        # for plot #4
+        avg_timestep_in_hab_array = []
+        avg_timestep_in_hab_array_norm = []
+
+        # generate array of data so it's easy to plot
+        for result in result_array:
+            # for plot #1 
+            avg_total_reward_array.append(result["avg_total_reward"])
+            avg_dist_btw_auv_shark_array.append(result["avg_dist_btw_auv_shark"])
+
+            # for plot #2
+            collision_rate_array.append(result["collision_rate"])
+            collision_rate_array_norm.append(result["collision_rate_norm"])
+
+            # for plot #3
+            avg_unique_hab_visited_array.append(result["avg_unique_hab_visited"])
+            avg_unique_hab_visited_array_norm.append(result["avg_unique_hab_visited_norm"])
+
+            # for plot #4
+            avg_timestep_in_hab_array.append(result["avg_timestep_in_hab"])
+            avg_timestep_in_hab_array_norm.append(result["avg_timestep_in_hab_norm"])
+        
+        # begin plotting the graph
+        # plot #1: 
+        #   average total reward vs episodes
+        #   average distance between auv and the shark vs episodes
+        upper_plot_title = "average total reward vs. episodes at range = " + str(starting_distance) + 'm'
+        upper_plot_ylabel = "average total reward"
+
+        lower_plot_title = "average distance between auv and the shark vs. episodes at range = " + str(starting_distance) + 'm'
+        lower_plot_ylabel = "avg dist btw the auv and shark (m)"
+
+        self.plot_summary_graph(episode_array, avg_total_reward_array, upper_plot_ylabel, upper_plot_title, \
+            avg_dist_btw_auv_shark_array, lower_plot_ylabel, lower_plot_title)
+
+
+        # plot #2: 
+        #   collision rate vs epsiodes
+        #   collision rate (normalized) vs  episodes
+        upper_plot_title = "collision rate vs. episodes at range = " + str(starting_distance) + 'm'
+        upper_plot_ylabel = "collision rate (%)"
+
+        lower_plot_title = "collision rate (divided by traveled dist) vs. episodes at range = " + str(starting_distance) + 'm'
+        lower_plot_ylabel = "collision rate (%)"
+
+        self.plot_summary_graph(episode_array, collision_rate_array, upper_plot_ylabel, upper_plot_title, \
+            collision_rate_array_norm, lower_plot_ylabel, lower_plot_title)
+
+
+        # plot #3: 
+        #   number of unique habitats visited vs episodes
+        #   number of unique habitats visited (normalized) vs episodes
+        upper_plot_title = "avg num of visited unique habitats vs. episodes at range = " + str(starting_distance) + 'm'
+        upper_plot_ylabel = "unique visited habitats"
+
+        lower_plot_title = "avg num of visited unique habitats (divided by traveled dist) vs. episodes at range = " + str(starting_distance) + 'm'
+        lower_plot_ylabel = "unique visited habitats"
+
+        self.plot_summary_graph(episode_array, avg_unique_hab_visited_array, upper_plot_ylabel, upper_plot_title, \
+            avg_unique_hab_visited_array_norm, lower_plot_ylabel, lower_plot_title)
+
+
+        # plot #4: 
+        #   average timestep spent in the habitat vs episodes
+        #   average timestep spent in the habitat (normalized) vs episodes
+        upper_plot_title = "avg timesteps in habitat vs. episodes at range = " + str(starting_distance) + 'm'
+        upper_plot_ylabel = "timesteps"
+
+        lower_plot_title = "avg timesteps in habitat (divided by traveled dist) vs. episodes at range = " + str(starting_distance) + 'm'
+        lower_plot_ylabel = "timesteps"
+
+        self.plot_summary_graph(episode_array, avg_timestep_in_hab_array, upper_plot_ylabel, upper_plot_title, \
+            avg_timestep_in_hab_array_norm, lower_plot_ylabel, lower_plot_title)
+        
+        # print out the result so that we can save for later
+        print("episode tested")
+        print(episode_array)
+        text = input("stop")
+
+        # for plot #1 
+        print("total reward array")
+        print(avg_total_reward_array)
+        print("total reward array")
+        print(avg_dist_btw_auv_shark_array)
+        text = input("stop")
+
+        # for plot #2
+        print("collision")
+        print(collision_rate_array)
+        print(collision_rate_array_norm)
+        text = input("stop")
+
+        # for plot #3
+        print(" avg_unique_hab_visited_array")
+        print(avg_unique_hab_visited_array)
+        print(avg_unique_hab_visited_array_norm)
+        text = input("stop")
+
+        # for plot #4
+        print("avg_timestep_in_hab_array")
+        print(avg_timestep_in_hab_array)
+        print(avg_timestep_in_hab_array_norm)
+        text = input("stop")
 
 
     def save_real_experiece(self, state, next_state, action, timestep):
@@ -761,14 +890,13 @@ class DQN():
             self.policy_net_optim.step()
 
 
-    def train(self, num_episodes, max_step, load_prev_training = False, use_HER = True):
+    def train(self, num_episodes, max_step, load_prev_training = False, use_HER = True, render_3D_plot = False):
         episode_durations = []
         avg_loss_in_training = []
         total_reward_in_training = []
 
         episodes_that_got_tested = []
-        avg_total_reward_in_testing = []
-        collision_rate_array = []
+        testing_result_array = []
 
         if load_prev_training:
             # if we want to continue training an already trained network
@@ -801,8 +929,8 @@ class DQN():
                 next_state = copy.deepcopy(self.em.get_state())
                 next_state_array.append(next_state)
 
-                # if eps % RENDER_EVERY == 0:
-                #     self.em.render(print_state = False, live_graph = True)
+                if (eps % RENDER_EVERY == 0) and render_3D_plot:
+                    self.em.render(print_state = False, live_graph = True)
 
                 state = next_state
 
@@ -853,17 +981,16 @@ class DQN():
             if eps % TEST_EVERY == 0:
                 episodes_that_got_tested.append(eps)
 
-                avg_total_reward, collision_rate = self.test_model_during_training(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, DIST)
+                result = self.test_model_during_training(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, DIST)
 
-                avg_total_reward_in_testing.append(avg_total_reward)
-                collision_rate_array.append(collision_rate)
+                testing_result_array.append(result)
 
                 
         save_model(self.policy_net, self.target_net)
 
         self.em.close()
 
-        self.plot_total_rewards(DIST, episodes_that_got_tested, avg_total_reward_in_testing, collision_rate_array)
+        self.plot_intermediate_testing_result(DIST, episodes_that_got_tested, testing_result_array)
 
         print("episode duration")
         print(episode_durations)
@@ -875,15 +1002,6 @@ class DQN():
 
         print("total reward in training")
         print(total_reward_in_training)
-
-        text = input("stop")
-
-        print("episodes that gets tested")
-        print(episodes_that_got_tested)
-        text = input("stop")
-
-        print("avg total reward in testing")
-        print(avg_total_reward_in_testing)
 
     
     def test(self, num_episodes, max_step, show_live_graph = False):
@@ -978,6 +1096,14 @@ class DQN():
         # modify the starting distance betweeen the auv and the shark to prepare for testing
         episode_durations = []
         total_reward_array = []
+        traveled_dist_array = []
+
+        time_in_habitat_array = []
+        num_unique_habitat_array = []
+
+        time_in_habitat_array_normalized = []
+        num_unique_habitat_array_normalized = []
+
         collision_count = 0
 
         # assuming that we are testing the model during training, so we don't need to load the model 
@@ -988,14 +1114,29 @@ class DQN():
             # receive initial observation state s1 
             state = self.em.init_env_randomly(starting_dist)
             
+            # store the distance between the auv and the shark at each step
+            dist_btw_auv_shark_array = []
+            # count the number of habitats visited at each step
+            num_of_times_visited_habitat_count = 0
+            num_unique_habitat_visited_count = 0
+
             episode_durations.append(max_step)
+            traveled_dist_array.append(0.0)
+
+            dist_btw_auv_shark_array.append(calculate_range(state["auv_pos"], state["shark_pos"]))
 
             eps_reward = 0.0
 
             for t in range(1, max_step):
                 action = self.agent.select_action(state, self.policy_net)
 
+                dist_btw_auv_shark_array.append(calculate_range(state["auv_pos"], state["shark_pos"]))
+
                 reward = self.em.take_action(action, t)
+
+                traveled_dist_array[eps] += self.em.env.distance_traveled
+
+                num_of_times_visited_habitat_count += len(self.em.env.visited_habitat_index_array)
 
                 eps_reward += reward.item()
 
@@ -1016,13 +1157,40 @@ class DQN():
 
             total_reward_array.append(eps_reward)
 
+            num_unique_habitat_visited_count = self.em.env.visited_unique_habitat_count
+
+            # we want to normalize the number of time steps that we have visited an habitat
+            #   based on the total distance that the auv has traveled in this episode
+            num_of_times_visited_habitat_count_normalized = float(num_of_times_visited_habitat_count)/float(traveled_dist_array[eps])
+            num_unique_habitat_visited_count_normalized = float(num_unique_habitat_visited_count)/float(traveled_dist_array[eps])
+
+            time_in_habitat_array.append(num_of_times_visited_habitat_count)
+            num_unique_habitat_array.append(num_unique_habitat_visited_count)
+
+            time_in_habitat_array_normalized.append(num_of_times_visited_habitat_count_normalized)
+            num_unique_habitat_array_normalized.append(num_unique_habitat_visited_count_normalized)
+
         self.policy_net.train()
 
         avg_total_reward = np.mean(total_reward_array)
 
         collision_rate = float(collision_count) / float(num_episodes) * 100
 
-        return avg_total_reward, collision_rate
+        # we can normalize it by the average of traveled distance
+        collision_rate_normalized = float(collision_rate) / np.mean(traveled_dist_array)
+
+        result = {
+            "avg_total_reward": avg_total_reward,
+            "avg_dist_btw_auv_shark": np.mean(dist_btw_auv_shark_array),
+            "collision_rate": collision_rate,
+            "collision_rate_norm": collision_rate_normalized,
+            "avg_timestep_in_hab": np.mean(time_in_habitat_array),
+            "avg_timestep_in_hab_norm": np.mean(time_in_habitat_array_normalized),
+            "avg_unique_hab_visited": np.mean(num_unique_habitat_array),
+            "avg_unique_hab_visited_norm": np.mean(num_unique_habitat_array_normalized),
+        }
+
+        return result
     
 
 def main():
