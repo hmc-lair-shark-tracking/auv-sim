@@ -86,7 +86,7 @@ class RobotSim:
         Return a Motion_plan_state representing the orientation and the time stamp
         of the robot
         """
-        return Motion_plan_state(self.x, self.y, theta = self.theta, time_stamp=self.curr_time)
+        return Motion_plan_state(self.x, self.y, theta = self.theta, traj_time_stamp=self.curr_time)
 
 
     def get_all_sharks_state(self):
@@ -121,7 +121,7 @@ class RobotSim:
             y = self.y + np.random.normal(0,1),\
             z = self.z + np.random.normal(0,1),\
             theta = angle_wrap(self.theta + np.random.normal(0,1)),\
-            time_stamp = self.curr_time)
+            traj_time_stamp = self.curr_time)
 
 
     def get_all_sharks_sensor_measurements(self, shark_state_dict, auv_sensor_data):
@@ -234,7 +234,7 @@ class RobotSim:
             boundary'''
         
         if planner == "RRT":
-            path_planning = RRT(auv_pos, shark_pos, obstacle, boundary)
+            path_planning = RRT(auv_pos, shark_pos, boundary, obstacle, habitats)
 
         result = path_planning.exploring(habitats, 0.5, 5, 1)
         
@@ -282,7 +282,7 @@ class RobotSim:
                 
                 step += time_stamp
                 counter += time_stamp
-                trajectory_list.append(Motion_plan_state(x1, y1, time_stamp=step))
+                trajectory_list.append(Motion_plan_state(x1, y1, traj_time_stamp=step))
                 
             trajectory_list.append(traj_list[i+1])
             
@@ -441,7 +441,7 @@ class RobotSim:
             theta = 0
             t = t + delta_t
 
-            traj_list.append(Motion_plan_state(x,y,z,theta,time_stamp=t))
+            traj_list.append(Motion_plan_state(x,y,z,theta,traj_time_stamp=t))
 
         for i in range(20):
             x = x
@@ -449,7 +449,7 @@ class RobotSim:
             theta = math.pi/2
             t = t + delta_t
 
-            traj_list.append(Motion_plan_state(x,y,z,theta,time_stamp=t))
+            traj_list.append(Motion_plan_state(x,y,z,theta,traj_time_stamp=t))
     
         for i in range(20):
             x = x - v * delta_t
@@ -457,7 +457,7 @@ class RobotSim:
             theta = math.pi
             t = t + delta_t
 
-            traj_list.append(Motion_plan_state(x,y,z,theta,time_stamp=t))
+            traj_list.append(Motion_plan_state(x,y,z,theta,traj_time_stamp=t))
 
         for i in range(20):
             x = x
@@ -465,7 +465,7 @@ class RobotSim:
             theta = -(math.pi)/2
             t = t + delta_t
 
-            traj_list.append(Motion_plan_state(x,y,z,theta,time_stamp=t))
+            traj_list.append(Motion_plan_state(x,y,z,theta,traj_time_stamp=t))
 
         return traj_list
 
