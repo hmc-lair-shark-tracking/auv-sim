@@ -62,9 +62,15 @@ class RealSim:
         self.live3DGraph = Live3DGraph()
     
     def astar_planning(self):
+        '''
+        A * path planning algorithm
+        call A * planning to generate path from start to goal
+        '''
         traj = self.astar.astar(self.obstacles, self.boundary)
+        #A * trajectory represented by a list of motion_plan_states
         A_star_new_traj = self.create_trajectory_list_astar(traj)
 
+        #2D x_coordinate list and y_coordinate list for plotting A * trajectory
         astar_x_array = []
         astar_y_array = []
 
@@ -75,8 +81,18 @@ class RealSim:
         self.A_star_traj = [astar_x_array, astar_y_array]   
     
     def rrt_planning(self):
+        '''
+        RRT path planning algorithm
+        call RRT planning to generate optimal path while exploring habitats as much as possible
+        '''
         result = self.rrt.exploring(0.5, 5, 1, False, 10.0, 500.0, True, [1, -4.5, -4.5])
-        self.rrt_traj = result["path"]
+        #RRT trajectory represented by a list of motion_plan_states
+        rrt_traj = result["path"]
+
+        #2D x_coordinate list and y_coordinate list for plotting RRT trajectory
+        rrt_x_array = [mps.x for mps in rrt_traj]
+        rrt_y_array = [mps.y for mps in rrt_traj]
+        self.rrt_traj = [rrt_x_array, rrt_y_array]
     
     def create_trajectory_list_astar(self, traj_list):
         """
@@ -126,13 +142,9 @@ class RealSim:
             
         return trajectory_list
 
-    def plot_real_traj(self):
-        rrt_x_array = [mps.x for mps in self.rrt_traj]
-        rrt_y_array = [mps.y for mps in self.rrt_traj]
-        rrt_trajectory = [rrt_x_array, rrt_y_array]
-
-        traj = {"A *" : self.A_star_traj, "RRT" : rrt_trajectory, "RL": []}
-        
+    def plot_real_traj(self):        
+        #trajectory dictionary to store paths for plotting from A *, RRT and RL algorithms
+        traj = {"A *" : self.A_star_traj, "RRT" : self.rrt_traj, "RL": []}        
         self.live3DGraph.plot_2d_traj(traj)
 
 testing = RealSim()
