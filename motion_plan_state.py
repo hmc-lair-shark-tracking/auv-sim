@@ -18,12 +18,11 @@ class Motion_plan_state:
         self.length = 0
 
     def __repr__(self):
-        #goal location in 2D
         if self.z == 0 and self.theta == 0 and self.v == 0 and self.w == 0:
-            return ("[" + str(self.x) + ", "  + str(self.y) + "]")
-        #goal location in 3D
+            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.traj_time_stamp) + "]"
+        #location in 3D
         elif self.theta == 0 and self.v == 0 and self.w == 0:
-            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + "]"
+            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + ", " + str(self.traj_time_stamp) + "]"
         #obstacle location in 3D
         elif self.size != 0:
             return "[" + str(self.x) + ", " + str(self.y) + ", " + str(self.z) + ", " + str(self.size) + "]"
@@ -35,12 +34,12 @@ class Motion_plan_state:
                 str(self.theta)  + ", " + str(self.v) + ", " + str(self.w) + ", "+  str(self.traj_time_stamp) + ", " + str(self.plan_time_stamp) + "]"
 
     def __str__(self):
-        #goal location in 2D
+        #location in 2D
         if self.z == 0 and self.theta == 0 and self.v == 0 and self.w == 0:
-            return "[" + str(self.x) + ", "  + str(self.y) + "]"
-        #goal location in 3D
+            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.traj_time_stamp) + "]"
+        #location in 3D
         elif self.theta == 0 and self.v == 0 and self.w == 0:
-            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + "]"
+            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + ", " + str(self.traj_time_stamp) + "]"
         #obstacle location in 3D
         elif self.size != 0:
             return "[" + str(self.x) + ", " + str(self.y) + ", " + str(self.z) + ", " + str(self.size) + "]"

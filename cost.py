@@ -110,3 +110,63 @@ class Cost:
 
         return [sum(cost), cost]
     
+    def habitat_shark_cost_func(self, path, length, peri, habitats, shark_dict, weight, sonar_range=50):
+        '''
+        cost function for habitat exploration and shark tracking
+        we want to find a path minimizing path length, maximizing the time spent in different habitats visited,
+            maximizing the number of sharks in the range of sonar detection of AUV
+        
+        cost function = w1 * length - w2 * number of habitats visited - w3 * time spent in different habitats 
+                        - w4 * number of sharks in range
+
+        path: current path, represented as a list of motion_plan_states
+        length: the length of current path
+        peri: perimeter of boundary, a normalization factor for path length
+        habitats: a list of habitat areas represented as motion_plan_states
+        shark_dict: a dictionary representing different shark trajectory/position
+
+        output: 
+        cost: [total cost, [cost for w1, cost for w2, ...]]
+        '''
+        #set the weight for each term in cost function
+        w1 = weight[0]
+        w2 = weight[1]
+        w3 = weight[2]
+        w4 = weight[3]
+
+        cost = [0 for _ in range(len(weight))]
+        #normalize the cost for path length
+        cost[0] = w1 * length / peri
+        
+        visited = {} #dictionary of visited habitats
+        for i in range(len(habitats)):
+            visited[i+1] = False #visited initialized to be False for all habitat
+        
+        for mps in path:
+            temp_count = 0
+            for _, shark in shark_dict.items():
+                dist = math.sqrt((shark.x-mps.x) **2 + (shark.y-mps.y) **2)
+                if dist <= sonar_range:
+                    temp_count += 1
+            cost[3] += w4 * temp_count / len(shark_dict)
+
+            for i in range(len(habitats)):
+                dist = math.sqrt((habitats[i].x-mps.x) **2 + (habitats[i].y-mps.y) **2)
+                if dist <= habitats[i].size:
+                    visited[i+1] = True
+                    cost[2] += w3
+                    break
+        
+        #normalize the cost for time spent in habitats
+        cost[2] = cost[2] / (0.1 * peri)
+        cost[3] = cost[3] / (0.1 * peri)
+    
+        count = 0 #number of habitats visited
+        for i in range(1, len(visited)+1):
+            if visited[i] == True:
+                count += 1
+        
+        #normalize the cost for number of habitats visited
+        cost[1] = w2 * count / len(habitats)
+
+        return [sum(cost), cost]

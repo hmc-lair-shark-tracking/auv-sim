@@ -166,7 +166,7 @@ class Live3DGraph:
             # So we need to increment the index properly so that the newest shark trajectory point is close
             #   to the simulator's current time
             while shark.index < len(shark.traj_pts_array)-1 and\
-                abs(shark.traj_pts_array[shark.index].time_stamp - sim_time) > (const.SIM_TIME_INTERVAL + 0.1):
+                abs(shark.traj_pts_array[shark.index].traj_time_stamp - sim_time) > (const.SIM_TIME_INTERVAL + 0.1):
                 shark.index += 1
 
             # update the shark's position arrays to help us update the graph
@@ -371,7 +371,7 @@ class Live3DGraph:
 
         plt.show()
 
-    def plot_2d_traj(self, traj_dict):
+    def plot_2d_traj(self, traj_dict, shark_dict):
         """
         Plot a trajectory with defined boundaries and obstacles
         """
@@ -425,6 +425,10 @@ class Live3DGraph:
             if traj != []:
                 color = self.traj_checkbox_dict[planner][2]
                 ax.plot(traj[0], traj[1], marker = ',', color = color, label=planner)
-        ax.legend()
 
+        # plot sharks
+        for shark_id, shark_pos in shark_dict.items():
+            ax.add_patch(plt.Circle((shark_pos.x, shark_pos.y), shark_pos.size, color="r", fill=False))
+
+        ax.legend()
         plt.show()

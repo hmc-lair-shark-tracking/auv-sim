@@ -11,6 +11,8 @@ import numpy as np
 from shapely.wkt import loads as load_wkt 
 from shapely.geometry import Polygon, Point
 
+from sharkState import SharkState
+from sharkTrajectory import SharkTrajectory
 from motion_plan_state import Motion_plan_state
 from cost import Cost
 import catalina
@@ -54,7 +56,7 @@ class RRT:
         self.diff_max = diff_max
         self.freq = freq
 
-    def exploring(self, plot_interval, bin_interval, v, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1]):
+    def exploring(self, shark_dict, plot_interval, bin_interval, v, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1,-1]):
         """
         rrt path planning without setting a specific goal, rather try to explore the configuration space as much as possible
         calculate cost while expand and keep track of the current optimal cost path
@@ -132,14 +134,12 @@ class RRT:
                     #        continue    
                     #Question: how to normalize the path length?
                     if new_mps.length != 0:
-                        cost = cal_cost.habitat_time_cost_func(path, new_mps.length, self.habitats, peri_boundary, weights=weights)
+                        cost = cal_cost.habitat_shark_cost_func(path, new_mps.length, peri_boundary, self.habitats, shark_dict, weights)
                         if cost[0] < opt_cost[0]:
                             opt_cost = cost
                             opt_path = [new_mps.length, path]
                 
             opt_cost_list.append(opt_cost[0])
-        if int(opt_cost[0]) == 0:
-            return None
         return {"path length": opt_path[0], "path": opt_path[1], "cost": opt_cost, "cost list": opt_cost_list}
         
 
