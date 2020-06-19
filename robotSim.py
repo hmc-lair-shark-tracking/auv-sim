@@ -556,47 +556,6 @@ class RobotSim:
         
         return reach_any_shark or reach_max_time
 
-    def display_auv_trajectory(self):
-        """
-        Display the 2d auv trajectory constructed with A* algorithm
-
-        Parameter:
-            None
-        """
-
-        origin = catalina.ORIGIN_BOUND
-        start = create_cartesian(catalina.START, origin)
-        goal = create_cartesian(catalina.GOAL, origin)
-    
-        obstacle_list = []
-        boundary_list = []
-        boat_list = []
-
-        astar_solver = astar(start, goal, obstacle_list, boundary_list)
-
-        for obs in catalina.OBSTACLES:
-            pos = create_cartesian((obs.x, obs.y), catalina.ORIGIN_BOUND)
-            obstacle_list.append(Motion_plan_state(pos[0], pos[1], size=obs.size))
-
-        for b in catalina.BOUNDARIES:
-            pos = create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
-            boundary_list.append(Motion_plan_state(pos[0], pos[1]))
-        
-        for boat in catalina.BOATS:
-            pos = create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
-            boat_list.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
-
-        A_star_traj = astar_solver.astar(obstacle_list+boat_list, boundary_list, start, goal)
-        A_star_new_traj = self.create_trajectory_list(A_star_traj)
-
-        astar_x_array = []
-        astar_y_array = []
-
-        for point in A_star_new_traj:
-            astar_x_array.append(point.x)
-            astar_y_array.append(point.y)
-
-        self.live_graph.plot_2d_astar_traj(astar_x_array, astar_y_array)
 
     def main_navigation_loop(self, show_live_graph = True):
         """ 

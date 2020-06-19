@@ -59,4 +59,3 @@ HABITATS = [Motion_plan_state(33.444505, -118.485485, size=10),
             Motion_plan_state(33.444788, -118.485393, size=15),
             Motion_plan_state(33.444100, -118.485296, size=15),
             Motion_plan_state(33.443900, -118.485088, size=17)]
-
