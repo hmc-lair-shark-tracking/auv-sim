@@ -35,6 +35,9 @@ DELTA_T = 0.1
 END_GAME_RADIUS = 3.0
 FOLLOWING_RADIUS = 50.0
 
+# the auv will receive an immediate negative reward if it is close to the obstacles
+OBSTACLE_ZONE = 3.0
+
 # constants for reward
 R_COLLIDE = -10.0       # when the auv collides with an obstacle
 R_ARRIVE = 10.0         # when the auv arrives at the target
@@ -42,10 +45,11 @@ R_RANGE = 0.1           # this is a scaler to help determine immediate reward at
 R_TIME = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
 
 # constants for reward with habitats
-R_COLLIDE_100 = -1000.0
+R_COLLIDE_100 = -1000000.0
 R_MAINTAIN_DIST = 3.0       
 R_IN_HAB = 5.0    
-R_NEW_HAB = 10.0        
+R_NEW_HAB = 1000.0 
+R_CLOSE_TO_OBS = -100.0      
 
 REPEAT_ACTION_TIME = 5
 
@@ -292,6 +296,23 @@ class AuvEnv(gym.Env):
         return False
 
 
+    def check_close_to_obstacles(self, auv_pos):
+        """
+        Check if the auv at the current state is hitting any obstacles
+
+        Parameter:
+            auv_pos - a np array [x, y, z, theta]
+        """
+        for obs in self.obstacle_array:
+            distance = self.calculate_range(auv_pos, obs)
+            # obs[3] indicates the size of the obstacle
+            if distance <= (obs[3] + OBSTACLE_ZONE):
+                if DEBUG: 
+                    print("Close to an obstacles")
+                return True
+        return False
+
+
     def check_in_habitat(self, auv_pos, habitats_array):
         """
         """
@@ -384,6 +405,8 @@ class AuvEnv(gym.Env):
         # if the auv collides with an obstacle
         if self.check_collision(auv_pos):
             return R_COLLIDE_100
+        elif self.check_close_to_obstacles(auv_pos):
+            return R_CLOSE_TO_OBS
         # if the auv maintain FOLLOW_DISTANCE with the shark
         elif self.within_follow_range(auv_pos, shark_pos):
             reward = R_MAINTAIN_DIST
@@ -521,7 +544,7 @@ class AuvEnv(gym.Env):
         plt.draw()
 
         # pause so the plot can be updated
-        plt.pause(0.0001)
+        plt.pause(0.00001)
 
         self.live_graph.ax.clear()
 

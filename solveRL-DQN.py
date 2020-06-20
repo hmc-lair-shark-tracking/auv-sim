@@ -31,7 +31,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 40.0
 
-NUM_OF_EPISODES = 500
+NUM_OF_EPISODES = 1000
 MAX_STEP = 1000
 
 NUM_OF_EPISODES_TEST = 500
@@ -56,8 +56,8 @@ NUM_GOALS_SAMPLED_HER = 4
 
 TARGET_UPDATE = 10
 
-NUM_OF_OBSTACLES = 8
-NUM_OF_HABITATS = 18
+NUM_OF_OBSTACLES = 10
+NUM_OF_HABITATS = 20
 STATE_SIZE = 8 + NUM_OF_OBSTACLES * 4 + NUM_OF_HABITATS * 5
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -65,7 +65,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 250
+RENDER_EVERY = 500
 # how many episode should we run a test on the model
 TEST_EVERY = 100
 
@@ -775,7 +775,7 @@ class DQN():
         # for plot #1 
         print("total reward array")
         print(avg_total_reward_array)
-        print("total reward array")
+        print("average distance between auv and shark array")
         print(avg_dist_btw_auv_shark_array)
         text = input("stop")
 
