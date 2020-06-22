@@ -29,15 +29,6 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 200.0
 
-AUV_MIN_X = DIST
-AUV_MAX_X= DIST * 2
-AUV_MIN_Y = DIST
-AUV_MAX_Y = DIST * 2
-
-SHARK_MIN_X = 0.0
-SHARK_MAX_X= DIST * 3
-SHARK_MIN_Y = 0.0
-SHARK_MAX_Y = DIST * 3
 
 CLIP_MAX_VAL = 120.0
 CLIP_MIN_VAL = 0.0
@@ -46,7 +37,7 @@ NUM_OF_EPISODES = 1000
 MAX_STEP = 1500
 
 NUM_OF_EPISODES_TEST = 1000
-MAX_STEP_TEST = 2000
+MAX_STEP_TEST = 1000
 
 N_V = 7
 N_W = 7
@@ -67,7 +58,7 @@ NUM_GOALS_SAMPLED_HER = 4
 
 TARGET_UPDATE = 10
 
-NUM_OF_OBSTACLES = 0
+NUM_OF_OBSTACLES = 4
 STATE_SIZE = 8 + NUM_OF_OBSTACLES * 4
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -75,7 +66,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 100
+RENDER_EVERY = 1000
+# how many episode should we run a test on the model
+TEST_EVERY = 100
 
 DEBUG = False
 
@@ -159,45 +152,22 @@ def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_p
     return auv_overlaps or shark_overlaps or obs_overlaps
 
 
-def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
+def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shark_min_x, shark_max_x,  shark_min_y, shark_max_y):
     """
     """
     obstacle_array = []
     for _ in range(num_of_obstacles):
-        obs_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
-        obs_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
-        obs_size = np.random.randint(1,5)
+        obs_x = np.random.uniform(shark_min_x, shark_max_x)
+        obs_y = np.random.uniform(shark_min_y, shark_max_y)
+        obs_size = np.random.randint(1,11)
         while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array):
-            obs_x = np.random.uniform(SHARK_MIN_X, SHARK_MAX_X)
-            obs_y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y)
+            obs_x = np.random.uniform(shark_min_x, shark_max_x)
+            obs_y = np.random.uniform(shark_min_y, shark_max_y)
         obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, z=-5, size = obs_size))
 
     return obstacle_array  
 
 
-def clip_value_to_range(value, target_min, target_max):
-    """
-    From: https://stackoverflow.com/questions/49911206/how-to-restrict-output-of-a-neural-net-to-a-specific-range
-    """
-    # tanh gives you range between -1 and 1, so this gives you range between 0, 2
-    # new_value = value + 1
-    new_value = np.tanh(value) + 1 
-    scale = (target_max - target_min) / 2.0
-    return new_value * scale + target_min
-
-
-def clip_state_to_range(state):
-    """
-    Parameter:
-        state - numpy array
-    """
-    new_state_x = clip_value_to_range(state[0], CLIP_MIN_VAL, CLIP_MAX_VAL)
-    new_state_y = clip_value_to_range(state[1], CLIP_MIN_VAL, CLIP_MAX_VAL)
-
-    new_state = np.array([new_state_x, new_state_y, state[2], state[3]])
-
-    return new_state
-        
 def scale_state(state, scale):
     new_state_x = state[0] * scale
     new_state_y = state[1] * scale
@@ -205,6 +175,28 @@ def scale_state(state, scale):
     new_state = np.array([new_state_x, new_state_y, state[2], state[3]])
 
     return new_state
+
+  
+def calculate_success_and_collision_rate(final_reward_array, traveled_dist_array):
+    success_count = 0
+    collision_count = 0
+    collision_count_norm = 0.0
+    for i in range(len(final_reward_array)):
+        reward = final_reward_array[i]
+        if reward == 10.0:
+            success_count += 1
+        elif reward == -100.0:
+            collision_count += 1
+            colllision_count_norm += 1.0 / float(traveled_dist_array[i])
+
+    success_rate = float(success_count)/float(len(final_reward_array)) * 100
+
+    collision_rate = float(collision_count)/float(len(final_reward_array)) * 100
+
+    collision_rate_norm = float(collision_count_norm)/float(len(final_reward_array)) * 100
+
+    return success_rate, collision_rate, collision_count_norm
+
 
 """
 Class for building policy and target neural network
@@ -445,11 +437,20 @@ class AuvEnvManager():
         self.possible_actions = self.env.actions_range(N_v, N_w)
 
     
-    def init_env_randomly(self):
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(AUV_MIN_X, AUV_MAX_X), y = np.random.uniform(AUV_MIN_Y, AUV_MAX_Y), z = -5.0, theta = 0)
-        shark_init_pos = Motion_plan_state(x = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y), y = np.random.uniform(SHARK_MIN_Y, SHARK_MAX_Y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
-  
-        obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES)
+    def init_env_randomly(self, dist = DIST):
+        auv_min_x = dist
+        auv_max_x = dist * 2
+        auv_min_y = dist
+        auv_max_y = dist * 2
+
+        shark_min_x = 0.0
+        shark_max_x = dist * 3
+        shark_min_y = 0.0
+        shark_max_y = dist * 3
+
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = 0)
+        shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+        obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
 
         
         print("===============================")
@@ -624,6 +625,90 @@ class DQN():
         self.target_net.load_state_dict(torch.load('checkpoint_target.pth'))
 
 
+    def plot_summary_graph (self, episode_array, upper_plot_y_data, upper_plot_ylabel, upper_plot_title, lower_plot_y_data, lower_plot_ylabel, lower_plot_title):
+        # close plot if there is any
+        plt.close()
+
+        fig = plt.figure(figsize= [10, 8])
+
+        ax_upper = fig.add_subplot(2, 1, 1)
+        ax_lower = fig.add_subplot(2, 1, 2)
+
+        ax_upper.plot(episode_array, upper_plot_y_data)
+        ax_lower.plot(episode_array, lower_plot_y_data)
+
+        ax_upper.scatter(episode_array, upper_plot_y_data, color='b')
+        ax_lower.scatter(episode_array, lower_plot_y_data, color='b')
+
+        ax_upper.set_title(upper_plot_title)
+        ax_lower.set_title(lower_plot_title)
+
+        ax_upper.set_ylabel(upper_plot_ylabel)
+
+        ax_lower.set_xlabel("number of episodes trained")
+        ax_lower.set_ylabel(lower_plot_ylabel)
+
+        plt.show()
+
+
+    def plot_intermediate_testing_result(self, starting_distance, episode_array, result_array):
+        """
+        Plot the follow plots
+            1. success rate vs episodes
+                collision rate vs episodes
+            2. collision rate vs episodes
+               collision rate (divide by the traveled distance) vs episodes
+        """
+        success_rate_array = []
+        collision_rate_array = []
+        collision_rate_array_norm = []
+
+        for result in result_array:
+            success_rate_array.append(result["success_rate"])
+            collision_rate_array.append(result["collision_rate"])
+            collision_rate_array_norm.append(result["collision_rate_norm"])
+
+        # begin plotting the graph
+        # plot #1: 
+        #   success rate vs episodes
+        #   collision rate vs episodes
+        upper_plot_title = "success rate vs. episodes at range = " + str(starting_distance) + 'm'
+        upper_plot_ylabel = "success rate (%)"
+
+        lower_plot_title = "collision rate vs. episodes at range = " + str(starting_distance) + 'm'
+        lower_plot_ylabel = "collision rate (%)"
+
+        self.plot_summary_graph(episode_array, success_rate_array, upper_plot_ylabel, upper_plot_title, \
+            collision_rate_array, lower_plot_ylabel, lower_plot_title)
+
+        # plot #2: 
+        #   collision rate vs episodes
+        #   collision rate (divided by the traveled distance) vs episodes
+        upper_plot_title = "collision rate vs. episodes at range = " + str(starting_distance) + 'm'
+        upper_plot_ylabel = "collision rate (%)"
+
+        lower_plot_title = "collision rate (divided by the traveled distance) vs. episodes at range = " + str(starting_distance) + 'm'
+        lower_plot_ylabel = "scaled collision rate (%)"
+
+        self.plot_summary_graph(episode_array, collision_rate_array, upper_plot_ylabel, upper_plot_title, \
+            collision_rate_array_norm, lower_plot_ylabel, lower_plot_title)
+        
+        # print out the result so that we can save for later
+        print("episode tested")
+        print(episode_array)
+        text = input("stop")
+
+        # for plot #1 
+        print("success rate array")
+        print(success_rate_array)
+        text = input("stop")
+
+        # for plot #2
+        print("collision")
+        print(collision_rate_array)
+        print(collision_rate_array_norm)
+        text = input("stop")
+
     def save_real_experiece(self, state, next_state, action, timestep):
         old_range = calculate_range(state[0], state[1])
 
@@ -689,18 +774,19 @@ class DQN():
     def train(self, num_episodes, max_step, load_prev_training = False, use_HER = True):
         self.episode_durations = []
         self.avg_loss_in_training = []
+        
+        episodes_that_got_tested = []
+        testing_result_array_training_dist = []
+        testing_result_array = []
 
         if load_prev_training:
             # if we want to continue training an already trained network
             self.load_trained_network()
         
-        for eps in range(num_episodes):
+        for eps in range(1, num_episodes+1):
             # initialize the starting point of the shark and the auv randomly
             # receive initial observation state s1 
             state = self.em.init_env_randomly()
-
-            # reward received in this episode
-            eps_reward = 0
 
             action_array = []
             next_state_array = []
@@ -767,11 +853,45 @@ class DQN():
             if eps % SAVE_EVERY == 0:
                 save_model(self.policy_net, self.target_net)
 
+            if eps % TEST_EVERY == 0:
+                episodes_that_got_tested.append(eps)
+
+                result_training_dist = self.test_model_during_training(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, DIST)
+
+                testing_result_array_training_dist.append(result_training_dist)
+
         save_model(self.policy_net, self.target_net)
+
         self.em.close()
+
+        self.plot_intermediate_testing_result(DIST, episodes_that_got_tested, testing_result_array_training_dist)
+
+        print("episode durations")
         print(self.episode_durations)
+        text = input("stop")
+
         print("average loss")
         print(self.avg_loss_in_training)
+        text = input("stop")
+
+        print("episodes that gets tested")
+        print(episodes_that_got_tested)
+        text = input("stop")
+
+        print("success rate array")
+        print(self.success_rate_array_curr_range)
+        text = input("stop")
+
+        print("collision rate array")
+        print(self.collision_rate_array_curr_range)
+        text = input("stop")
+
+        print("success rate array 100m")
+        print(self.success_rate_array_100m)
+        text = input("stop")
+
+        print("collision rate array 100m")
+        print(self.collision_rate_array_100m)
 
     
     def test(self, num_episodes, max_step, show_live_graph = False):
@@ -861,7 +981,7 @@ class DQN():
 
         print("all the traveled distances")
         print(traveled_dist_array)
-        print("average traveled dissta")
+        print("average traveled distances")
         print(np.mean(traveled_dist_array))
         print("-----------------")
 
@@ -876,6 +996,59 @@ class DQN():
         print("total reward")
         print(total_reward_array)
         print("-----------------")
+    
+
+    def test_model_during_training (self, num_episodes, max_step, starting_dist):
+        # modify the starting distance betweeen the auv and the shark to prepare for testing
+        
+        episode_durations = []
+        final_reward_array = []
+        traveled_dist_array = []
+
+        # assuming that we are testing the model during training, so we don't need to load the model 
+        self.policy_net.eval()
+        
+        for eps in range(num_episodes):
+            # initialize the starting point of the shark and the auv randomly
+            # receive initial observation state s1 
+            state = self.em.init_env_randomly(starting_dist)
+            
+            episode_durations.append(max_step)
+            final_reward_array.append(0.0)
+            traveled_dist_array.append(0.0)
+
+            for t in range(1, max_step):
+                action = self.agent.select_action(state, self.policy_net)
+
+                reward = self.em.take_action(action, t)
+
+                traveled_dist_array[eps] += self.em.env.distance_traveled
+
+                final_reward_array[eps] = reward.item()
+
+                self.em.render(print_state = False, live_graph = False)
+
+                state = self.em.get_state()
+
+                if self.em.done:
+                    episode_durations[eps] = t
+                    break
+               
+            print("+++++++++++++++++++++++++++++")
+            print("Test Episode # ", eps, "end with reward: ", reward, " used time: ", episode_durations[-1])
+            print("+++++++++++++++++++++++++++++")
+
+        self.policy_net.train()
+
+        success_rate, collision_rate, collision_rate_norm = calculate_success_and_collision_rate(final_reward_array, traveled_dist_array)
+
+        result = {
+            "success_rate": success_rate, 
+            "collision_rate": collision_rate, 
+            "collision_rate_norm": collision_rate_norm,
+        }
+
+        return result
 
     
 def main():

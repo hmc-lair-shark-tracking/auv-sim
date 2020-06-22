@@ -18,16 +18,16 @@ class Motion_plan_state:
     def __repr__(self):
         #goal location in 2D
         if self.z == 0 and self.theta == 0 and self.v == 0 and self.w == 0 and self.time_stamp == 0:
-            return ("[" + str(self.x) + ", "  + str(self.y) + "]")
+            return ("[x=" + str(self.x) + ", y="  + str(self.y) + "]")
         #goal location in 3D
-        elif self.theta == 0 and self.v == 0 and self.w == 0 and self.time_stamp == 0:
-            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + "]"
+        elif self.theta == 0 and self.v == 0 and self.w == 0 and self.size == 0 and self.time_stamp == 0:
+            return "[x=" + str(self.x) + ", y="  + str(self.y) + ", z=" + str(self.z) + "]"
         #obstable location in 3D
         elif self.size != 0:
-            return "[" + str(self.x) + ", " + str(self.y) + ", " + str(self.z) + ", " + str(self.size) + "]"
+            return "[x=" + str(self.x) + ", y=" + str(self.y) + ", z=" + str(self.z) + ", size=" + str(self.size) + "]"
         else: 
-            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + ", " +\
-                str(self.theta)  + ", " + str(self.v) + ", " + str(self.w) + ", "+  str(self.time_stamp) + "]"
+            return "[x=" + str(self.x) + ", y="  + str(self.y) + ", z=" + str(self.z) + ", theta=" +\
+                str(self.theta)  + ", v=" + str(self.v) + ", w=" + str(self.w) + ", time="+  str(self.time_stamp) + "]"
 
     def __str__(self):
         #goal location in 2D

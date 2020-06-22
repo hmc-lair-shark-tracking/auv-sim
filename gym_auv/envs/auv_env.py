@@ -34,7 +34,7 @@ DELTA_T = 0.1
 END_GAME_RADIUS = 3.0
 
 # constants for reward
-R_COLLIDE = -10.0       # when the auv collides with an obstacle
+R_COLLIDE = -100.0       # when the auv collides with an obstacle
 R_ARRIVE = 10.0         # when the auv arrives at the target
 R_RANGE = 0.1           # this is a scaler to help determine immediate reward at a time step
 R_TIME = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
@@ -235,7 +235,7 @@ class AuvEnv(gym.Env):
         """
         auv_shark_range = self.calculate_range(auv_pos, shark_pos)
         if auv_shark_range <= END_GAME_RADIUS:
-            print("Reached the Goal")
+            # print("Reached the Goal")
             return True
         else:
             return False
