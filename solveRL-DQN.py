@@ -29,6 +29,10 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 200.0
 
+
+CLIP_MAX_VAL = 120.0
+CLIP_MIN_VAL = 0.0
+
 NUM_OF_EPISODES = 1000
 MAX_STEP = 1500
 
@@ -164,6 +168,15 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shar
     return obstacle_array  
 
 
+def scale_state(state, scale):
+    new_state_x = state[0] * scale
+    new_state_y = state[1] * scale
+
+    new_state = np.array([new_state_x, new_state_y, state[2], state[3]])
+
+    return new_state
+
+  
 def calculate_success_and_collision_rate(final_reward_array, traveled_dist_array):
     success_count = 0
     collision_count = 0
@@ -183,6 +196,7 @@ def calculate_success_and_collision_rate(final_reward_array, traveled_dist_array
     collision_rate_norm = float(collision_count_norm)/float(len(final_reward_array)) * 100
 
     return success_rate, collision_rate, collision_count_norm
+
 
 """
 Class for building policy and target neural network
@@ -890,6 +904,10 @@ class DQN():
         # if we want to continue training an already trained network
         self.load_trained_network()
         self.policy_net.eval()
+
+        scale = 1.0
+        if DIST > 100.0:
+            scale = 100.0/(DIST*4)
         
         for eps in range(num_episodes):
             # initialize the starting point of the shark and the auv randomly
@@ -904,11 +922,24 @@ class DQN():
             final_reward_array.append(0.0)
             total_reward_array.append(0.0)
 
-
             reward = 0
 
             for t in range(1, max_step):
-                action = self.agent.select_action(state, self.policy_net)
+                # print("pre-processed")
+                # print(state)
+                scaled_auv_pos = scale_state(state[0], scale)
+                scaled_shark_pos = scale_state(state[1], scale)
+
+                scaled_state = (scaled_auv_pos, scaled_shark_pos, state[2])
+
+                # print("-----")
+                # print("scaled states")
+                # print(scaled_state)
+                # print("--------------------------")
+                # text = input("stop")
+
+                action = self.agent.select_action(scaled_state, self.policy_net)
+                # action = self.agent.select_action(state, self.policy_net)
 
                 reward = self.em.take_action(action, t)
 
