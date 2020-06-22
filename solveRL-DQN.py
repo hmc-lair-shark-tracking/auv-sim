@@ -27,7 +27,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 """
 
 # define the range between the starting point of the auv and shark
-DIST = 20.0
+DIST = 200.0
 
 NUM_OF_EPISODES = 1000
 MAX_STEP = 1500
@@ -155,7 +155,7 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shar
     for _ in range(num_of_obstacles):
         obs_x = np.random.uniform(shark_min_x, shark_max_x)
         obs_y = np.random.uniform(shark_min_y, shark_max_y)
-        obs_size = np.random.randint(1,5)
+        obs_size = np.random.randint(1,11)
         while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array):
             obs_x = np.random.uniform(shark_min_x, shark_max_x)
             obs_y = np.random.uniform(shark_min_y, shark_max_y)
@@ -164,20 +164,25 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shar
     return obstacle_array  
 
 
-def calculate_success_and_collision_rate(final_reward_array):
+def calculate_success_and_collision_rate(final_reward_array, traveled_dist_array):
     success_count = 0
     collision_count = 0
-    for reward in final_reward_array:
+    collision_count_norm = 0.0
+    for i in range(len(final_reward_array)):
+        reward = final_reward_array[i]
         if reward == 10.0:
             success_count += 1
         elif reward == -100.0:
             collision_count += 1
+            colllision_count_norm += 1.0 / float(traveled_dist_array[i])
 
     success_rate = float(success_count)/float(len(final_reward_array)) * 100
 
     collision_rate = float(collision_count)/float(len(final_reward_array)) * 100
 
-    return success_rate, collision_rate
+    collision_rate_norm = float(collision_count_norm)/float(len(final_reward_array)) * 100
+
+    return success_rate, collision_rate, collision_count_norm
 
 """
 Class for building policy and target neural network
@@ -606,30 +611,89 @@ class DQN():
         self.target_net.load_state_dict(torch.load('checkpoint_target.pth'))
 
 
-    def plot_success_collision(self, starting_distance, episode_array, success_rate_array, collision_rate_array):
+    def plot_summary_graph (self, episode_array, upper_plot_y_data, upper_plot_ylabel, upper_plot_title, lower_plot_y_data, lower_plot_ylabel, lower_plot_title):
         # close plot if there is any
         plt.close()
 
         fig = plt.figure(figsize= [10, 8])
 
-        ax_s = fig.add_subplot(2, 1, 1)
-        ax_c = fig.add_subplot(2, 1, 2)
+        ax_upper = fig.add_subplot(2, 1, 1)
+        ax_lower = fig.add_subplot(2, 1, 2)
 
-        ax_s.plot(episode_array, success_rate_array)
-        ax_c.plot(episode_array, collision_rate_array)
+        ax_upper.plot(episode_array, upper_plot_y_data)
+        ax_lower.plot(episode_array, lower_plot_y_data)
 
-        ax_s.scatter(episode_array, success_rate_array, color='b')
-        ax_c.scatter(episode_array, collision_rate_array, color='b')
+        ax_upper.scatter(episode_array, upper_plot_y_data, color='b')
+        ax_lower.scatter(episode_array, lower_plot_y_data, color='b')
 
-        ax_s.set_title("success rate vs episodes at range = " + str(starting_distance) + "m")
-        ax_c.set_title("collision rate vs episodes at range = " + str(starting_distance) + "m")
+        ax_upper.set_title(upper_plot_title)
+        ax_lower.set_title(lower_plot_title)
 
-        ax_s.set_ylabel("success rate (%)")
-        ax_c.set_xlabel("number of episodes trained")
-        ax_c.set_ylabel("collision rate (%)")
+        ax_upper.set_ylabel(upper_plot_ylabel)
+
+        ax_lower.set_xlabel("number of episodes trained")
+        ax_lower.set_ylabel(lower_plot_ylabel)
 
         plt.show()
 
+
+    def plot_intermediate_testing_result(self, starting_distance, episode_array, result_array):
+        """
+        Plot the follow plots
+            1. success rate vs episodes
+                collision rate vs episodes
+            2. collision rate vs episodes
+               collision rate (divide by the traveled distance) vs episodes
+        """
+        success_rate_array = []
+        collision_rate_array = []
+        collision_rate_array_norm = []
+
+        for result in result_array:
+            success_rate_array.append(result["success_rate"])
+            collision_rate_array.append(result["collision_rate"])
+            collision_rate_array_norm.append(result["collision_rate_norm"])
+
+        # begin plotting the graph
+        # plot #1: 
+        #   success rate vs episodes
+        #   collision rate vs episodes
+        upper_plot_title = "success rate vs. episodes at range = " + str(starting_distance) + 'm'
+        upper_plot_ylabel = "success rate (%)"
+
+        lower_plot_title = "collision rate vs. episodes at range = " + str(starting_distance) + 'm'
+        lower_plot_ylabel = "collision rate (%)"
+
+        self.plot_summary_graph(episode_array, success_rate_array, upper_plot_ylabel, upper_plot_title, \
+            collision_rate_array, lower_plot_ylabel, lower_plot_title)
+
+        # plot #2: 
+        #   collision rate vs episodes
+        #   collision rate (divided by the traveled distance) vs episodes
+        upper_plot_title = "collision rate vs. episodes at range = " + str(starting_distance) + 'm'
+        upper_plot_ylabel = "collision rate (%)"
+
+        lower_plot_title = "collision rate (divided by the traveled distance) vs. episodes at range = " + str(starting_distance) + 'm'
+        lower_plot_ylabel = "scaled collision rate (%)"
+
+        self.plot_summary_graph(episode_array, collision_rate_array, upper_plot_ylabel, upper_plot_title, \
+            collision_rate_array_norm, lower_plot_ylabel, lower_plot_title)
+        
+        # print out the result so that we can save for later
+        print("episode tested")
+        print(episode_array)
+        text = input("stop")
+
+        # for plot #1 
+        print("success rate array")
+        print(success_rate_array)
+        text = input("stop")
+
+        # for plot #2
+        print("collision")
+        print(collision_rate_array)
+        print(collision_rate_array_norm)
+        text = input("stop")
 
     def save_real_experiece(self, state, next_state, action, timestep):
         old_range = calculate_range(state[0], state[1])
@@ -696,11 +760,10 @@ class DQN():
     def train(self, num_episodes, max_step, load_prev_training = False, use_HER = True):
         self.episode_durations = []
         self.avg_loss_in_training = []
-        self.episodes_that_gets_tested = []
-        self.success_rate_array_curr_range = []
-        self.collision_rate_array_curr_range = []
-        self.success_rate_array_100m = []
-        self.collision_rate_array_100m = []
+        
+        episodes_that_got_tested = []
+        testing_result_array_training_dist = []
+        testing_result_array = []
 
         if load_prev_training:
             # if we want to continue training an already trained network
@@ -777,25 +840,17 @@ class DQN():
                 save_model(self.policy_net, self.target_net)
 
             if eps % TEST_EVERY == 0:
-                self.episodes_that_gets_tested.append(eps)
+                episodes_that_got_tested.append(eps)
 
-                success_rate, collision_rate = self.test_model_during_training(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, DIST)
+                result_training_dist = self.test_model_during_training(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, DIST)
 
-                self.success_rate_array_curr_range.append(success_rate)
-                self.collision_rate_array_curr_range.append(collision_rate)
-
-                success_rate, collision_rate = self.test_model_during_training(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, 100)
-
-                self.success_rate_array_100m.append(success_rate)
-                self.collision_rate_array_100m.append(collision_rate)
+                testing_result_array_training_dist.append(result_training_dist)
 
         save_model(self.policy_net, self.target_net)
 
         self.em.close()
 
-        self.plot_success_collision(DIST, self.episodes_that_gets_tested, self.success_rate_array_curr_range, self.collision_rate_array_curr_range)
-
-        self.plot_success_collision(100, self.episodes_that_gets_tested, self.success_rate_array_100m, self.collision_rate_array_100m)
+        self.plot_intermediate_testing_result(DIST, episodes_that_got_tested, testing_result_array_training_dist)
 
         print("episode durations")
         print(self.episode_durations)
@@ -806,7 +861,7 @@ class DQN():
         text = input("stop")
 
         print("episodes that gets tested")
-        print(self.episodes_that_gets_tested)
+        print(episodes_that_got_tested)
         text = input("stop")
 
         print("success rate array")
@@ -917,6 +972,7 @@ class DQN():
         
         episode_durations = []
         final_reward_array = []
+        traveled_dist_array = []
 
         # assuming that we are testing the model during training, so we don't need to load the model 
         self.policy_net.eval()
@@ -927,13 +983,15 @@ class DQN():
             state = self.em.init_env_randomly(starting_dist)
             
             episode_durations.append(max_step)
-
             final_reward_array.append(0.0)
+            traveled_dist_array.append(0.0)
 
             for t in range(1, max_step):
                 action = self.agent.select_action(state, self.policy_net)
 
                 reward = self.em.take_action(action, t)
+
+                traveled_dist_array[eps] += self.em.env.distance_traveled
 
                 final_reward_array[eps] = reward.item()
 
@@ -951,15 +1009,21 @@ class DQN():
 
         self.policy_net.train()
 
-        success_rate, collision_rate = calculate_success_and_collision_rate(final_reward_array)
+        success_rate, collision_rate, collision_rate_norm = calculate_success_and_collision_rate(final_reward_array, traveled_dist_array)
 
-        return success_rate, collision_rate
+        result = {
+            "success_rate": success_rate, 
+            "collision_rate": collision_rate, 
+            "collision_rate_norm": collision_rate_norm,
+        }
+
+        return result
 
     
 def main():
     dqn = DQN(N_V, N_W)
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=True)
-    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=False)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=True)
+    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=False)
 
 if __name__ == "__main__":
     main()

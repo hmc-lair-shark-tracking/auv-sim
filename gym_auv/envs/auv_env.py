@@ -235,7 +235,7 @@ class AuvEnv(gym.Env):
         """
         auv_shark_range = self.calculate_range(auv_pos, shark_pos)
         if auv_shark_range <= END_GAME_RADIUS:
-            print("Reached the Goal")
+            # print("Reached the Goal")
             return True
         else:
             return False
