@@ -905,7 +905,7 @@ class DQN():
             self.policy_net_optim.step()
 
 
-    def train(self, num_episodes, max_step, load_prev_training = False, use_HER = True, render_3D_plot = False):
+    def train(self, num_episodes, max_step, load_prev_training = False, use_HER = True, live_graph_3D = False, live_graph_2D = False):
         episode_durations = []
         avg_loss_in_training = []
         total_reward_in_training = []
@@ -949,8 +949,8 @@ class DQN():
 
                 done_array.append(torch.tensor([0], device=DEVICE).int())
 
-                if (eps % RENDER_EVERY == 0) and render_3D_plot:
-                    self.em.render(print_state = False, live_graph = True)
+                if (eps % RENDER_EVERY == 0) and (live_graph_2D or live_graph_3D):
+                    self.em.render(print_state = False, live_graph_3D = live_graph_3D, live_graph_2D = live_graph_2D)
 
                 state = next_state
 
@@ -1231,8 +1231,8 @@ class DQN():
 
 def main():
     dqn = DQN(N_V, N_W)
-    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False, render_3D_plot=True)
-    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False, live_graph_3D = False, live_graph_2D = True)
+    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 if __name__ == "__main__":
     main()
