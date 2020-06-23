@@ -87,8 +87,8 @@ class Particle:
             """
                 calculates the range from the particle to the auv
             """
-            particleRange = math.sqrt((y_auv - self.y_p)**2 + (x_auv - self.x_p)**2)
-            return particleRange
+            particleRange_squared = (y_auv - self.y_p)**2 + (x_auv - self.x_p)**2
+            return particleRange_squared
 
         def weight(self, auv_alpha, particleAlpha, auv_range, particleRange):
             """
@@ -109,8 +109,8 @@ class Particle:
                 self.weight_p = function_alpha
     
             #range weight
-            SIGMA_RANGE = 10
-            function_weight =  .001 + (1/(SIGMA_RANGE * math.sqrt(2*math.pi))* (math.e**(((-((particleRange - auv_range)**2)))/(2*(SIGMA_RANGE)**2))))
+            SIGMA_RANGE = 100
+            function_weight =  MINIMUM_WEIGHT + (1/(SIGMA_RANGE * PI_CONSTANT)* (math.e**(((-((particleRange - auv_range)**2)))/(2*(SIGMA_RANGE)**2))))
             
             #multiply weights
             self.weight_p = function_weight * self.weight_p
@@ -155,7 +155,8 @@ class particleFilter:
 
     def range_auv(self):
         range = []
-        range_value = math.sqrt((float(self.y_auv)- self.y_shark)**2 + (float(self.x_auv)-float(self.x_shark))**2)
+        range_value_squared = (float(self.y_auv)- self.y_shark)**2 + (float(self.x_auv)-float(self.x_shark))**2
+        range.append(range_value_squared)
         #print("range of auv is")
         #print(range)
         return range_value
@@ -326,6 +327,7 @@ class particleFilter:
 
             
 def main(): 
+<<<<<<< HEAD
     num_of_loops = 1
     num_of_inner_loops = 50
     final_time_list = []
@@ -416,8 +418,9 @@ def main():
 
 
         xy_mean = test_particle.particleMean(particles)
-        x_mean_over_time = []
-        y_mean_over_time = []
+        print("mean of all particles (x, y): ", xy_mean)
+        range_error = test_particle.meanError(xy_mean[0], xy_mean[1])
+        print("range error: ", range_error)
         x_mean_over_time.append(xy_mean[0])
         y_mean_over_time.append(xy_mean[1])
         
@@ -425,13 +428,35 @@ def main():
         #tracking_error_list = []
         #tracking_error_list = tracking_error_list.append(test_particle.meanError(xy_mean[0], xy_mean[1]))
 
-
         new_particles = test_particle.correct(normalized_weights, particles)
         particles = new_particles
         #for particle in particles: 
             #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
         particle_coordinates = test_particle.particle_coordinates(particles)
+        print("+++++++++++++++++++++++++++++++")
+        #print(particle_coordinates)
+        
+        #simulation stuff
 
+        print("===================")
+        #print(final_new_shark_coordinate_x)
+        print("=====================================")
+        if loops >= 280:
+            break
+        #print(particle_coordinates)
+        
+        #test_shark.live_graph.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y, actual_shark_coordinate_x, actual_shark_coordinate_y)
+        #plt.draw()
+        #plt.pause(.1)
+        #test_shark.live_graph.ax.clear()
+        
+    """
+    plt.close()
+    final_list = test_grapher_shark.coordinate_plotter(x_mean_over_time, y_mean_over_time, final_new_shark_coordinate_x, final_new_shark_coordinate_y, sim_time_list)
+    print(" final sim time list")
+    print(final_list)
+    plt.show()
+    """
         loops = 0
         sim_time = 0.0
         sim_time_list = []
