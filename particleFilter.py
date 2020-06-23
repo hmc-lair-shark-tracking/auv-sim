@@ -403,33 +403,19 @@ def main():
         time.sleep(.1)
             #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
         #print("updated particles after", .1, "seconds of random movement")
-        # update the shark position (do this in your main loop)
         for particle in particles: 
             particle.update_particle(.1)
+            #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
 
-        for shark in shark_list:
-            test_shark.live_graph.update_shark_location(shark, sim_time)
-        
         shark_state_dict = test_shark.get_all_sharks_state()
-
-        #print("==================")
-        #print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
-
         has_new_data = test_shark.get_all_sharks_sensor_measurements(shark_state_dict, auv_pos)
-
-
-        if has_new_data == True:
-            print("======NEW DATA=======")
-            print("All The Shark Sensor Measurements [range, bearing]: " +\
-                str(test_shark.shark_sensor_data_dict))
-        
+        test_shark.shark_sensor_data_dict[1]
         test_particle.x_shark = test_shark.shark_sensor_data_dict[1].x
         test_particle.y_shark = test_shark.shark_sensor_data_dict[1].y
         auv_alpha = test_particle.auv_to_alpha()
         auv_range = test_particle.range_auv()
-        
-        #print(" range in the loop")
-        #print(auv_alpha, auv_range)
+
+        #print("auv range and alpha", auv_alpha, auv_range)
 
         for particle in particles: 
             particleAlpha = particle.calc_particle_alpha(x_auv, y_auv, theta)
@@ -445,14 +431,9 @@ def main():
         count = 0
         for particle in particles: 
             particle.weight_p = normalized_weights[count]
-            #print("particle weight: ", particle.weight_p)
+            #print("new normalized particle weight: ", particle.weight_p)
             count += 1
-        
-        new_particles = test_particle.correct(normalized_weights, particles)
-        particles = new_particles
 
-        sim_time += 0.1
-        sim_time_list.append(sim_time)
 
         xy_mean = test_particle.particleMean(particles)
         print("mean of all particles (x, y): ", xy_mean)
@@ -460,6 +441,8 @@ def main():
         print("range error: ", range_error)
         x_mean_over_time.append(xy_mean[0])
         y_mean_over_time.append(xy_mean[1])
+        #print(x_mean_over_time)
+        # print("error (x, y): ", xy_mean)
 
         
 
@@ -470,6 +453,10 @@ def main():
         list_of_error_mean = [30.6571912434255, 15.3476537584506, 10.673935908491, 14.0131348164792, 9.50554975, 10.4405176230198, 10.9698053107658, 11.4691734651412, 8.65145640943371, 9.33960528907452]
         #list_of_news = test_particle.cluster_over_time_function(particles, actual_shark_coordinate_x, actual_shark_coordinate_y, sim_time, list_of_error_mean)
 
+        new_particles = test_particle.correct(normalized_weights, particles)
+        particles = new_particles
+        #for particle in particles: 
+            #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
         particle_coordinates = test_particle.particle_coordinates(particles)
         print("+++++++++++++++++++++++++++++++")
         #print(particle_coordinates)
@@ -495,10 +482,99 @@ def main():
     print(final_list)
     plt.show()
     """
-    
+        loops = 0
+        sim_time = 0.0
+        sim_time_list = []
+        index_number_of_particles = 0
+        sim_time_list.append(sim_time)
+        for j in range(num_of_inner_loops):
+            time.sleep(.1)
+                #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
+            #print("updated particles after", .1, "seconds of random movement")
+            # update the shark position (do this in your main loop)
+            for particle in particles: 
+                particle.update_particle(.1)
+
+            for shark in shark_list:
+                test_shark.live_graph.update_shark_location(shark, sim_time)
+            
+            shark_state_dict = test_shark.get_all_sharks_state()
+
+            #print("==================")
+            #print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
+
+            has_new_data = test_shark.get_all_sharks_sensor_measurements(shark_state_dict, auv_pos)
 
 
-        
+            if has_new_data == True:
+                print("======NEW DATA=======")
+                print("All The Shark Sensor Measurements [range, bearing]: " +\
+                    str(test_shark.shark_sensor_data_dict))
+                xy_mean = test_particle.particleMean(particles)
+                #print("mean of all particles (x, y): ", xy_mean)
+                x_mean_over_time.append(xy_mean[0])
+                y_mean_over_time.append(xy_mean[1])
+                final_new_shark_coordinate_x.append(test_particle.x_shark)
+                final_new_shark_coordinate_y.append(test_particle.y_shark)
+                sim_time_list.append(sim_time)
+            
+            test_particle.x_shark = test_shark.shark_sensor_data_dict[1].x
+            test_particle.y_shark = test_shark.shark_sensor_data_dict[1].y
+            auv_alpha = test_particle.auv_to_alpha()
+            auv_range = test_particle.range_auv()
+            
+            #print(" range in the loop")
+            #print(auv_alpha, auv_range)
+
+            for particle in particles: 
+                particleAlpha = particle.calc_particle_alpha(x_auv, y_auv, theta)
+                particleRange = particle.calc_particle_range(x_auv, y_auv)
+                particle.weight(auv_alpha, particleAlpha, auv_range, particleRange)
+                #print("weight: ", particle.weight_p)
+
+            list_of_weights = []
+            for particle in particles: 
+                list_of_weights.append(particle.weight_p)
+
+            normalized_weights = test_particle.normalize(list_of_weights)
+            count = 0
+            for particle in particles: 
+                particle.weight_p = normalized_weights[count]
+                #print("particle weight: ", particle.weight_p)
+                count += 1
+            
+            new_particles = test_particle.correct(normalized_weights, particles)
+            particles = new_particles
+            
+            sim_time += 0.1
+            
+            list_of_error_mean = [30.6571912434255, 15.3476537584506, 10.673935908491, 14.0131348164792, 9.50554975, 10.4405176230198, 10.9698053107658, 11.4691734651412, 8.65145640943371, 9.33960528907452]
+            #list_of_news = test_particle.cluster_over_time_function(particles, actual_shark_coordinate_x, actual_shark_coordinate_y, sim_time, list_of_error_mean)
+
+            particle_coordinates = test_particle.particle_coordinates(particles)
+            #print("+++++++++++++++++++++++++++++++")
+            #print(particle_coordinates)
+            
+            #simulation stuff
+
+            #print("===================")
+            #print(final_new_shark_coordinate_x)
+            #print("=====================================")
+            #print(particle_coordinates)
+            """
+            test_shark.live_graph.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y, actual_shark_coordinate_x, actual_shark_coordinate_y)
+            plt.draw()
+            plt.pause(.1)
+            test_shark.live_graph.ax.clear()
+            """
+        plt.close()
+        range_list = test_grapher_shark.range_plotter(x_mean_over_time, y_mean_over_time, final_new_shark_coordinate_x, final_new_shark_coordinate_y, sim_time_list)
+        time_list = test_grapher_shark.range_list_function(range_list, sim_time_list)
+        final_time_list.append(time_list)
+        print("final time list")
+        print(time_list)
+        plt.show()
+
 
 if __name__ == "__main__":
     main()
