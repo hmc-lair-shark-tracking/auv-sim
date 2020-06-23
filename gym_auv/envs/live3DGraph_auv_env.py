@@ -14,49 +14,50 @@ Uses matplotlib to generate live 3D Graph while the simulator is running
 Able to draw the auv as well as multiple sharks
 """
 class Live3DGraph:
-    def __init__(self):
+    def __init__(self, plot_3D):
         self.shark_array = []
 
         # array of pre-defined colors, 
         # so we can draw sharks with different colors
         self.colors = ['b', 'g', 'c', 'm', 'y', 'k']
 
-        # initialize the 3d scatter position plot for the auv and shark
-        self.fig = plt.figure(figsize = [13, 10])
-        self.ax = self.fig.add_subplot(111, projection='3d')
-
-        self.ax.set_xlabel('X')
-        self.ax.set_ylabel('Y')
-        self.ax.set_zlabel('Z')
-
         self.arrow_length_ratio = 0.1
 
-        # create a dictionary for checkbox for each type of planned trajectory
-        # key - the planner's name: "A *", "RRT"
-        # value - three-element array
-        #   1. boolean(represent wheter the label is added to the legend)
-        #   2. the CheckButtons object
-        #   3. color of the plot
-        self.traj_checkbox_dict = {}
-        
-        # initialize the A * button
-        self.traj_checkbox_dict["A *"] = [False,\
-            CheckButtons(plt.axes([0.7, 0.10, 0.15, 0.05]), ["A* Trajectory"]), '#9933ff']
-        # when the A* checkbox is checked, it should call self.enable_traj_plot
-        
-        # initialize the RRT button
-        self.traj_checkbox_dict["RRT"] = [False,\
-            CheckButtons(plt.axes([0.7, 0.05, 0.15, 0.05]),["RRT Trajectory"]), '#043d10']
-        # when the RRT checkbox is checked, it should call self.enable_traj_plot
+        # initialize the 3d scatter position plot for the auv and shark
+        if plot_3D:
+            self.fig = plt.figure(figsize = [13, 10])
+            self.ax = self.fig.add_subplot(111, projection='3d')
 
-        self.particle_checkbox = CheckButtons(plt.axes([0.1, 0.10, 0.15, 0.05]),["Display Particles"])
-        self.display_particles = False
-        self.particle_checkbox.on_clicked(self.particle_checkbox_clicked)
+            # create a dictionary for checkbox for each type of planned trajectory
+            # key - the planner's name: "A *", "RRT"
+            # value - three-element array
+            #   1. boolean(represent wheter the label is added to the legend)
+            #   2. the CheckButtons object
+            #   3. color of the plot
+            self.traj_checkbox_dict = {}
+            
+            # initialize the A * button
+            self.traj_checkbox_dict["A *"] = [False,\
+                CheckButtons(plt.axes([0.7, 0.10, 0.15, 0.05]), ["A* Trajectory"]), '#9933ff']
+            # when the A* checkbox is checked, it should call self.enable_traj_plot
+            
+            # initialize the RRT button
+            self.traj_checkbox_dict["RRT"] = [False,\
+                CheckButtons(plt.axes([0.7, 0.05, 0.15, 0.05]),["RRT Trajectory"]), '#043d10']
+            # when the RRT checkbox is checked, it should call self.enable_traj_plot
 
-        self.run_sim = True
+            self.particle_checkbox = CheckButtons(plt.axes([0.1, 0.10, 0.15, 0.05]),["Display Particles"])
+            self.display_particles = False
+            self.particle_checkbox.on_clicked(self.particle_checkbox_clicked)
 
-        self.end_sim_btn = Button(plt.axes([0.1, 0.8, 0.15, 0.05]), "End Simulation")
-        self.end_sim_btn.on_clicked(self.end_simulation)
+            self.run_sim = True
+
+            self.end_sim_btn = Button(plt.axes([0.1, 0.8, 0.15, 0.05]), "End Simulation")
+            self.end_sim_btn.on_clicked(self.end_simulation)
+        else:
+            # initialize the 2d graph
+            self.fig_2D = plt.figure(figsize = [13, 10])
+            self.ax_2D = self.fig_2D.add_subplot(111)
 
         # an array of the labels that will appear in the legend
         # TODO: labels and legends still have minor bugs
@@ -106,6 +107,28 @@ class Live3DGraph:
         self.ax.quiver(x_pos_array[-1], y_pos_array[-1], z_pos_array[-1],\
             x_orient, y_orient, z_orient,\
             color = color, pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
+
+    
+    def plot_entity_2D(self, x_pos_array, y_pos_array, label = 'auv', color = 'red', marker = ','):
+        """
+        Plot the auv trajectory as well as its direction
+
+        Parameters:
+            x_pos_array - an array of floats indicating the auv's past x-position
+            y_pos_array - an array of floats indicating the auv's past y-position
+            z_pos_array - an array of floats indicating the auv's past z-position
+        """
+        # calculate the orientation of directino vector
+        x_orient = x_pos_array[-1]-x_pos_array[-2]
+        y_orient = y_pos_array[-1]-y_pos_array[-2]
+
+        # plot the trajectory line
+        self.ax_2D.plot(x_pos_array, y_pos_array,
+            marker = marker, linestyle = '-', color = color, label = label)
+        
+        # use quiver plot to draw an arrow indicating the auv's direction
+        # self.ax_2d.quiver(x_pos_array[-1], y_pos_array[-1], x_orient, y_orient,\
+        #     color = color, pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
 
 
     def load_shark_labels(self):
@@ -288,7 +311,24 @@ class Live3DGraph:
             # y = (obs.size + dangerous_zone_radius)  * np.outer(np.sin(u), np.sin(v)) + obs.y
             # z = (obs.size + dangerous_zone_radius)  * np.outer(np.ones(np.size(u)), np.cos(v)) + obs.z
 
-            # self.ax.plot_surface(x, y, z, linewidth=0.0, cstride = 1, rstride = 1, color = '#ff756b', alpha = 0.1)  
+            # self.ax.plot_surface(x, y, z, linewidth=0.0, cstride = 1, rstride = 1, color = '#ff756b', alpha = 0.1) 
+
+
+    def plot_obstacles_2D(self, obstacle_array, dangerous_zone_radius):
+        """
+        Plot obstacles as sphere based on location and size indicated by the "obstacle_array"
+
+        Parameter - obstacle_array
+            an array of motion_plan_states that represent the obstacles's
+                position and size
+        """
+        for obs in obstacle_array:
+            # TODO: fow now, plot circles instead of spheres to make plotting faster
+            obstacle = Circle((obs.x,obs.y), radius = obs.size, color = '#000000', fill=False)
+            self.ax_2D.add_patch(obstacle)
+
+            dangerous_zone = Circle((obs.x,obs.y), radius = obs.size + dangerous_zone_radius, color='#c42525', fill=False)
+            self.ax_2D.add_patch(dangerous_zone)
 
     
     def end_simulation(self, events):

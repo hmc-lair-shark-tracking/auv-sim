@@ -45,15 +45,18 @@ R_RANGE = 0.1           # this is a scaler to help determine immediate reward at
 R_TIME = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
 
 # constants for reward with habitats
-R_COLLIDE_100 = -1000000.0
-R_MAINTAIN_DIST = 5.0       
-R_IN_HAB = 5.0    
-R_NEW_HAB = 1000.0 
-R_CLOSE_TO_OBS = -100.0      
+R_COLLIDE_100 = -1
+R_MAINTAIN_DIST = 0.3       
+R_IN_HAB = 0.5     
+R_NEW_HAB = 1 
+R_CLOSE_TO_OBS = -0.5 
+R_IMM_PENALTY = -0.1
 
 REPEAT_ACTION_TIME = 5
 
-DEBUG = True
+DEBUG = False
+# if PLOT_3D = False, plot the 2d version
+PLOT_3D = False
 
 def angle_wrap(ang):
     """
@@ -109,7 +112,7 @@ class AuvEnv(gym.Env):
         self.habitats_array = []
         self.habitats_array_for_rendering = []
 
-        self.live_graph = Live3DGraph()
+        self.live_graph = Live3DGraph(PLOT_3D)
 
         self.auv_x_array_rl = []
         self.auv_y_array_rl = []
@@ -441,14 +444,14 @@ class AuvEnv(gym.Env):
         else:
             if DEBUG:
                 print("else case in reward")
-            new_range = self.calculate_range(auv_pos, shark_pos)
-            # if auv has gotten closer to the shark, will receive positive reward
-            #   else, receive negative reward
-            range_diff = old_range - new_range
+            # new_range = self.calculate_range(auv_pos, shark_pos)
+            # # if auv has gotten closer to the shark, will receive positive reward
+            # #   else, receive negative reward
+            # range_diff = old_range - new_range
             
-            reward = R_RANGE * range_diff
+            # reward = R_RANGE * range_diff
             
-            return reward
+            return R_IMM_PENALTY
 
 
     def get_binary_reward(self, auv_pos, goal_pos):
@@ -547,6 +550,42 @@ class AuvEnv(gym.Env):
         plt.pause(0.0001)
 
         self.live_graph.ax.clear()
+
+
+    def render_2D_plot(self, auv_pos, shark_pos):
+        self.auv_x_array_rl.append(auv_pos[0])
+        self.auv_y_array_rl.append(auv_pos[1])
+        self.auv_z_array_rl.append(auv_pos[2])
+
+        self.shark_x_array_rl.append(shark_pos[0])
+        self.shark_y_array_rl.append(shark_pos[1])
+        self.shark_z_array_rl.append(shark_pos[2])
+
+        self.live_graph.plot_entity_2D(self.auv_x_array_rl, self.auv_y_array_rl, label = 'auv', color = 'r', marker = ',')
+
+        self.live_graph.plot_entity_2D(self.shark_x_array_rl, self.shark_y_array_rl, label = 'shark', color = 'b', marker = ',')
+
+        goal_region = Circle((shark_pos[0],shark_pos[1]), radius=FOLLOWING_RADIUS, color='b', fill=False)
+        self.live_graph.ax_2D.add_patch(goal_region)
+
+        if self.obstacle_array_for_rendering != []:
+            self.live_graph.plot_obstacles_2D(self.obstacle_array_for_rendering, OBSTACLE_ZONE)
+
+        for hab in self.habitats_array_for_rendering:
+            hab_region = Circle((hab.x, hab.y), radius=hab.size, color='#2a753e', fill=False)
+            self.live_graph.ax_2D.add_patch(hab_region)
+        
+        self.live_graph.ax_2D.set_xlabel('X')
+        self.live_graph.ax_2D.set_ylabel('Y')
+
+        self.live_graph.ax_2D.legend()
+        
+        plt.draw()
+
+        # pause so the plot can be updated
+        plt.pause(0.0001)
+
+        self.live_graph.ax_2D.clear()
 
 
     def init_data_for_3D_plot(self, auv_init_pos, shark_init_pos):

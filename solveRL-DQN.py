@@ -18,7 +18,7 @@ from motion_plan_state import Motion_plan_state
 from habitatState import HabitatState
 
 # namedtuple allows us to store Experiences as labeled tuples
-Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'))
+Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward', 'done'))
 
 """
 ============================================================================
@@ -31,7 +31,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 40.0
 
-NUM_OF_EPISODES = 1000
+NUM_OF_EPISODES = 500
 MAX_STEP = 1000
 
 NUM_OF_EPISODES_TEST = 1000
@@ -65,7 +65,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 500
+RENDER_EVERY = 250
 # how many episode should we run a test on the model
 TEST_EVERY = 100
 
@@ -106,10 +106,11 @@ def extract_tensors(experiences):
    
     t1 = torch.stack(batch.state)
     t2 = torch.stack(batch.action)
-    t3 = torch.cat(batch.reward)
-    t4 = torch.stack(batch.next_state)
+    t3 = torch.stack(batch.next_state)
+    t4 = torch.cat(batch.reward)
+    t5 = torch.stack(batch.done)
 
-    return (t1,t2,t3,t4)
+    return (t1, t2, t3, t4, t5)
 
 
 def save_model(policy_net, target_net):
@@ -162,9 +163,12 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shar
         obs_x = np.random.uniform(shark_min_x, shark_max_x)
         obs_y = np.random.uniform(shark_min_y, shark_max_y)
         obs_size = np.random.randint(1,11)
-        while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array):
+        # to prevent this from going into an infinite loop
+        counter = 0
+        while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array) and counter < 100:
             obs_x = np.random.uniform(shark_min_x, shark_max_x)
             obs_y = np.random.uniform(shark_min_y, shark_max_y)
+            counter += 1
         obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, z=-5, size = obs_size))
 
     return obstacle_array   
@@ -491,7 +495,7 @@ class AuvEnvManager():
         self.env.close()
 
 
-    def render(self, mode='human', print_state = True, live_graph = False):
+    def render(self, mode='human', print_state = True, live_graph_3D = False, live_graph_2D = False):
         """
         Render the environment both as text in terminal and as a 3D graph if necessary
 
@@ -500,8 +504,12 @@ class AuvEnvManager():
             live_graph - boolean, will display the 3D live_graph if True
         """
         state = self.env.render(mode, print_state)
-        if live_graph: 
+        if live_graph_3D: 
             self.env.render_3D_plot(state['auv_pos'], state['shark_pos'])
+
+        if live_graph_2D:
+            self.env.render_2D_plot(state['auv_pos'], state['shark_pos'])
+            
         return state
 
 
@@ -800,7 +808,7 @@ class DQN():
         text = input("stop")
 
 
-    def save_real_experiece(self, state, next_state, action, timestep):
+    def save_real_experiece(self, state, next_state, action, done, timestep):
         old_range = calculate_range(state['auv_pos'], state['shark_pos'])
 
         visited_habitat_index_array = self.em.env.check_in_habitat(next_state['auv_pos'], next_state['habitats_pos'])
@@ -808,16 +816,11 @@ class DQN():
         reward = self.em.get_reward_with_habitats(next_state['auv_pos'], next_state['shark_pos'], old_range,\
             next_state['habitats_pos'], visited_habitat_index_array)
 
-        self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
+        self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
 
         # print("**********************")
-        # print("state")
-        # print(state)
-        # print("next state")
-        # print(next_state)
-        # print("------------")
         # print("real experience")
-        # print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward))
+        # print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
         # text = input("stop")
 
     
@@ -858,17 +861,16 @@ class DQN():
 
             reward = self.em.get_reward_with_habitats(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range,\
                 new_next_state['habitats_pos'], visited_habitat_index_array)
-            
-            self.memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
 
-            # print("^^^^^^^^^^^^^^^^^^^^^^^^^^^")
-            # print("state")
-            # print(new_curr_state)
-            # print("next state")
-            # print(new_next_state)
+            done = torch.tensor([0], device=DEVICE).int()
+            if self.em.env.check_collision(new_next_state['auv_pos']):
+                done = torch.tensor([1], device=DEVICE).int()
+                
+            self.memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward, done))
+
             # print("------------")
             # print("HER experience")
-            # print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward))
+            # print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward, done))
             # text = input("stop")
     
 
@@ -878,16 +880,17 @@ class DQN():
             experiences = self.memory.sample(BATCH_SIZE)
             
             # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
-            states, actions, rewards, next_states = extract_tensors(experiences)
+            states, actions, next_states, rewards, dones = extract_tensors(experiences)
 
             # Pass batch of preprocessed states to policy network.
             # return the q value for the given state-action pair by passing throught the policy net
             current_q_values = QValues.get_current(self.policy_net, states, actions)
         
             next_q_values = QValues.get_next(self.target_net, next_states)
-            
-            target_q_values_v = (next_q_values[0] * GAMMA) + rewards
-            target_q_values_w = (next_q_values[1] * GAMMA) + rewards
+
+            target_q_values_v = (next_q_values[0] * GAMMA * (1 - dones.flatten())) + rewards
+
+            target_q_values_w = (next_q_values[1] * GAMMA * (1 - dones.flatten())) + rewards
 
             loss_v = F.mse_loss(current_q_values[0], target_q_values_v.unsqueeze(1))
             loss_w = F.mse_loss(current_q_values[1], target_q_values_w.unsqueeze(1))
@@ -926,6 +929,7 @@ class DQN():
 
             action_array = []
             next_state_array = []
+            done_array = []
 
             # determine how many steps we should run HER
             # by default, it will be "max_step" - 1 because in the first loop, we start at t=1
@@ -943,6 +947,8 @@ class DQN():
                 next_state = copy.deepcopy(self.em.get_state())
                 next_state_array.append(next_state)
 
+                done_array.append(torch.tensor([0], device=DEVICE).int())
+
                 if (eps % RENDER_EVERY == 0) and render_3D_plot:
                     self.em.render(print_state = False, live_graph = True)
 
@@ -950,6 +956,7 @@ class DQN():
 
                 if self.em.done:
                     iteration = t
+                    done_array[t-1] = torch.tensor([1], device=DEVICE).int()
                     break
             
             episode_durations.append(iteration)
@@ -962,9 +969,10 @@ class DQN():
             for t in range(iteration):
                 action = action_array[t]
                 next_state = next_state_array[t]
-
+                done = done_array[t]
+                
                 # store the actual experience that the auv has in the first loop into the memory
-                self.save_real_experiece(state, next_state, action, t)
+                self.save_real_experiece(state, next_state, action, done, t)
 
                 if use_HER:
                     additional_goals = self.generate_extra_goals(t, next_state_array)
@@ -1032,7 +1040,7 @@ class DQN():
         print(total_reward_in_training)
 
     
-    def test(self, num_episodes, max_step, show_live_graph = False):
+    def test(self, num_episodes, max_step, live_graph_3D = False, live_graph_2D = False):
         episode_durations = []
         starting_dist_array = []
         traveled_dist_array = []
@@ -1069,7 +1077,7 @@ class DQN():
 
                 traveled_dist_array[eps] += self.em.env.distance_traveled
 
-                self.em.render(print_state = False, live_graph = show_live_graph)
+                self.em.render(print_state = False, live_graph_3D = live_graph_3D, live_graph_2D = live_graph_2D)
 
                 state = self.em.get_state()
 
@@ -1223,8 +1231,8 @@ class DQN():
 
 def main():
     dqn = DQN(N_V, N_W)
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False, render_3D_plot=True)
-    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=True)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False, render_3D_plot=True)
+    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 if __name__ == "__main__":
     main()
