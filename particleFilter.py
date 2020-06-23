@@ -45,7 +45,7 @@ class Particle:
         def __init__(self, x_shark, y_shark):
             #set L (side length of square that the random particles are in) and N (number of particles)
             INITIAL_PARTICLE_RANGE = 150
-            NUMBER_OF_PARTICLES = 900
+            NUMBER_OF_PARTICLES = 500
             #particle has 5 properties: x, y, velocity, theta, weight (starts at 1/N)
             self.x_p = x_shark + random.uniform(-INITIAL_PARTICLE_RANGE, INITIAL_PARTICLE_RANGE)
             self.y_p = y_shark + random.uniform(-INITIAL_PARTICLE_RANGE, INITIAL_PARTICLE_RANGE)
@@ -87,8 +87,8 @@ class Particle:
             """
                 calculates the range from the particle to the auv
             """
-            particleRange = math.sqrt((y_auv - self.y_p)**2 + (x_auv - self.x_p)**2)
-            return particleRange
+            particleRange_squared = (y_auv - self.y_p)**2 + (x_auv - self.x_p)**2
+            return particleRange_squared
 
         def weight(self, auv_alpha, particleAlpha, auv_range, particleRange):
             """
@@ -98,20 +98,22 @@ class Particle:
             
             #alpha weight
             SIGMA_ALPHA = .5
-            
+            PI_CONSTANT = 2.5066
+            #make sq 2*math.pi a constant
+            MINIMUM_WEIGHT = .001
             if particleAlpha > 0:
-                function_alpha = .001 + (1/(SIGMA_ALPHA * math.sqrt(2*math.pi))* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha[0])**2))))/(2*(SIGMA_ALPHA)**2))))
+                function_alpha = MINIMUM_WEIGHT + (1/(SIGMA_ALPHA * PI_CONSTANT)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha[0])**2))))/(2*(SIGMA_ALPHA)**2))))
                 self.weight_p = function_alpha
             elif particleAlpha == 0:
-                function_alpha = .001 + (1/(SIGMA_ALPHA * math.sqrt(2*math.pi))* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha[0])**2))))/(2*(SIGMA_ALPHA)**2))))
+                function_alpha = MINIMUM_WEIGHT + (1/(SIGMA_ALPHA * PI_CONSTANT)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha[0])**2))))/(2*(SIGMA_ALPHA)**2))))
                 self.weight_p = function_alpha
             else:
-                function_alpha = .001 + (1/(SIGMA_ALPHA * math.sqrt(2*math.pi))* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha[0])**2))))/(2*(SIGMA_ALPHA)**2))))
+                function_alpha = MINIMUM_WEIGHT + (1/(SIGMA_ALPHA * PI_CONSTANT)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha[0])**2))))/(2*(SIGMA_ALPHA)**2))))
                 self.weight_p = function_alpha
     
             #range weight
-            SIGMA_RANGE = 10
-            function_weight =  .001 + (1/(SIGMA_RANGE * math.sqrt(2*math.pi))* (math.e**(((-((particleRange - auv_range)**2)))/(2*(SIGMA_RANGE)**2))))
+            SIGMA_RANGE = 100
+            function_weight =  MINIMUM_WEIGHT + (1/(SIGMA_RANGE * PI_CONSTANT)* (math.e**(((-((particleRange - auv_range)**2)))/(2*(SIGMA_RANGE)**2))))
             
             #multiply weights
             self.weight_p = function_weight * self.weight_p
@@ -146,11 +148,11 @@ class particleFilter:
 
     def range_auv(self):
         range = []
-        range_value = math.sqrt((float(self.y_auv)- self.y_shark)**2 + (float(self.x_auv)-float(self.x_shark))**2)
-        range.append(range_value)
+        range_value_squared = (float(self.y_auv)- self.y_shark)**2 + (float(self.x_auv)-float(self.x_shark))**2
+        range.append(range_value_squared)
         #print("range of auv is")
         #print(range)
-        return range_value
+        return range_value_squared
    
     def normalize(self, weights_list):
         newlist = []
@@ -300,7 +302,7 @@ class particleFilter:
 
             
 def main(): 
-    NUMBER_OF_PARTICLES = 900
+    NUMBER_OF_PARTICLES = 500
     #change this constant ^^ in the particle class too!
     particles = []
     #test_grapher = Live3DGraph()
@@ -454,8 +456,12 @@ def main():
 
         xy_mean = test_particle.particleMean(particles)
         print("mean of all particles (x, y): ", xy_mean)
+        range_error = test_particle.meanError(xy_mean[0], xy_mean[1])
+        print("range error: ", range_error)
         x_mean_over_time.append(xy_mean[0])
         y_mean_over_time.append(xy_mean[1])
+
+        
 
         final_new_shark_coordinate_x.append(test_particle.x_shark)
         final_new_shark_coordinate_y.append(test_particle.y_shark)
@@ -471,16 +477,16 @@ def main():
         #simulation stuff
 
         print("===================")
-        print(final_new_shark_coordinate_x)
+        #print(final_new_shark_coordinate_x)
         print("=====================================")
         if loops >= 280:
             break
         #print(particle_coordinates)
         
-        test_shark.live_graph.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y, actual_shark_coordinate_x, actual_shark_coordinate_y)
-        plt.draw()
-        plt.pause(.1)
-        test_shark.live_graph.ax.clear()
+        #test_shark.live_graph.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y, actual_shark_coordinate_x, actual_shark_coordinate_y)
+        #plt.draw()
+        #plt.pause(.1)
+        #test_shark.live_graph.ax.clear()
         
     """
     plt.close()
