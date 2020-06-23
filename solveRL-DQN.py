@@ -31,8 +31,8 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 40.0
 
-NUM_OF_EPISODES = 1000
-MAX_STEP = 1000
+NUM_OF_EPISODES = 10
+MAX_STEP = 10
 
 NUM_OF_EPISODES_TEST = 1000
 MAX_STEP_TEST = 1000
@@ -54,7 +54,7 @@ BATCH_SIZE = 64
 # number of additional goals to be added to the replay memory
 NUM_GOALS_SAMPLED_HER = 4
 
-TARGET_UPDATE = 10
+TARGET_UPDATE = 10000
 
 NUM_OF_OBSTACLES = 10
 NUM_OF_HABITATS = 20
@@ -358,6 +358,8 @@ class Agent():
        
         self.device = device
 
+        self.rate = None
+
 
     def select_action(self, state, policy_net):
         """
@@ -371,11 +373,11 @@ class Agent():
             a tensor representing the index for v action and the index for w action
                 format: tensor([v_index, w_index])
         """
-        rate = self.strategy.get_exploration_rate(self.current_step)
+        self.rate = self.strategy.get_exploration_rate(self.current_step)
         # as the number of steps increases, the exploration rate will decrease
         self.current_step += 1
 
-        if rate > random.random():
+        if self.rate > random.random():
             # exploring the environment by randomly chosing an action
             if DEBUG:
                 print("-----")
@@ -895,6 +897,8 @@ class DQN():
 
             self.policy_net_optim.zero_grad()
             loss_total.backward()
+            for param in self.policy_net.parameters():
+                param.grad.data.clamp_(-1, 1)
             self.policy_net_optim.step()
 
 
@@ -905,6 +909,8 @@ class DQN():
 
         episodes_that_got_tested = []
         testing_result_array = []
+
+        target_update_counter = 1
 
         if load_prev_training:
             # if we want to continue training an already trained network
@@ -967,6 +973,12 @@ class DQN():
                 state = next_state
 
                 self.update_neural_net()
+                
+                target_update_counter += 1
+
+                if target_update_counter % TARGET_UPDATE == 0:
+                    print("UPDATE TARGET NETWORK")
+                    self.target_net.load_state_dict(self.policy_net.state_dict())
 
             print("*********************************")
             print("final state")
@@ -983,9 +995,9 @@ class DQN():
                 print("Episode # ", eps, "end with reward: ", score, "average loss nan", " used time: ", iteration)
                 print("+++++++++++++++++++++++++++++")
 
-            if eps % TARGET_UPDATE == 0:
-                print("UPDATE TARGET NETWORK")
-                self.target_net.load_state_dict(self.policy_net.state_dict())
+            # if eps % TARGET_UPDATE == 0:
+            #     print("UPDATE TARGET NETWORK")
+            #     self.target_net.load_state_dict(self.policy_net.state_dict())
 
             if eps % SAVE_EVERY == 0:
                 save_model(self.policy_net, self.target_net)
@@ -1003,6 +1015,10 @@ class DQN():
         self.em.close()
 
         self.plot_intermediate_testing_result(DIST, episodes_that_got_tested, testing_result_array)
+
+        print("exploration rate")
+        print(self.agent.rate)
+        text = input("stop")
 
         print("episode duration")
         print(episode_durations)
