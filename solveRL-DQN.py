@@ -1231,7 +1231,7 @@ class DQN():
 
 def main():
     dqn = DQN(N_V, N_W)
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False, live_graph_3D = False, live_graph_2D = True)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = True, live_graph_3D = False, live_graph_2D = True)
     # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 if __name__ == "__main__":
