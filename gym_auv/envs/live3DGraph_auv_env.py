@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.patches import Circle
+import mpl_toolkits.mplot3d.art3d as Art3d
 from matplotlib.widgets import Button
 from matplotlib.widgets import CheckButtons
 import numpy as np
@@ -246,7 +248,7 @@ class Live3DGraph:
             self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = '#069ecc')
 
     
-    def plot_obstacles(self, obstacle_array):
+    def plot_obstacles(self, obstacle_array, dangerous_zone_radius):
         """
         Plot obstacles as sphere based on location and size indicated by the "obstacle_array"
 
@@ -255,18 +257,38 @@ class Live3DGraph:
                 position and size
         """
         for obs in obstacle_array:
+            # TODO: fow now, plot circles instead of spheres to make plotting faster
+            obstacle = Circle((obs.x,obs.y), radius = obs.size, color = '#000000', fill=False)
+            self.ax.add_patch(obstacle)
+            Art3d.pathpatch_2d_to_3d(obstacle, z = obs.z, zdir='z')
+
+            dangerous_zone = Circle((obs.x,obs.y), radius = obs.size + dangerous_zone_radius, color='#c42525', fill=False)
+            self.ax.add_patch(dangerous_zone)
+            Art3d.pathpatch_2d_to_3d(dangerous_zone, z = obs.z, zdir='z')
+
+            # # plotting an sphere of obstacles is too slow
+
             # number of points used to plot the sphere
             # the higher N is, the more refined will the obstacles look
             #   (but at the expense of taking longer time)
-            N = 50
-            
-            u = np.linspace(0, 2 * np.pi, N)
-            v = np.linspace(0, np.pi, N)
-            x = obs.size * np.outer(np.cos(u), np.sin(v)) + obs.x
-            y = obs.size * np.outer(np.sin(u), np.sin(v)) + obs.y
-            z = obs.size * np.outer(np.ones(np.size(u)), np.cos(v)) + obs.z
+            # N = 50
 
-            self.ax.plot_surface(x, y, z, linewidth=0.0, cstride = 1, rstride = 1, color = '#000000', alpha = 0.2)  
+            # u = np.linspace(0, 2 * np.pi, N)
+            # v = np.linspace(0, np.pi, N)
+            # x = obs.size * np.outer(np.cos(u), np.sin(v)) + obs.x
+            # y = obs.size * np.outer(np.sin(u), np.sin(v)) + obs.y
+            # z = obs.size * np.outer(np.ones(np.size(u)), np.cos(v)) + obs.z
+
+            # self.ax.plot_surface(x, y, z, linewidth=0.0, cstride = 1, rstride = 1, color = '#000000', alpha = 0.3)
+
+            # plotting an sphere of dangerous zone is too slow
+            # u = np.linspace(0, 2 * np.pi, N)
+            # v = np.linspace(0, np.pi, N)
+            # x = (obs.size + dangerous_zone_radius) * np.outer(np.cos(u), np.sin(v)) + obs.x
+            # y = (obs.size + dangerous_zone_radius)  * np.outer(np.sin(u), np.sin(v)) + obs.y
+            # z = (obs.size + dangerous_zone_radius)  * np.outer(np.ones(np.size(u)), np.cos(v)) + obs.z
+
+            # self.ax.plot_surface(x, y, z, linewidth=0.0, cstride = 1, rstride = 1, color = '#ff756b', alpha = 0.1)  
 
     
     def end_simulation(self, events):

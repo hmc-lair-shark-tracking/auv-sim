@@ -34,7 +34,7 @@ DIST = 40.0
 NUM_OF_EPISODES = 1000
 MAX_STEP = 1000
 
-NUM_OF_EPISODES_TEST = 500
+NUM_OF_EPISODES_TEST = 1000
 MAX_STEP_TEST = 1000
 
 N_V = 7
@@ -1207,8 +1207,8 @@ class DQN():
 
 def main():
     dqn = DQN(N_V, N_W)
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False, render_3D_plot=True)
-    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=True)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training=False, render_3D_plot=True)
+    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, show_live_graph=True)
 
 if __name__ == "__main__":
     main()

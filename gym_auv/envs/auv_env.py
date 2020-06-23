@@ -8,7 +8,7 @@ from matplotlib.patches import Circle
 import mpl_toolkits.mplot3d.art3d as Art3d
 import copy
 
-from live3DGraph import Live3DGraph
+from gym_auv.envs.live3DGraph_auv_env import Live3DGraph
 
 # size of the observation space
 # the coordinates of the observation space will be based on 
@@ -46,14 +46,14 @@ R_TIME = -0.01          # negative reward (the longer for the auv to reach the g
 
 # constants for reward with habitats
 R_COLLIDE_100 = -1000000.0
-R_MAINTAIN_DIST = 3.0       
+R_MAINTAIN_DIST = 5.0       
 R_IN_HAB = 5.0    
 R_NEW_HAB = 1000.0 
 R_CLOSE_TO_OBS = -100.0      
 
 REPEAT_ACTION_TIME = 5
 
-DEBUG = False
+DEBUG = True
 
 def angle_wrap(ang):
     """
@@ -528,7 +528,7 @@ class AuvEnv(gym.Env):
         Art3d.pathpatch_2d_to_3d(goal_region, z = shark_pos[2], zdir='z')
 
         if self.obstacle_array_for_rendering != []:
-            self.live_graph.plot_obstacles(self.obstacle_array_for_rendering)
+            self.live_graph.plot_obstacles(self.obstacle_array_for_rendering, OBSTACLE_ZONE)
 
         for hab in self.habitats_array_for_rendering:
             hab_region = Circle((hab.x, hab.y), radius=hab.size, color='#2a753e', fill=False)
@@ -544,7 +544,7 @@ class AuvEnv(gym.Env):
         plt.draw()
 
         # pause so the plot can be updated
-        plt.pause(0.00001)
+        plt.pause(0.0001)
 
         self.live_graph.ax.clear()
 
