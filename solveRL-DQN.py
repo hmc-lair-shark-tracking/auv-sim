@@ -29,10 +29,6 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 200.0
 
-
-CLIP_MAX_VAL = 120.0
-CLIP_MIN_VAL = 0.0
-
 NUM_OF_EPISODES = 1000
 MAX_STEP = 1500
 
@@ -187,7 +183,7 @@ def calculate_success_and_collision_rate(final_reward_array, traveled_dist_array
             success_count += 1
         elif reward == -100.0:
             collision_count += 1
-            colllision_count_norm += 1.0 / float(traveled_dist_array[i])
+            collision_count_norm += 1.0 / float(traveled_dist_array[i])
 
     success_rate = float(success_count)/float(len(final_reward_array)) * 100
 
@@ -195,7 +191,7 @@ def calculate_success_and_collision_rate(final_reward_array, traveled_dist_array
 
     collision_rate_norm = float(collision_count_norm)/float(len(final_reward_array)) * 100
 
-    return success_rate, collision_rate, collision_count_norm
+    return success_rate, collision_rate, collision_rate_norm
 
 
 """
@@ -874,24 +870,6 @@ class DQN():
         print(self.avg_loss_in_training)
         text = input("stop")
 
-        print("episodes that gets tested")
-        print(episodes_that_got_tested)
-        text = input("stop")
-
-        print("success rate array")
-        print(self.success_rate_array_curr_range)
-        text = input("stop")
-
-        print("collision rate array")
-        print(self.collision_rate_array_curr_range)
-        text = input("stop")
-
-        print("success rate array 100m")
-        print(self.success_rate_array_100m)
-        text = input("stop")
-
-        print("collision rate array 100m")
-        print(self.collision_rate_array_100m)
 
     
     def test(self, num_episodes, max_step, show_live_graph = False):
@@ -906,8 +884,8 @@ class DQN():
         self.policy_net.eval()
 
         scale = 1.0
-        if DIST > 100.0:
-            scale = 100.0/(DIST*4)
+        # if DIST > 100.0:
+        #     scale = 100.0/(DIST)
         
         for eps in range(num_episodes):
             # initialize the starting point of the shark and the auv randomly
@@ -924,13 +902,19 @@ class DQN():
 
             reward = 0
 
+            # only need to scale the habitat array once
+            scaled_habitat_array = []
+            for habitat in state[2]:
+                scaled_habitat_array.append(scale_state(habitat, scale))
+            scaled_habitat_array = np.array(scaled_habitat_array)
+
             for t in range(1, max_step):
                 # print("pre-processed")
                 # print(state)
                 scaled_auv_pos = scale_state(state[0], scale)
                 scaled_shark_pos = scale_state(state[1], scale)
 
-                scaled_state = (scaled_auv_pos, scaled_shark_pos, state[2])
+                scaled_state = (scaled_auv_pos, scaled_shark_pos, scaled_habitat_array)
 
                 # print("-----")
                 # print("scaled states")
@@ -999,8 +983,7 @@ class DQN():
     
 
     def test_model_during_training (self, num_episodes, max_step, starting_dist):
-        # modify the starting distance betweeen the auv and the shark to prepare for testing
-        
+        # modify the starting distance betweeen the auv and the shark to prepare for testing    
         episode_durations = []
         final_reward_array = []
         traveled_dist_array = []
