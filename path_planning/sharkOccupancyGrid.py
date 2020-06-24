@@ -30,7 +30,7 @@ class SharkOccupancyGrid:
         self.cell_list = self.splitCell(boundary)
         self.bin_interval = bin_interval
 
-        self.bin_list = []
+        self.bin_list = self.createBinList()
     
     def convert(self):
         '''
@@ -42,11 +42,6 @@ class SharkOccupancyGrid:
             key: timebin, tuple(start time, end time)
             value: shark occupancy grid during this timebin
         '''
-        longest_time = 0
-        for _, traj in self.data.items():
-            if traj[-1].traj_time_stamp > longest_time:
-                longest_time = traj[-1].traj_time_stamp
-        self.bin_list = self.createBinList(longest_time)
 
         #convert to a dictionary, whose key is time bin
         timeBinDict = self.convertToTimeBin()
@@ -54,6 +49,7 @@ class SharkOccupancyGrid:
         result = {}
         for time, traj_dict in timeBinDict.items():
             grid = self.constrcutGrid(traj_dict)
+            grid = self.simplifyGrid(grid)
             result[time] = grid
 
         return result
@@ -124,13 +120,13 @@ class SharkOccupancyGrid:
         #calculate occupancy
         #Question: need to distinguish different sharks?
         for shark, traj in shark_traj_dict.items():
-            for point in traj:
+            for point in traj[:10]:
                 point = Point(point.x, point.y)
                 for cell in self.cell_list:
                     if point.within(cell) or cell.touches(point):
-                        occupancyGrid[cell.bounds] += round(1 / len(traj), 3)
+                        occupancyGrid[cell.bounds] += 1 / len(traj)
                         break
-        
+
         return occupancyGrid
     
     def splitTraj(self, traj):
@@ -172,24 +168,38 @@ class SharkOccupancyGrid:
 
         return result
     
-    def createBinList(self, timeLength):
+    def createBinList(self):
         '''
         create a list of tuples representing each time bin
         '''
-        n_expand = math.floor(timeLength / self.bin_interval)
+        longest_time = 0
+        for _, traj in self.data.items():
+            if traj[-1].traj_time_stamp > longest_time:
+                longest_time = traj[-1].traj_time_stamp
+
+        n_expand = math.floor(longest_time / self.bin_interval)
         bin_list = []
         for i in range(n_expand):
             bin_list.append((i * self.bin_interval, (i + 1) * self.bin_interval))
         
         return bin_list
+    
+    def simplifyGrid(self, grid):
+        '''
+        simplify the grid dictionary such that only occupied cells will show up
+        '''
+        for cell in list(grid):
+            if grid[cell] == 0:
+                del grid[cell]
+        
+        return grid
 
 
 # boundary = []
 # for b in catalina.BOUNDARIES:
 #     pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
 #     boundary.append((pos[0], pos[1]))
-boundary_poly = Polygon([(0,0), (0,100), (100, 0)])
-shark_dict = {1: [Motion_plan_state(0 + (1 * i), 6 + (2 * i), traj_time_stamp=0.1*i) for i in range(1,201)], 
-    2: [Motion_plan_state(80 - (1.5 * i), 95 - (1 * i), traj_time_stamp=0.1*i) for i in range(1,201)]}
-testing = SharkOccupancyGrid(shark_dict, 10, boundary_poly, 5)
-print(testing.convert())
+# boundary_poly = box(0.0, 0.0, 100.0, 100.0)
+# shark_dict = {1: [Motion_plan_state(0 + (0.7 * i), 6 + (0.4 * i), traj_time_stamp=0.1*i) for i in range(1,201)]}
+# testing = SharkOccupancyGrid(shark_dict, 10, boundary_poly, 5)
+# print(testing.convert())
