@@ -45,11 +45,12 @@ R_RANGE = 0.1           # this is a scaler to help determine immediate reward at
 R_TIME = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
 
 # constants for reward with habitats
-R_COLLIDE_100 = -1000
-R_MAINTAIN_DIST = 5
-R_IN_HAB = 5   
-R_NEW_HAB = 10
-R_CLOSE_TO_OBS = -100
+R_COLLIDE_100 = -10
+R_MAINTAIN_DIST = 0.05       
+R_IN_HAB = 0.05     
+R_NEW_HAB = 0.1 
+R_CLOSE_TO_OBS = -1 
+
 # R_IMM_PENALTY = -0.1
 
 REPEAT_ACTION_TIME = 5
