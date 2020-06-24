@@ -45,12 +45,12 @@ R_RANGE = 0.1           # this is a scaler to help determine immediate reward at
 R_TIME = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
 
 # constants for reward with habitats
-R_COLLIDE_100 = -1
-R_MAINTAIN_DIST = 0.3       
+R_COLLIDE_100 = -2
+R_MAINTAIN_DIST = 0.5       
 R_IN_HAB = 0.5     
-R_NEW_HAB = 1 
+R_NEW_HAB = 1.5 
 R_CLOSE_TO_OBS = -0.5 
-R_IMM_PENALTY = -0.1
+# R_IMM_PENALTY = -0.1
 
 REPEAT_ACTION_TIME = 5
 
@@ -444,14 +444,14 @@ class AuvEnv(gym.Env):
         else:
             if DEBUG:
                 print("else case in reward")
-            # new_range = self.calculate_range(auv_pos, shark_pos)
-            # # if auv has gotten closer to the shark, will receive positive reward
-            # #   else, receive negative reward
-            # range_diff = old_range - new_range
+            new_range = self.calculate_range(auv_pos, shark_pos)
+            # if auv has gotten closer to the shark, will receive positive reward
+            #   else, receive negative reward
+            range_diff = old_range - new_range
             
-            # reward = R_RANGE * range_diff
+            reward = R_RANGE * range_diff
             
-            return R_IMM_PENALTY
+            return reward
 
 
     def get_binary_reward(self, auv_pos, goal_pos):
