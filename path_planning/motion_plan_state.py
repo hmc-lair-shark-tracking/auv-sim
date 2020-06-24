@@ -16,6 +16,7 @@ class Motion_plan_state:
         self.parent = None
         self.path = []
         self.length = 0
+        self.cost = []
 
     def __repr__(self):
         #goal location in 2D
