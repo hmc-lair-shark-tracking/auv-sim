@@ -11,11 +11,10 @@ import numpy as np
 from shapely.wkt import loads as load_wkt 
 from shapely.geometry import Polygon, Point
 
-from sharkState import SharkState
-from sharkTrajectory import SharkTrajectory
 from motion_plan_state import Motion_plan_state
 from cost import Cost
 import catalina
+from sharkOccupancyGrid import SharkOccupancyGrid
 #from shortest_rrt import Shrt_path
 
 show_animation = True
@@ -56,7 +55,7 @@ class RRT:
         self.diff_max = diff_max
         self.freq = freq
 
-    def exploring(self, shark_dict, plot_interval, bin_interval, v, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1,-1]):
+    def exploring(self, shark_dict, plot_interval, bin_interval, v, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1,-1], sonar_range=50):
         """
         rrt path planning without setting a specific goal, rather try to explore the configuration space as much as possible
         calculate cost while expand and keep track of the current optimal cost path
@@ -77,6 +76,11 @@ class RRT:
 
         #initialize cost function
         cal_cost = Cost()
+
+        #initialize shark occupancy grid
+        self.sharkOccupancyGrid = SharkOccupancyGrid(shark_dict, sonar_range, self.boundary_poly, bin_interval)
+        self.sharkGrid = self.sharkOccupancyGrid.convert()
+        self.sharkDict = shark_dict
 
         self.mps_list = [self.start]
 
@@ -134,10 +138,28 @@ class RRT:
                     #        continue    
                     #Question: how to normalize the path length?
                     if new_mps.length != 0:
-                        cost = cal_cost.habitat_shark_cost_func(path, new_mps.length, peri_boundary, self.habitats, shark_dict, weights)
-                        if cost[0] < opt_cost[0]:
-                            opt_cost = cost
-                            opt_path = [new_mps.length, path]
+                        #find the corresponding shark occupancy grid
+                        sharkOccupancyDict = {}
+                        start = closest_mps.traj_time_stamp
+                        end = new_mps.traj_time_stamp
+                        for time_bin in self.sharkGrid:
+                            if (start >= time_bin[0] and start <= time_bin[1]) or (time_bin[0] >= start and time_bin[1] <= end) or(end >= time_bin[0] and end <= time_bin[1]):
+                                sharkOccupancyDict[time_bin] = self.sharkGrid[time_bin]
+                        
+                        temp_length = new_mps.length - closest_mps.length
+                        traj_time = new_mps.traj_time_stamp - closest_mps.traj_time_stamp
+                        if traj_time != 0:    
+                            new_cost = cal_cost.habitat_shark_cost_func(new_mps.path, temp_length, peri_boundary, traj_time, self.habitats, sharkOccupancyDict, weights, sonar_range=sonar_range)
+                            if closest_mps.cost == []:
+                                new_mps.cost = new_cost
+                            else:
+                                temp_cost = []
+                                for i in range(len(new_cost[1])):
+                                    temp_cost.append(closest_mps.cost[1][i]+new_cost[1][i])
+                                new_mps.cost = [closest_mps.cost[0]+new_cost[0], temp_cost]
+                            if new_mps.cost[0] < opt_cost[0]:
+                                opt_cost = new_mps.cost
+                                opt_path = [new_mps.length, path]
                 
             opt_cost_list.append(opt_cost[0])
         return {"path length": opt_path[0], "path": opt_path[1], "cost": opt_cost, "cost list": opt_cost_list}
@@ -333,9 +355,9 @@ class RRT:
 
         ax.add_patch(patch)
 
-        for mps in self.mps_list:
-            if mps.parent:
-                plt.plot([point.x for point in mps.path], [point.y for point in mps.path], '-g')
+        # for mps in self.mps_list:
+        #     if mps.parent:
+        #         plt.plot([point.x for point in mps.path], [point.y for point in mps.path], '-g')
 
         # plot obstacels as circles 
         for obs in catalina.OBSTACLES:
@@ -350,7 +372,12 @@ class RRT:
         for habitat in catalina.HABITATS:
             pos_habitat = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
             ax.add_patch(plt.Circle(pos_habitat, habitat.size, color = 'b', fill = False))
+        
+        #plot sharks
+        for shark_id, shark_traj in self.sharkDict.items():
+            plt.plot([mps.x for mps in shark_traj], [mps.y for mps in shark_traj], label=shark_id)
 
+        plt.legend()
         ax.grid()
         ax.axis('equal')
         plt.plot(self.start.x, self.start.y, "xr")
@@ -523,7 +550,7 @@ class RRT:
 
         plt.show()
 
-'''def main():
+def main():
     start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
     start = Motion_plan_state(start[0], start[1])
 
@@ -545,15 +572,19 @@ class RRT:
         pos = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
         boat_list.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
         
-        #testing data for habitats
+    #testing data for habitats
     habitats = []
     for habitat in catalina.HABITATS:
         pos = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
         habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
     
+    #testing data for shark trajectories
+    shark_dict = {1: [Motion_plan_state(-102 + (0.1 * i), -91 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)], 
+        2: [Motion_plan_state(-200 - (0.1 * i), -150 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)]}
+    
     rrt = RRT(goal, goal, boundary, obstacles, habitats)
     #path = rrt.planning(animation=False, min_length=0)
-    path = rrt.exploring(0.5, 5, 1, True, 10.0, 500.0, True, [1, -4.5, -4.5])
+    path = rrt.exploring(shark_dict, 0.5, 5, 20, True, 15.0, 500.0, True, [1, -4, -4, -1])
     print(path["cost"])
 
     # Draw final path
@@ -562,4 +593,4 @@ class RRT:
 
 
 if __name__ == '__main__':
-    main()'''
+    main()

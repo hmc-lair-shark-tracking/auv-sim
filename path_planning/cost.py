@@ -93,7 +93,6 @@ class Cost:
         for i in range(len(habitats)):
             for mps in path:
                 dist = math.sqrt((habitats[i].x-mps.x) **2 + (habitats[i].y-mps.y) **2)
-                #print(dist, habitats[i].size)
                 if dist <= habitats[i].size:
                     visited[i+1] = True
                     cost[2] += w3
@@ -110,7 +109,7 @@ class Cost:
 
         return [sum(cost), cost]
     
-    def habitat_shark_cost_func(self, path, length, peri, habitats, shark_dict, weight, sonar_range=50):
+    def habitat_shark_cost_func(self, path, length, peri, total_traj_time, habitats, shark_dict, weight, sonar_range):
         '''
         cost function for habitat exploration and shark tracking
         we want to find a path minimizing path length, maximizing the time spent in different habitats visited,
@@ -143,12 +142,15 @@ class Cost:
             visited[i+1] = False #visited initialized to be False for all habitat
         
         for mps in path:
-            temp_count = 0
-            for _, shark in shark_dict.items():
-                dist = math.sqrt((shark.x-mps.x) **2 + (shark.y-mps.y) **2)
-                if dist <= sonar_range:
-                    temp_count += 1
-            cost[3] += w4 * temp_count / len(shark_dict)
+            for time_bin in shark_dict:
+                if mps.traj_time_stamp >= time_bin[0] and mps.traj_time_stamp <= time_bin[1]:
+                    temp_time = time_bin
+                    break
+            sharkGrid = shark_dict[temp_time]
+            for cell_bound, prob in sharkGrid.items():
+                if mps.x >= cell_bound[0] and mps.x <= cell_bound[2] and mps.y >= cell_bound[1] and mps.x <= cell_bound[3]:
+                    cost[3] += w4 * prob
+                    break
 
             for i in range(len(habitats)):
                 dist = math.sqrt((habitats[i].x-mps.x) **2 + (habitats[i].y-mps.y) **2)
@@ -158,8 +160,8 @@ class Cost:
                     break
         
         #normalize the cost for time spent in habitats
-        cost[2] = cost[2] / (0.1 * peri)
-        cost[3] = cost[3] / (0.1 * peri)
+        cost[2] = cost[2] / total_traj_time
+        cost[3] = cost[3] / total_traj_time
     
         count = 0 #number of habitats visited
         for i in range(1, len(visited)+1):

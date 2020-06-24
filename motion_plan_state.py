@@ -16,15 +16,17 @@ class Motion_plan_state:
         self.parent = None
         self.path = []
         self.length = 0
+        self.cost = []
 
     def __repr__(self):
-        if self.z == 0 and self.theta == 0 and self.v == 0 and self.w == 0:
-            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.traj_time_stamp) + "]"
-        #location in 3D
-        elif self.theta == 0 and self.v == 0 and self.w == 0:
-            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + ", " + str(self.traj_time_stamp) + "]"
+        #goal location in 2D
+        if self.z == 0 and self.theta == 0 and self.v == 0 and self.w == 0 and self.traj_time_stamp == 0:
+            return ("[" + str(self.x) + ", "  + str(self.y) + "]")
+        #goal location in 3D
+        elif self.theta == 0 and self.v == 0 and self.w == 0 and self.traj_time_stamp == 0:
+            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + "]"
         #obstacle location in 3D
-        elif self.size != 0:
+        elif self.size != 0 and self.traj_time_stamp == 0:
             return "[" + str(self.x) + ", " + str(self.y) + ", " + str(self.z) + ", " + str(self.size) + "]"
         #location for Dubins Path in 2D
         elif self.z ==0 and self.v == 0 and self.w == 0:
@@ -34,14 +36,14 @@ class Motion_plan_state:
                 str(self.theta)  + ", " + str(self.v) + ", " + str(self.w) + ", "+  str(self.traj_time_stamp) + ", " + str(self.plan_time_stamp) + "]"
 
     def __str__(self):
-        #location in 2D
-        if self.z == 0 and self.theta == 0 and self.v == 0 and self.w == 0:
-            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.traj_time_stamp) + "]"
-        #location in 3D
-        elif self.theta == 0 and self.v == 0 and self.w == 0:
-            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + ", " + str(self.traj_time_stamp) + "]"
+        #goal location in 2D
+        if self.z == 0 and self.theta == 0 and self.v == 0 and self.w == 0 and self.traj_time_stamp == 0:
+            return "[" + str(self.x) + ", "  + str(self.y) + "]"
+        #goal location in 3D
+        elif self.theta == 0 and self.v == 0 and self.w == 0 and self.traj_time_stamp == 0:
+            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + "]"
         #obstacle location in 3D
-        elif self.size != 0:
+        elif self.size != 0 and self.traj_time_stamp == 0:
             return "[" + str(self.x) + ", " + str(self.y) + ", " + str(self.z) + ", " + str(self.size) + "]"
         #location for Dubins Path in 2D
         elif self.z ==0 and self.v == 0 and self.w == 0:
