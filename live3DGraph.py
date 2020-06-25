@@ -164,7 +164,7 @@ class Live3DGraph:
             # So we need to increment the index properly so that the newest shark trajectory point is close
             #   to the simulator's current time
             while shark.index < len(shark.traj_pts_array)-1 and\
-                abs(shark.traj_pts_array[shark.index].time_stamp - sim_time) > (const.SIM_TIME_INTERVAL + 0.1):
+                abs(shark.traj_pts_array[shark.index].traj_time_stamp - sim_time) > (const.SIM_TIME_INTERVAL + 0.1):
                 shark.index += 1
                 
             # update the shark's position arrays to help us update the graph
@@ -429,13 +429,9 @@ class Live3DGraph:
 
         plt.show()
 
-    def plot_2d_astar_traj(self, astar_x_array, astar_y_array):
+    def plot_2d_traj(self, traj_dict, shark_dict):
         """
-        Plot a trajectory made by A* algorithm with defined boundaries and obstacles
-
-        Parameter:
-            astar_x_array: a list of position tuples of two elements (x, y) in cartesian coordinates 
-            astar_y_array: a list of position tuples of two elements (x, y) in cartesian coordinates 
+        Plot a trajectory with defined boundaries and obstacles
         """
 
         plt.close()
@@ -472,13 +468,25 @@ class Live3DGraph:
             pos_boat = create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
             ax.add_patch(plt.Circle(pos_boat, boat.size, color = '#000000', fill = False))
         
+        for habitat in catalina.HABITATS:
+            pos_habitat = create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
+            ax.add_patch(plt.Circle(pos_habitat, habitat.size, color = 'b', fill = False))
+        
         x, y = zip(*path.vertices)
         line, = ax.plot(x, y, 'go-')
 
         ax.grid()
         ax.axis('equal')
 
-        # plot A* trajectory
-        plt.plot(astar_x_array, astar_y_array, marker = ',', color = 'r', label='auv')
+        # plot trajectory
+        for planner, traj in traj_dict.items():
+            if traj != []:
+                color = self.traj_checkbox_dict[planner][2]
+                ax.plot(traj[0], traj[1], marker = ',', color = color, label=planner)
 
+        # plot sharks
+        for shark_id, shark_pos in shark_dict.items():
+            ax.add_patch(plt.Circle((shark_pos.x, shark_pos.y), shark_pos.size, color="r", fill=False))
+
+        ax.legend()
         plt.show()
