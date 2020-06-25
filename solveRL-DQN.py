@@ -29,7 +29,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 """
 
 # define the range between the starting point of the auv and shark
-DIST = 40.0
+DIST = 20.0
 
 NUM_OF_EPISODES = 500
 MAX_STEP = 1000
@@ -65,7 +65,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 250
+RENDER_EVERY = 1
 # how many episode should we run a test on the model
 TEST_EVERY = 100
 
@@ -162,7 +162,7 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shar
     for _ in range(num_of_obstacles):
         obs_x = np.random.uniform(shark_min_x, shark_max_x)
         obs_y = np.random.uniform(shark_min_y, shark_max_y)
-        obs_size = np.random.randint(1,11)
+        obs_size = np.random.randint(1,3)
         # to prevent this from going into an infinite loop
         counter = 0
         while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array) and counter < 100:
@@ -193,7 +193,7 @@ def generate_rand_habitats(num_of_habitats, habitat_bound_min_x, habitat_bound_m
     for _ in range(num_of_habitats):
         hab_x = np.random.uniform(habitat_bound_min_x, habitat_bound_max_x)
         hab_y = np.random.uniform(habitat_bound_min_y, habitat_bound_max_y)
-        hab_size = np.random.randint(8,21)
+        hab_size = np.random.randint(4,11)
         # to prevent this from going into an infinite loop
         counter = 0
         while validate_new_habitat([hab_x, hab_y], hab_size, habitats_array) and counter < 100:
@@ -219,6 +219,8 @@ class Neural_network(nn.Module):
             output_size_y - int, the number of possible options for w
         """
         super().__init__()
+        
+        # self.bn0 = nn.LayerNorm(input_size)
 
         self.fc1 = nn.Linear(in_features = input_size, out_features = hidden_layer_in)
         self.bn1 = nn.LayerNorm(hidden_layer_in)
@@ -244,6 +246,7 @@ class Neural_network(nn.Module):
         # pass through the layers then have relu applied to it
         # relu is the activation function that will turn any negative value to 0,
         #   and keep any positive value
+        # t = self.bn0(t)
 
         t = self.fc1(t)
         t = F.relu(t)
@@ -919,7 +922,7 @@ class DQN():
             # if we want to continue training an already trained network
             self.load_trained_network()
         
-        for eps in range(1, num_episodes+1):
+        for eps in range(244, num_episodes+1):
             # initialize the starting point of the shark and the auv randomly
             # receive initial observation state s1 
             state = self.em.init_env_randomly()
@@ -1229,8 +1232,8 @@ class DQN():
 
 def main():
     dqn = DQN(N_V, N_W)
-    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_3D = False, live_graph_2D = True)
-    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_3D = False, live_graph_2D = True)
+    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 if __name__ == "__main__":
     main()

@@ -45,11 +45,16 @@ R_RANGE = 0.1           # this is a scaler to help determine immediate reward at
 R_TIME = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
 
 # constants for reward with habitats
-R_COLLIDE_100 = -10
-R_MAINTAIN_DIST = 0.05       
-R_IN_HAB = 0.05     
-R_NEW_HAB = 0.1 
-R_CLOSE_TO_OBS = -1 
+R_COLLIDE_100 = -1000
+R_CLOSE_TO_OBS = -10
+
+R_MAINTAIN_DIST = 1
+
+# determine how quickly the reward will decay when the auv stays in an habitat
+# decay rate should be between 0 and 1
+R_HAB_DECAY_RATE = 0.01
+R_HAB_INIT = 4
+R_HAB_OFFSET = 2
 # R_IMM_PENALTY = -0.1
 
 REPEAT_ACTION_TIME = 5
@@ -412,34 +417,31 @@ class AuvEnv(gym.Env):
             return R_CLOSE_TO_OBS
         # if the auv maintain FOLLOW_DISTANCE with the shark
         elif self.within_follow_range(auv_pos, shark_pos):
+            if DEBUG:
+                print("following shark")
             reward = R_MAINTAIN_DIST
+
             # if the auv has visited any habitat in this time step
             for hab_idx in visited_habitat_index_array:
                 hab = habitats_array[hab_idx]
                 num_of_time_visited = hab[4]
-                # when the habitat is visited for the first time
                 if num_of_time_visited == 1:
-                    if DEBUG:
-                        print("visit new habitat")
                     self.visited_unique_habitat_count += 1
-                    reward += R_NEW_HAB
-                elif num_of_time_visited > 1:
-                    reward += R_IN_HAB
+                # reward will decrease as the number of times that auv spent in the habitat increases
+                reward += R_HAB_INIT * (1 - R_HAB_DECAY_RATE) ** (num_of_time_visited) - R_HAB_OFFSET
             return reward
         elif visited_habitat_index_array != []:
+            if DEBUG:
+                print("not following shark, but in habitats")
             reward = 0.0
             # if the auv has visited any habitat in this time step
             for hab_idx in visited_habitat_index_array:
                 hab = habitats_array[hab_idx]
                 num_of_time_visited = hab[4]
-                # when the habitat is visited for the first time
                 if num_of_time_visited == 1:
-                    if DEBUG:
-                        print("visit new habitat")
                     self.visited_unique_habitat_count += 1
-                    reward += R_NEW_HAB
-                elif num_of_time_visited > 1:
-                    reward += R_IN_HAB
+                # reward will decrease as the number of times that auv spent in the habitat increases
+                reward += R_HAB_INIT * (1 - R_HAB_DECAY_RATE) ** (num_of_time_visited) - R_HAB_OFFSET
             return reward
         else:
             if DEBUG:
