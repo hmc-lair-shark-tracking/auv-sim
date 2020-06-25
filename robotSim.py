@@ -13,7 +13,7 @@ from live3DGraph import Live3DGraph
 from motion_plan_state import Motion_plan_state
 
 #import path planning class
-from path_planning.astar_real import astar
+from path_planning.astar import astar
 from path_planning.rrt_dubins import RRT
 from path_planning.cost import Cost
 from catalina import create_cartesian
@@ -72,7 +72,7 @@ class RobotSim:
 
         # create a square trajectory (list of motion_plan_state object)
         # with parameter: v = 1.0 m/s and delta_t = 0.5 sec
-        self.testing_trajectory = self.get_auv_trajectory(5, 0.5)
+        #self.testing_trajectory = self.get_auv_trajectory(5, 0.5)
 
         self.live_graph = Live3DGraph()
 
@@ -419,56 +419,6 @@ class RobotSim:
         w = K_P * angle_wrap(angle_to_traj_point - self.theta) #proportional control
         
         return v, w
-    
-
-    def get_auv_trajectory(self, v, delta_t):
-        """
-        Create an array of trajectory points representing a square path
-
-        Parameters:
-            v - linear velocity of the robot (m/s)
-            delta_t - the time interval between each time stamp (sec)
-        """
-        traj_list = []
-        t = 0
-        x = 760
-        y = 300
-        z = -10
-
-        for i in range(20):
-            x = x + v * delta_t
-            y = y
-            theta = 0
-            t = t + delta_t
-
-            traj_list.append(Motion_plan_state(x,y,z,theta,time_stamp=t))
-
-        for i in range(20):
-            x = x
-            y = y + v * delta_t
-            theta = math.pi/2
-            t = t + delta_t
-
-            traj_list.append(Motion_plan_state(x,y,z,theta,time_stamp=t))
-    
-        for i in range(20):
-            x = x - v * delta_t
-            y = y 
-            theta = math.pi
-            t = t + delta_t
-
-            traj_list.append(Motion_plan_state(x,y,z,theta,time_stamp=t))
-
-        for i in range(20):
-            x = x
-            y = y - v * delta_t 
-            theta = -(math.pi)/2
-            t = t + delta_t
-
-            traj_list.append(Motion_plan_state(x,y,z,theta,time_stamp=t))
-
-        return traj_list
-
 
     def load_shark_testing_trajectories(self, x_pos_filepath, y_pos_filepath):
         """

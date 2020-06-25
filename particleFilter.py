@@ -331,7 +331,7 @@ def main():
     x_mean_over_time = []
     y_mean_over_time = []
     num_of_loops = 1
-    num_of_inner_loops = 50
+    num_of_inner_loops = 200
     final_time_list = []
     for i in range(num_of_loops):
         NUMBER_OF_PARTICLES = 1000
@@ -517,27 +517,26 @@ def main():
             #print(x_mean_over_time)
             #print("=====================================")
             #print(particle_coordinates)
-            """
+            
             test_shark.live_graph.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y, actual_shark_coordinate_x, actual_shark_coordinate_y)
             plt.draw()
             plt.pause(.1)
             test_shark.live_graph.ax.clear()
-            """
             
-        
+        """
         plt.close()
         print(len(x_mean_over_time))
         print(len(final_new_shark_coordinate_x))
         range_list = test_grapher_shark.range_plotter(x_mean_over_time, y_mean_over_time, final_new_shark_coordinate_x, final_new_shark_coordinate_y, sim_time_list)
         print("range list")
         print(range_list)
-        """
         time_list = test_grapher_shark.range_list_function(range_list, sim_time_list)
         final_time_list.append(time_list)
         print("final time list")
         print(time_list)
         """
         plt.show()
+
         
 
 if __name__ == "__main__":
