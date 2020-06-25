@@ -14,6 +14,7 @@ from motion_plan_state import Motion_plan_state
 
 #import path planning class
 from path_planning.astar import astar
+from path_planning.sharkOccupancyGrid import SharkOccupancyGrid
 from path_planning.rrt_dubins import RRT
 from path_planning.cost import Cost
 from catalina import create_cartesian
