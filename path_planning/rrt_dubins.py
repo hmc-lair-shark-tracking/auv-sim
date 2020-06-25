@@ -10,11 +10,10 @@ import matplotlib.patches as mpatches
 import numpy as np
 from shapely.wkt import loads as load_wkt 
 from shapely.geometry import Polygon, Point
-
+from path_planning.sharkOccupancyGrid import SharkOccupancyGrid
 from motion_plan_state import Motion_plan_state
 from cost import Cost
 import catalina
-from sharkOccupancyGrid import SharkOccupancyGrid
 #from shortest_rrt import Shrt_path
 
 show_animation = True

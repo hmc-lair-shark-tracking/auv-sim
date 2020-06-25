@@ -130,12 +130,19 @@ class particleFilter:
         self.y_auv_2 = init_y_auv_2
         self.theta_2 = init_theta_2
 
-    def updateShark(self, dt):
+    def update_auv(self, dt):
         v_x_shark = random.uniform(-5, 5)
         v_y_shark = random.uniform(-5, 5)
-        self.x_shark = self.x_shark + (v_x_shark * dt)
-        self.y_shark = self.y_shark + (v_y_shark * dt)
-        return [self.x_shark, self.y_shark]
+        self.x_auv = self.x_auv + (v_x_shark * dt)
+        self.y_auv = self.y_auv + (v_y_shark * dt)
+        return [self.x_auv, self.y_auv]
+    
+    def update_auv_2(self, dt):
+        v_x_shark = random.uniform(-5, 5)
+        v_y_shark = random.uniform(-5, 5)
+        self.x_auv_2 = self.x_auv_2 + (v_x_shark * dt)
+        self.y_auv_2 = self.y_auv_2 + (v_y_shark * dt)
+        return [self.x_auv_2, self.y_auv_2]
 
     def auv_to_alpha(self):
         #calculates auv's alpha from the shark
@@ -163,6 +170,7 @@ class particleFilter:
     
     def range_auv_2(self):
         range = []
+        print("y in range", self.y_auv_2)
         range_value = math.sqrt((float(self.y_auv_2)- self.y_shark)**2 + (float(self.x_auv_2)-float(self.x_shark))**2)
         range.append(range_value)
         #print("range of auv is")
@@ -458,6 +466,13 @@ def main():
                 print("======NEW DATA=======")
                 print("All The Shark Sensor Measurements [range, bearing]: " +\
                     str(test_shark.shark_sensor_data_dict))
+                test_list = test_particle.update_auv(1)
+                test_particle.x_auv = test_list[0]
+                test_particle.y_auv = test_list[1]
+                test_list_2 = test_particle.update_auv_2(1)
+                test_particle.x_auv_2 = test_list_2[0]
+                test_particle.y_auv_2 = test_list_2[1]
+                print("new y ", test_particle.y_auv_2)
             xy_mean = test_particle.particleMean(particles)
                 #print("mean of all particles (x, y): ", xy_mean)
             x_mean_over_time.append(xy_mean[0])
@@ -472,8 +487,8 @@ def main():
             auv_alpha_2 = test_particle.auv_to_alpha_2()
             auv_range = test_particle.range_auv()
             auv_range_2 = test_particle.range_auv_2()
-            print("two diff auvs")
-            print(auv_alpha_2, auv_alpha)
+            #print("two diff auvs")
+            #print(auv_alpha_2, auv_alpha)
 
             for particle in particles: 
                 particleAlpha = particle.calc_particle_alpha(x_auv, y_auv, theta)
@@ -517,19 +532,20 @@ def main():
             #print(x_mean_over_time)
             #print("=====================================")
             #print(particle_coordinates)
-            
+        """
             test_shark.live_graph.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y, actual_shark_coordinate_x, actual_shark_coordinate_y)
             plt.draw()
             plt.pause(.1)
             test_shark.live_graph.ax.clear()
-            
-        """
+        
+
         plt.close()
-        print(len(x_mean_over_time))
-        print(len(final_new_shark_coordinate_x))
+       # print(len(x_mean_over_time))
+        #print(len(final_new_shark_coordinate_x))
         range_list = test_grapher_shark.range_plotter(x_mean_over_time, y_mean_over_time, final_new_shark_coordinate_x, final_new_shark_coordinate_y, sim_time_list)
         print("range list")
         print(range_list)
+        
         time_list = test_grapher_shark.range_list_function(range_list, sim_time_list)
         final_time_list.append(time_list)
         print("final time list")

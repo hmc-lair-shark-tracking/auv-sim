@@ -43,13 +43,14 @@ class Live3DGraph:
         #   3. color of the plot
         self.traj_checkbox_dict = {}
         # initialize the A * button
-        #self.traj_checkbox_dict["RRT"] = [False,\
-            #CheckButtons(ax = plt.axes([0.7, 0.05, 0.15, 0.05]), labels = ["RRT Trajectory"], actives = [False]), '#043d10']
+        # initialize the A * button
+        self.traj_checkbox_dict["A *"] = [False,\
+            CheckButtons(plt.axes([0.7, 0.10, 0.15, 0.05]), ["A* Trajectory"]), '#9933ff']
         # when the A* checkbox is checked, it should call self.enable_traj_plot
         
         # initialize the RRT button
-        #self.traj_checkbox_dict["RRT"] = [False,\
-            #CheckButtons(ax = plt.axes([0.7, 0.05, 0.15, 0.05]), labels = ["RRT Trajectory"]), '#043d10']
+        self.traj_checkbox_dict["RRT"] = [False,\
+            CheckButtons(plt.axes([0.7, 0.05, 0.15, 0.05]),["RRT Trajectory"]), '#043d10']
         # when the RRT checkbox is checked, it should call self.enable_traj_plot
         self.particle_checkbox = CheckButtons(plt.axes([0.1, 0.10, 0.15, 0.05]),["Display Particles"])
         self.display_particles = False
