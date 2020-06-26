@@ -45,11 +45,11 @@ R_RANGE = 0.1           # this is a scaler to help determine immediate reward at
 R_TIME = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
 
 # constants for reward with habitats
-R_COLLIDE_100 = -10
-R_MAINTAIN_DIST = 0.05       
-R_IN_HAB = 0.05     
-R_NEW_HAB = 0.1 
-R_CLOSE_TO_OBS = -1 
+R_COLLIDE_100 = -1000
+R_MAINTAIN_DIST = 5     
+R_IN_HAB = 5
+R_NEW_HAB = 10
+R_CLOSE_TO_OBS = -100
 
 # R_IMM_PENALTY = -0.1
 
@@ -230,8 +230,8 @@ class AuvEnv(gym.Env):
 
         self.state['habitats_pos'] = copy.deepcopy(self.habitats_array)
 
-        reward = self.get_reward_with_habitats(self.state['auv_pos'], self.state['shark_pos'], old_range, self.state['habitats_pos'],self.visited_habitat_index_array)
-        # reward = self.get_range_reward(self.state['auv_pos'], self.state['shark_pos'], old_range)
+        # reward = self.get_reward_with_habitats(self.state['auv_pos'], self.state['shark_pos'], old_range, self.state['habitats_pos'],self.visited_habitat_index_array)
+        reward = self.get_range_reward(self.state['auv_pos'], self.state['shark_pos'], old_range)
         # reward = self.get_range_time_reward(self.state[0], self.state[1], old_range, timestep)
         # reward = self.get_binary_reward(self.state[0], self.state[1])
 
@@ -268,7 +268,8 @@ class AuvEnv(gym.Env):
         """
         auv_shark_range = self.calculate_range(auv_pos, shark_pos)
         if auv_shark_range <= END_GAME_RADIUS:
-            print("Reached the Goal")
+            if DEBUG:
+                print("Reached the Goal")
             return True
         else:
             return False

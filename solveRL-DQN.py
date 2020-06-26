@@ -56,8 +56,8 @@ NUM_GOALS_SAMPLED_HER = 4
 
 TARGET_UPDATE = 10000
 
-NUM_OF_OBSTACLES = 10
-NUM_OF_HABITATS = 20
+NUM_OF_OBSTACLES = 5
+NUM_OF_HABITATS = 10
 STATE_SIZE = 8 + NUM_OF_OBSTACLES * 4 + NUM_OF_HABITATS * 5
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -576,6 +576,7 @@ class AuvEnvManager():
 
         return torch.tensor([reward], device=self.device).float()
 
+
     def get_reward_with_habitats(self, auv_pos, shark_pos, old_range, habitats_array, visited_habitat_index_array):
 
         reward = self.env.get_reward_with_habitats(auv_pos, shark_pos, old_range, habitats_array, visited_habitat_index_array)
@@ -811,10 +812,12 @@ class DQN():
     def save_real_experiece(self, state, next_state, action, done, timestep):
         old_range = calculate_range(state['auv_pos'], state['shark_pos'])
 
-        visited_habitat_index_array = self.em.env.check_in_habitat(next_state['auv_pos'], next_state['habitats_pos'])
+        # visited_habitat_index_array = self.em.env.check_in_habitat(next_state['auv_pos'], next_state['habitats_pos'])
 
-        reward = self.em.get_reward_with_habitats(next_state['auv_pos'], next_state['shark_pos'], old_range,\
-            next_state['habitats_pos'], visited_habitat_index_array)
+        # reward = self.em.get_reward_with_habitats(next_state['auv_pos'], next_state['shark_pos'], old_range,\
+        #     next_state['habitats_pos'], visited_habitat_index_array)
+        
+        reward = self.em.get_range_reward(next_state['auv_pos'], next_state['shark_pos'], old_range)
 
         self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
 
@@ -859,8 +862,10 @@ class DQN():
             
             old_range = calculate_range(new_curr_state['auv_pos'], new_curr_state['shark_pos'])
 
-            reward = self.em.get_reward_with_habitats(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range,\
-                new_next_state['habitats_pos'], visited_habitat_index_array)
+            # reward = self.em.get_reward_with_habitats(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range,\
+            #     new_next_state['habitats_pos'], visited_habitat_index_array)
+
+            reward = self.em.get_range_reward(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range)
 
             done = torch.tensor([0], device=DEVICE).int()
             if self.em.env.check_collision(new_next_state['auv_pos']):
