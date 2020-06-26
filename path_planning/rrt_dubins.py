@@ -550,47 +550,47 @@ class RRT:
 
         plt.show()
 
-def main():
-    start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
-    start = Motion_plan_state(start[0], start[1])
+# def main():
+#     start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
+#     start = Motion_plan_state(start[0], start[1])
 
-    goal = catalina.create_cartesian(catalina.GOAL, catalina.ORIGIN_BOUND)
-    goal = Motion_plan_state(goal[0], goal[1])
+#     goal = catalina.create_cartesian(catalina.GOAL, catalina.ORIGIN_BOUND)
+#     goal = Motion_plan_state(goal[0], goal[1])
 
-    obstacles = []
-    for ob in catalina.OBSTACLES:
-        pos = catalina.create_cartesian((ob.x, ob.y), catalina.ORIGIN_BOUND)
-        obstacles.append(Motion_plan_state(pos[0], pos[1], size=ob.size))
+#     obstacles = []
+#     for ob in catalina.OBSTACLES:
+#         pos = catalina.create_cartesian((ob.x, ob.y), catalina.ORIGIN_BOUND)
+#         obstacles.append(Motion_plan_state(pos[0], pos[1], size=ob.size))
         
-    boundary = []
-    for b in catalina.BOUNDARIES:
-        pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
-        boundary.append(Motion_plan_state(pos[0], pos[1]))
+#     boundary = []
+#     for b in catalina.BOUNDARIES:
+#         pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
+#         boundary.append(Motion_plan_state(pos[0], pos[1]))
         
-    boat_list = []
-    for boat in catalina.BOATS:
-        pos = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
-        boat_list.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
+#     boat_list = []
+#     for boat in catalina.BOATS:
+#         pos = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
+#         boat_list.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
         
-    #testing data for habitats
-    habitats = []
-    for habitat in catalina.HABITATS:
-        pos = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
-        habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
+#     #testing data for habitats
+#     habitats = []
+#     for habitat in catalina.HABITATS:
+#         pos = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
+#         habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
     
-    #testing data for shark trajectories
-    shark_dict = {1: [Motion_plan_state(-102 + (0.1 * i), -91 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)], 
-        2: [Motion_plan_state(-200 - (0.1 * i), -150 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)]}
+#     #testing data for shark trajectories
+#     shark_dict = {1: [Motion_plan_state(-102 + (0.1 * i), -91 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)], 
+#         2: [Motion_plan_state(-200 - (0.1 * i), -150 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)]}
     
-    rrt = RRT(goal, goal, boundary, obstacles, habitats)
-    #path = rrt.planning(animation=False, min_length=0)
-    path = rrt.exploring(shark_dict, 0.5, 5, 20, True, 15.0, 500.0, True, [1, -4, -4, -1])
-    print(path["cost"])
+#     rrt = RRT(goal, goal, boundary, obstacles, habitats)
+#     #path = rrt.planning(animation=False, min_length=0)
+#     path = rrt.exploring(shark_dict, 0.5, 5, 20, True, 10.0, 500.0, True, [1, -1, -1, -1])
+#     print(path["cost"])
 
-    # Draw final path
-    rrt.draw_graph(path["path"])
+#     # Draw final path
+#     rrt.draw_graph(path["path"])
         
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
