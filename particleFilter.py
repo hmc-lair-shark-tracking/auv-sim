@@ -137,8 +137,8 @@ class particleFilter:
     def update_auv(self, dt):
         #v_x_shark = random.uniform(-5, 5)
         #v_y_shark = random.uniform(-5, 5)
-        v_x_shark = 1
-        v_y_shark = -1
+        v_x_shark =0
+        v_y_shark =  0
         self.x_auv = self.x_auv + (v_x_shark * dt)
         self.y_auv = self.y_auv + (v_y_shark * dt)
         return [self.x_auv, self.y_auv]
@@ -146,7 +146,7 @@ class particleFilter:
     def update_auv_2(self, dt):
         #v_x_shark = random.uniform(-5, 5)
         #v_y_shark = random.uniform(-5, 5)
-        v_x_shark = 1
+        v_x_shark = 0
         v_y_shark = 0
         self.x_auv_2 = self.x_auv_2 + (v_x_shark * dt)
         self.y_auv_2 = self.y_auv_2 + (v_y_shark * dt)
@@ -191,7 +191,7 @@ class particleFilter:
         #print("range of auv is")
         #print(range)
         return range_value
-
+        
     def normalize(self, weights_list, weights_list_2):
         newlist = []
         newlist_2 = []
@@ -396,7 +396,6 @@ class particleFilter:
         return particles
 
 
-            
 def main(): 
     x_mean_over_time = []
     y_mean_over_time = []
@@ -484,6 +483,7 @@ def main():
                 print("All The Shark Sensor Measurements [range, bearing]: " +\
                     str(test_shark.shark_sensor_data_dict))
             """
+            particles = test_particle.main_navigation_loops(particles)
             if loops%20 == 0:
                 print("==============================")
                 test_list_shark = test_particle.updateShark(1)
@@ -511,7 +511,6 @@ def main():
             sim_time_list.append(sim_time)
             #test_particle.x_shark = test_shark.shark_sensor_data_dict[1].x
             #test_particle.y_shark = test_shark.shark_sensor_data_dict[1].y
-            particles = test_particle.main_navigation_loops(particles)
             
             sim_time += 0.1
             loops += 1
