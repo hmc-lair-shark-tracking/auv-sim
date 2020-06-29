@@ -1234,12 +1234,110 @@ class DQN():
         }
 
         return result
+
+
+    def test_q_value_control_auv (self, num_episodes, max_step, live_graph_3D = False, live_graph_2D = False):
+        episode_durations = []
+        starting_dist_array = []
+        traveled_dist_array = []
+        final_reward_array = []
+        total_reward_array = []
+
+        # if we want to continue training an already trained network
+        self.load_trained_network()
+        self.policy_net.eval()
+        
+        for eps in range(num_episodes):
+            # initialize the starting point of the shark and the auv randomly
+            # receive initial observation state s1 
+            state = self.em.init_env_randomly()
+
+            starting_dist = calculate_range(state['auv_pos'], state['shark_pos'])
+            starting_dist_array.append(starting_dist)
+
+            episode_durations.append(max_step)
+            traveled_dist_array.append(0.0)
+            final_reward_array.append(0.0)
+            total_reward_array.append(0.0)
+
+            reward = 0
+
+            for t in range(1, max_step):
+                action = self.agent.select_action(state, self.policy_net)
+                print("neural network chosen action")
+                print(action)
+                print("-------")
+
+                print(self.em.possible_actions)
+                print("===============")
+                v_index = input("linear velocity index: ")
+                w_index = input("angular velocity index: ")
+
+                action = torch.tensor([int(v_index), int(w_index)])
+
+                reward = self.em.take_action(action, t)
+
+                final_reward_array[eps] = reward.item()
+                total_reward_array[eps] += reward.item()
+
+                traveled_dist_array[eps] += self.em.env.distance_traveled
+
+                self.em.render(print_state = False, live_graph_3D = live_graph_3D, live_graph_2D = live_graph_2D)
+
+                state = self.em.get_state()
+
+                if self.em.done:
+                    episode_durations[eps] = t
+                    break
+            
+            
+            print("+++++++++++++++++++++++++++++")
+            print("Episode # ", eps, "end with reward: ", reward, " used time: ", episode_durations[-1])
+            print("+++++++++++++++++++++++++++++")
+
+
+        self.em.close()
+
+        print("final sums of time")
+        print(episode_durations)
+        print("average time")
+        print(np.mean(episode_durations))
+        print("-----------------")
+
+        text = input("stop")
+
+        print("all the starting distances")
+        print(starting_dist_array)
+        print("average starting distance")
+        print(np.mean(starting_dist_array))
+        print("-----------------")
+
+        text = input("stop")
+
+        print("all the traveled distances")
+        print(traveled_dist_array)
+        print("average traveled dissta")
+        print(np.mean(traveled_dist_array))
+        print("-----------------")
+
+        text = input("stop")
+
+        print("final reward")
+        print(final_reward_array)
+        print("-----------------")
+
+        text = input("stop")
+
+        print("total reward")
+        print(total_reward_array)
+        print("-----------------")
     
 
 def main():
     dqn = DQN(N_V, N_W)
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_3D = False, live_graph_2D = True)
-    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = True, live_graph_3D = False, live_graph_2D = True)
+    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
+    # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 if __name__ == "__main__":
     main()
