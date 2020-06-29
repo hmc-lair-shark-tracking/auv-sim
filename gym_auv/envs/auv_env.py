@@ -48,7 +48,10 @@ R_TIME = -0.01          # negative reward (the longer for the auv to reach the g
 R_COLLIDE_100 = -1000
 R_CLOSE_TO_OBS = -10
 
-R_MAINTAIN_DIST = 1
+R_MAINTAIN_DIST = 5
+
+R_NEW_HAB = 10
+R_IN_HAB = 5
 
 # determine how quickly the reward will decay when the auv stays in an habitat
 # decay rate should be between 0 and 1
@@ -234,7 +237,8 @@ class AuvEnv(gym.Env):
 
         self.state['habitats_pos'] = copy.deepcopy(self.habitats_array)
 
-        reward = self.get_reward_with_habitats(self.state['auv_pos'], self.state['shark_pos'], old_range, self.state['habitats_pos'],self.visited_habitat_index_array)
+        # reward = self.get_reward_with_habitats(self.state['auv_pos'], self.state['shark_pos'], old_range, self.state['habitats_pos'],self.visited_habitat_index_array)
+        reward = self.get_reward_with_habitats_no_decay(self.state['auv_pos'], self.state['shark_pos'], old_range, self.state['habitats_pos'],self.visited_habitat_index_array)
         # reward = self.get_range_reward(self.state['auv_pos'], self.state['shark_pos'], old_range)
         # reward = self.get_range_time_reward(self.state[0], self.state[1], old_range, timestep)
         # reward = self.get_binary_reward(self.state[0], self.state[1])
@@ -430,18 +434,55 @@ class AuvEnv(gym.Env):
                 # reward will decrease as the number of times that auv spent in the habitat increases
                 reward += R_HAB_INIT * (1 - R_HAB_DECAY_RATE) ** (num_of_time_visited) - R_HAB_OFFSET
             return reward
-        elif visited_habitat_index_array != []:
+        else:
             if DEBUG:
-                print("not following shark, but in habitats")
+                print("else case in reward")
+            new_range = self.calculate_range(auv_pos, shark_pos)
+            # if auv has gotten closer to the shark, will receive positive reward
+            #   else, receive negative reward
+            range_diff = old_range - new_range
+            
+            reward = R_RANGE * range_diff
+            
+            return reward
+
+
+    def get_reward_with_habitats_no_decay(self, auv_pos, shark_pos, old_range, habitats_array, visited_habitat_index_array):
+         # if the auv collides with an obstacle
+        if self.check_collision(auv_pos):
+            return R_COLLIDE_100
+        elif self.check_close_to_obstacles(auv_pos):
+            return R_CLOSE_TO_OBS
+        # if the auv maintain FOLLOW_DISTANCE with the shark
+        elif self.within_follow_range(auv_pos, shark_pos):
+            reward = R_MAINTAIN_DIST
+            # if the auv has visited any habitat in this time step
+            for hab_idx in visited_habitat_index_array:
+                hab = habitats_array[hab_idx]
+                num_of_time_visited = hab[4]
+                # when the habitat is visited for the first time
+                if num_of_time_visited == 1:
+                    if DEBUG:
+                        print("visit new habitat")
+                    self.visited_unique_habitat_count += 1
+                    reward += R_NEW_HAB
+                elif num_of_time_visited > 1:
+                    reward += R_IN_HAB
+            return reward
+        elif visited_habitat_index_array != []:
             reward = 0.0
             # if the auv has visited any habitat in this time step
             for hab_idx in visited_habitat_index_array:
                 hab = habitats_array[hab_idx]
                 num_of_time_visited = hab[4]
+                # when the habitat is visited for the first time
                 if num_of_time_visited == 1:
+                    if DEBUG:
+                        print("visit new habitat")
                     self.visited_unique_habitat_count += 1
-                # reward will decrease as the number of times that auv spent in the habitat increases
-                reward += R_HAB_INIT * (1 - R_HAB_DECAY_RATE) ** (num_of_time_visited) - R_HAB_OFFSET
+                    reward += R_NEW_HAB
+                elif num_of_time_visited > 1:
+                    reward += R_IN_HAB
             return reward
         else:
             if DEBUG:
@@ -454,6 +495,8 @@ class AuvEnv(gym.Env):
             reward = R_RANGE * range_diff
             
             return reward
+
+            
 
 
     def get_binary_reward(self, auv_pos, goal_pos):

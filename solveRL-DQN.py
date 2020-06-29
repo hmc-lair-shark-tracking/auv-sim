@@ -56,8 +56,8 @@ NUM_GOALS_SAMPLED_HER = 4
 
 TARGET_UPDATE = 10000
 
-NUM_OF_OBSTACLES = 10
-NUM_OF_HABITATS = 20
+NUM_OF_OBSTACLES = 5
+NUM_OF_HABITATS = 10
 STATE_SIZE = 8 + NUM_OF_OBSTACLES * 4 + NUM_OF_HABITATS * 5
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -65,7 +65,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 1
+RENDER_EVERY = 250
 # how many episode should we run a test on the model
 TEST_EVERY = 100
 
@@ -162,7 +162,7 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shar
     for _ in range(num_of_obstacles):
         obs_x = np.random.uniform(shark_min_x, shark_max_x)
         obs_y = np.random.uniform(shark_min_y, shark_max_y)
-        obs_size = np.random.randint(1,3)
+        obs_size = np.random.randint(1,5)
         # to prevent this from going into an infinite loop
         counter = 0
         while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array) and counter < 100:
@@ -585,6 +585,12 @@ class AuvEnvManager():
 
         return torch.tensor([reward], device=self.device).float()
 
+    def get_reward_with_habitats_no_decay(self, auv_pos, shark_pos, old_range, habitats_array, visited_habitat_index_array):
+
+        reward = self.env.get_reward_with_habitats_no_decay(auv_pos, shark_pos, old_range, habitats_array, visited_habitat_index_array)
+
+        return torch.tensor([reward], device=self.device).float()
+
 """
 Use QValues class's 
 """
@@ -816,7 +822,7 @@ class DQN():
 
         visited_habitat_index_array = self.em.env.check_in_habitat(next_state['auv_pos'], next_state['habitats_pos'])
 
-        reward = self.em.get_reward_with_habitats(next_state['auv_pos'], next_state['shark_pos'], old_range,\
+        reward = self.em.get_reward_with_habitats_no_decay(next_state['auv_pos'], next_state['shark_pos'], old_range,\
             next_state['habitats_pos'], visited_habitat_index_array)
 
         self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
@@ -862,7 +868,7 @@ class DQN():
             
             old_range = calculate_range(new_curr_state['auv_pos'], new_curr_state['shark_pos'])
 
-            reward = self.em.get_reward_with_habitats(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range,\
+            reward = self.em.get_reward_with_habitats_no_decay(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range,\
                 new_next_state['habitats_pos'], visited_habitat_index_array)
 
             done = torch.tensor([0], device=DEVICE).int()
@@ -922,7 +928,7 @@ class DQN():
             # if we want to continue training an already trained network
             self.load_trained_network()
         
-        for eps in range(244, num_episodes+1):
+        for eps in range(1, num_episodes+1):
             # initialize the starting point of the shark and the auv randomly
             # receive initial observation state s1 
             state = self.em.init_env_randomly()
