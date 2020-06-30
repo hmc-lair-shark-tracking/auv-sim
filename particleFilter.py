@@ -80,7 +80,7 @@ class Particle:
             """
                 calculates the alpha value of a particle
             """
-            particleAlpha = angle_wrap(math.atan2((-y_auv + self.y_p), (self.x_p + -x_auv))) - theta_auv
+            particleAlpha = angle_wrap(math.atan2((-y_auv + self.y_p), (self.x_p + -x_auv)) - theta_auv)
             return particleAlpha
 
         def calc_particle_range(self, x_auv, y_auv):
@@ -137,19 +137,19 @@ class particleFilter:
     def update_auv(self, dt):
         #v_x_shark = random.uniform(-5, 5)
         #v_y_shark = random.uniform(-5, 5)
-        v_x_shark = 1
-        v_y_shark = -1
-        self.x_auv = self.x_auv + (v_x_shark * dt)
-        self.y_auv = self.y_auv + (v_y_shark * dt)
+        v_x_auv = 1
+        v_y_auv = 0
+        self.x_auv = self.x_auv + (v_x_auv * dt)
+        self.y_auv = self.y_auv + (v_y_auv * dt)
         return [self.x_auv, self.y_auv]
     
     def update_auv_2(self, dt):
         #v_x_shark = random.uniform(-5, 5)
         #v_y_shark = random.uniform(-5, 5)
-        v_x_shark = 1
-        v_y_shark = 0
-        self.x_auv_2 = self.x_auv_2 + (v_x_shark * dt)
-        self.y_auv_2 = self.y_auv_2 + (v_y_shark * dt)
+        v_x_auv = 1
+        v_y_auv = 0
+        self.x_auv_2 = self.x_auv_2 + (v_x_auv * dt)
+        self.y_auv_2 = self.y_auv_2 + (v_y_auv * dt)
         return [self.x_auv_2, self.y_auv_2]
 
     def updateShark(self, dt):
@@ -163,8 +163,8 @@ class particleFilter:
     def auv_to_alpha(self):
         #calculates auv's alpha from the shark
         list_of_real_alpha = []
-        real_alpha = angle_wrap(math.atan2((-self.y_auv + self.y_shark), (self.x_shark- self.x_auv))) - self.theta
-        real_alpha_2 = angle_wrap(math.atan2((-self.y_auv_2 + self.y_shark), (self.x_shark- self.x_auv_2))) - self.theta_2
+        real_alpha = angle_wrap(math.atan2((-self.y_auv + self.y_shark), (self.x_shark- self.x_auv)) - self.theta)
+        #real_alpha_2 = angle_wrap(math.atan2((-self.y_auv_2 + self.y_shark), (self.x_shark- self.x_auv_2)) - self.theta_2)
         list_of_real_alpha.append(real_alpha)
         list_of_real_alpha.append(-real_alpha)
         return list_of_real_alpha
@@ -172,21 +172,21 @@ class particleFilter:
     def auv_to_alpha_2(self):
         #calculates auv's alpha from the shark
         list_of_real_alpha = []
-        real_alpha_2 = angle_wrap(math.atan2((-self.y_auv_2 + self.y_shark), (self.x_shark- self.x_auv_2))) - self.theta_2
+        real_alpha_2 = angle_wrap(math.atan2((-self.y_auv_2 + self.y_shark), (self.x_shark- self.x_auv_2)) - self.theta_2)
         list_of_real_alpha.append(real_alpha_2)
         list_of_real_alpha.append(-real_alpha_2)
         return list_of_real_alpha
 
     def range_auv(self):
         range = []
-        range_value = math.sqrt((float(self.y_auv)- self.y_shark)**2 + (float(self.x_auv)-float(self.x_shark))**2)
+        range_value = (float(self.y_auv)- self.y_shark)**2 + (float(self.x_auv)-float(self.x_shark))**2
         #print("range of auv is")
         #print(range)
         return range_value
     
     def range_auv_2(self):
         range = []
-        range_value = math.sqrt((float(self.y_auv_2)- self.y_shark)**2 + (float(self.x_auv_2)-float(self.x_shark))**2)
+        range_value = (float(self.y_auv_2)- self.y_shark)**2 + (float(self.x_auv_2)-float(self.x_shark))**2
         range.append(range_value)
         #print("range of auv is")
         #print(range)
@@ -199,11 +199,11 @@ class particleFilter:
         denominator= max(weights_list)
         denominator_2 = max(weights_list_2)
         for weight in weights_list:
-            weight1 = (1/ denominator) * weight
-            newlist.append(weight1)
+            #weight1 = (1/ denominator) * weight
+            newlist.append(weight)
         for weight in weights_list_2:
-            weight2 = (1/ denominator_2) * weight
-            newlist_2.append(weight2)
+            #weight2 = (1/ denominator_2) * weight
+            newlist_2.append(weight)
         index = -1
         final_list_of_weights = []
         for weight in newlist:
@@ -417,7 +417,7 @@ def main():
         theta = 0 
         x_auv_2 = -10
         y_auv_2 = 10
-        theta_2 = 0.5
+        theta_2 = 0
         # for now, since the auv is stationary, we can just set it like this
         auv_pos = Motion_plan_state(x_auv, y_auv, theta)
         # example of how to get the shark x position and y position
@@ -484,6 +484,7 @@ def main():
                 print("All The Shark Sensor Measurements [range, bearing]: " +\
                     str(test_shark.shark_sensor_data_dict))
             """
+            particles = test_particle.main_navigation_loops(particles)
             if loops%20 == 0:
                 print("==============================")
                 test_list_shark = test_particle.updateShark(1)
@@ -511,7 +512,7 @@ def main():
             sim_time_list.append(sim_time)
             #test_particle.x_shark = test_shark.shark_sensor_data_dict[1].x
             #test_particle.y_shark = test_shark.shark_sensor_data_dict[1].y
-            particles = test_particle.main_navigation_loops(particles)
+            
             
             sim_time += 0.1
             loops += 1
@@ -519,11 +520,12 @@ def main():
             particle_coordinates = test_particle.particle_coordinates(particles)
             #print("+++++++++++++++++++++++++++++++")
 
-            """
+            
             test_shark.live_graph.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y, actual_shark_coordinate_x, actual_shark_coordinate_y)
             plt.draw()
             plt.pause(.1)
             test_shark.live_graph.ax.clear()
+            """
             
 
         
