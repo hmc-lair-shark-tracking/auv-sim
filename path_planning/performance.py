@@ -122,6 +122,7 @@ def plot_summary_1(labels, summary):
 def summary_2(start, goal, obstacle_array, boundary, habitats, shark_dict, test_num, test_time, plot_interval, weights):
     '''generate the average cost of optimal paths of one weight scheme'''
     cost_list = [[]for _ in range(math.ceil(test_time//plot_interval))]
+    improvement = []
 
     for _ in range(test_num):
         rrt = RRT(goal, goal, boundary, obstacle_array, habitats)
@@ -142,10 +143,14 @@ def summary_2(start, goal, obstacle_array, boundary, habitats, shark_dict, test_
     
     cost_mean = []
     for i in range(len(cost_list)):
-        cost_mean.append(statistics.mean(cost_list[i]))
+        temp_mean = statistics.mean(cost_list[i])
+        if i >= 1:
+            improvement.append("{:.0%}".format(temp_mean / cost_mean[-1]))
+        cost_mean.append(temp_mean)
     
     #plot_summary_2(time_list, cost_list)
-    return cost_mean
+    print(cost_mean, improvement)
+    return cost_mean, improvement
 
 def plot_summary_2(x_list, y_list):
 
@@ -161,6 +166,7 @@ def plot_summary_2(x_list, y_list):
 def summary_3(start, goal, boundary, obstacle_array, habitats, shark_dict, test_num, plan_time, plot_interval):
     '''draw average cost of optimal path from different weight schemes as a function of time'''
     results = []
+    improvements = []
     time_list = [plot_interval + i * plot_interval for i in range(math.ceil(plan_time//plot_interval))]
 
     weight1 = [[1, -3, -3, -3], "random time", "trajectory time stamp"]
@@ -169,18 +175,30 @@ def summary_3(start, goal, boundary, obstacle_array, habitats, shark_dict, test_
     weights = [weight1, weight2, weight3]
     
     for weight in weights:
-        result = summary_2(start, goal, obstacle_array, boundary, habitats, shark_dict, test_num, plan_time, plot_interval, weight)
+        result, improvement = summary_2(start, goal, obstacle_array, boundary, habitats, shark_dict, test_num, plan_time, plot_interval, weight)
         results.append(result)
-    
+        improvements.append(improvement)
+
+    plt.figure(1)
     for i in range(len(results)):
         plt.plot(time_list, results[i], label=str(weights[i]))
-    
     plt.ylabel('Optimal Path Cost')
     plt.xlabel('Planning Time')
     plt.title('Optimal Path Cost VS Planning Time')
-
     plt.legend()
     plt.show()
+    plt.close()
+
+    # plt.figure(2)
+    # for i in range(len(improvements)):
+    #     print(time_list[1:], improvements[i])
+    #     plt.plot(time_list[1:], improvements[i], label=str(weights[i]))
+    # plt.ylabel('Proportion Cost Optimization')
+    # plt.xlabel('Planning Time')
+    # plt.title('Percent Optimization over Planning Time')
+    # plt.legend()
+    # plt.show()
+    # plt.close()
 
 def plot_time_stamp(start, goal, boundary, obstacle_array, habitats):
     '''draw time stamp distribution of one rrt_rubins path planning algorithm'''
@@ -232,4 +250,4 @@ for habitat in catalina.HABITATS:
 #testing data for shark trajectories
 shark_dict = {1: [Motion_plan_state(-102 + (0.1 * i), -91 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)], 
     2: [Motion_plan_state(-150 - (0.1 * i), 0 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)]}
-summary_3(start, goal, boundary, obstacles+boat_list, habitats, shark_dict, 10, 10.0, 0.5)
+summary_3(start, goal, boundary, obstacles+boat_list, habitats, shark_dict, 15, 20.0, 0.5)
