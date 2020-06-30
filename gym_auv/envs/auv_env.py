@@ -45,6 +45,7 @@ R_RANGE = 0.1           # this is a scaler to help determine immediate reward at
 R_TIME = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
 
 # constants for reward with habitats
+R_OUT_OF_BOUND = -1000
 R_COLLIDE_100 = -1000
 R_CLOSE_TO_OBS = -10
 
@@ -225,12 +226,14 @@ class AuvEnv(gym.Env):
         # the episode will only end (done = True) if
         #   - the auv has reached the target, or
         #   - the auv has hit an obstacle
-        done = self.check_collision(self.state['auv_pos'])
+        done = self.check_collision(self.state['auv_pos']) or (not (self.habitat_grid.within_habitat_env(self.state['auv_pos'])))
 
         self.visited_habitat_cell = self.habitat_grid.inside_habitat(self.state['auv_pos'])
 
         if self.visited_habitat_cell != False:
-            self.habitats_array = self.update_num_time_visited_for_habitats(self.habitats_array, self.visited_habitat_cell)
+            self.total_time_in_hab += 1
+
+        self.habitats_array = self.update_num_time_visited_for_habitats(self.habitats_array, self.visited_habitat_cell)
 
         self.state['habitats_pos'] = copy.deepcopy(self.habitats_array)
 
@@ -329,9 +332,10 @@ class AuvEnv(gym.Env):
 
         new_habitats_array = copy.deepcopy(habitats_array)
 
-        habitat_index = visited_habitat_cell.habitat_id
+        if visited_habitat_cell != False:
+            habitat_index = visited_habitat_cell.habitat_id
 
-        new_habitats_array[habitat_index][3] += 1
+            new_habitats_array[habitat_index][3] += 1
         
         return new_habitats_array
 
@@ -435,7 +439,9 @@ class AuvEnv(gym.Env):
 
     def get_reward_with_habitats_no_decay(self, auv_pos, shark_pos, old_range, habitats_array, visited_habitat_cell):
          # if the auv collides with an obstacle
-        if self.check_collision(auv_pos):
+        if not self.habitat_grid.within_habitat_env(self.state['auv_pos']):
+            return R_OUT_OF_BOUND
+        elif self.check_collision(auv_pos):
             return R_COLLIDE_100
         elif self.check_close_to_obstacles(auv_pos):
             return R_CLOSE_TO_OBS
@@ -510,6 +516,8 @@ class AuvEnv(gym.Env):
 
         # reset the count for how many unique habitat had the auv visited
         self.visited_unique_habitat_count = 0
+        # reset the count for how many time steps had the auv visited an habitat
+        self.total_time_in_hab = 0
 
         self.state = {
             'auv_pos': np.array([self.auv_init_pos.x, self.auv_init_pos.y, self.auv_init_pos.z, self.auv_init_pos.theta]),\
