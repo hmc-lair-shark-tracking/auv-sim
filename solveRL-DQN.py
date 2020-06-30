@@ -58,7 +58,7 @@ TARGET_UPDATE = 10000
 
 NUM_OF_OBSTACLES = 5
 NUM_OF_HABITATS = 10
-STATE_SIZE = 8 + NUM_OF_OBSTACLES * 4 + NUM_OF_HABITATS * 5
+STATE_SIZE = 8 + NUM_OF_OBSTACLES * 4
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -91,11 +91,11 @@ def process_state_for_nn(state):
     obstacle_tensor = torch.from_numpy(state['obstacles_pos'])
     obstacle_tensor = torch.flatten(obstacle_tensor)
 
-    habitat_tensor = torch.from_numpy(state['habitats_pos'])
-    habitat_tensor = torch.flatten(habitat_tensor)
+    # habitat_tensor = torch.from_numpy(state['habitats_pos'])
+    # habitat_tensor = torch.flatten(habitat_tensor)
     
     # join tensors together
-    return torch.cat((auv_tensor, shark_tensor, obstacle_tensor, habitat_tensor)).float()
+    return torch.cat((auv_tensor, shark_tensor, obstacle_tensor)).float()
 
 
 def extract_tensors(experiences):
@@ -993,9 +993,9 @@ class DQN():
                 
                 target_update_counter += 1
 
-                if target_update_counter % TARGET_UPDATE == 0:
-                    print("UPDATE TARGET NETWORK")
-                    self.target_net.load_state_dict(self.policy_net.state_dict())
+                # if target_update_counter % TARGET_UPDATE == 0:
+                #     print("UPDATE TARGET NETWORK")
+                #     self.target_net.load_state_dict(self.policy_net.state_dict())
 
             print("*********************************")
             print("final state")

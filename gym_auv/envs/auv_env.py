@@ -451,8 +451,6 @@ class AuvEnv(gym.Env):
          # if the auv collides with an obstacle
         if self.check_collision(auv_pos):
             return R_COLLIDE_100
-        elif self.check_close_to_obstacles(auv_pos):
-            return R_CLOSE_TO_OBS
         # if the auv maintain FOLLOW_DISTANCE with the shark
         elif self.within_follow_range(auv_pos, shark_pos):
             reward = R_MAINTAIN_DIST
