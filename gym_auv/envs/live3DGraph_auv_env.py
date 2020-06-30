@@ -123,7 +123,7 @@ class Live3DGraph:
         y_orient = y_pos_array[-1]-y_pos_array[-2]
 
         # plot the trajectory line
-        self.ax_2D.plot(x_pos_array, y_pos_array,
+        return self.ax_2D.plot(x_pos_array, y_pos_array,
             marker = marker, linestyle = '-', color = color, label = label)
         
         # use quiver plot to draw an arrow indicating the auv's direction

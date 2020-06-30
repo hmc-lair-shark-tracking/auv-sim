@@ -1,8 +1,9 @@
 """
-A wrapper class to represent state of an habitat
+A wrapper class to represent state of an habitat cell
+    Many habitat cells will make up a habitat area
     including x, y, z, size, and the number of time visited
 """
-class HabitatState:
+class HabitatCell:
     def __init__(self, x, y, habitat_id, side_length = 1):
         self.x = x
         self.y = y

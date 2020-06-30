@@ -15,7 +15,8 @@ import torchvision.transforms as T
 import copy
 
 from motion_plan_state import Motion_plan_state
-from habitatState import HabitatState
+
+from habitatGrid import HabitatGrid
 
 # namedtuple allows us to store Experiences as labeled tuples
 Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward', 'done'))
@@ -32,7 +33,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 DIST = 20.0
 
 NUM_OF_EPISODES = 500
-MAX_STEP = 1000
+MAX_STEP = 100 #1000
 
 NUM_OF_EPISODES_TEST = 1000
 MAX_STEP_TEST = 1000
@@ -49,7 +50,7 @@ EPS_DECAY = 0.001
 LEARNING_RATE = 0.001
 
 MEMORY_SIZE = 100000
-BATCH_SIZE = 64
+BATCH_SIZE = 32 #64
 
 # number of additional goals to be added to the replay memory
 NUM_GOALS_SAMPLED_HER = 4
@@ -57,15 +58,19 @@ NUM_GOALS_SAMPLED_HER = 4
 TARGET_UPDATE = 10000
 
 NUM_OF_OBSTACLES = 5
-NUM_OF_HABITATS = 10
-STATE_SIZE = 8 + NUM_OF_OBSTACLES * 4 + NUM_OF_HABITATS * 5
+
+HABITAT_SIDE_LENGTH = 20
+HABITAT_CELL_SIDE_LENGTH = 20
+NUM_OF_HABITATS = int((DIST * 20 / HABITAT_SIDE_LENGTH) ** 2)
+
+STATE_SIZE = 8 + NUM_OF_OBSTACLES * 4 + NUM_OF_HABITATS * 4
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 250
+RENDER_EVERY = 1
 # how many episode should we run a test on the model
 TEST_EVERY = 100
 
@@ -186,23 +191,23 @@ def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
     return hab_overlaps
 
 
-def generate_rand_habitats(num_of_habitats, habitat_bound_min_x, habitat_bound_max_x,  habitat_bound_min_y, habitat_bound_max_y):
-    """
-    """
-    habitats_array = []
-    for _ in range(num_of_habitats):
-        hab_x = np.random.uniform(habitat_bound_min_x, habitat_bound_max_x)
-        hab_y = np.random.uniform(habitat_bound_min_y, habitat_bound_max_y)
-        hab_size = np.random.randint(4,11)
-        # to prevent this from going into an infinite loop
-        counter = 0
-        while validate_new_habitat([hab_x, hab_y], hab_size, habitats_array) and counter < 100:
-            hab_x = np.random.uniform(habitat_bound_min_x, habitat_bound_max_x)
-            hab_y = np.random.uniform(habitat_bound_min_y, habitat_bound_max_y)
-            counter += 1
-        habitats_array.append(HabitatState(x = hab_x, y = hab_y, z=-10, size = hab_size))
+# def generate_rand_habitats(num_of_habitats, habitat_bound_min_x, habitat_bound_max_x,  habitat_bound_min_y, habitat_bound_max_y):
+#     """
+#     """
+#     habitats_array = []
+#     for _ in range(num_of_habitats):
+#         hab_x = np.random.uniform(habitat_bound_min_x, habitat_bound_max_x)
+#         hab_y = np.random.uniform(habitat_bound_min_y, habitat_bound_max_y)
+#         hab_size = np.random.randint(4,11)
+#         # to prevent this from going into an infinite loop
+#         counter = 0
+#         while validate_new_habitat([hab_x, hab_y], hab_size, habitats_array) and counter < 100:
+#             hab_x = np.random.uniform(habitat_bound_min_x, habitat_bound_max_x)
+#             hab_y = np.random.uniform(habitat_bound_min_y, habitat_bound_max_y)
+#             counter += 1
+#         habitats_array.append(HabitatState(x = hab_x, y = hab_y, z=-10, size = hab_size))
 
-    return habitats_array  
+#     return habitats_array  
 
 
 """
@@ -450,26 +455,25 @@ class AuvEnvManager():
 
     
     def init_env_randomly(self, dist = DIST):
-        auv_min_x = dist * 2
-        auv_max_x = dist * 2
-        auv_min_y = dist * 4
-        auv_max_y = dist * 4
+        auv_min_x = dist * 9
+        auv_max_x = dist * 11
+        auv_min_y = dist * 9
+        auv_max_y = dist * 11
 
-        shark_min_x = dist
-        shark_max_x = dist * 5
-        shark_min_y = dist
-        shark_max_y = dist * 5
+        shark_min_x = dist * 8
+        shark_max_x = dist * 12
+        shark_min_y = dist * 8
+        shark_max_y = dist * 12
 
-        habitat_bound_min_x = 0.0
-        habitat_bound_max_x = dist * 6
-        habitat_bound_min_y = 0.0
-        habitat_bound_max_y = dist * 6
+        habitat_bound_x = 0.0
+        habitat_bound_size_x = dist * 20
+        habitat_bound_y = 0.0
+        habitat_bound_size_y = dist * 20
 
         auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = 0)
         shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
         obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
-        habitats_array = generate_rand_habitats(NUM_OF_HABITATS, habitat_bound_min_x, habitat_bound_max_x, habitat_bound_min_y, habitat_bound_max_y)
-
+        self.habitat_grid = HabitatGrid(habitat_bound_x, habitat_bound_y, habitat_bound_size_x, habitat_bound_size_y, HABITAT_SIDE_LENGTH, HABITAT_CELL_SIDE_LENGTH)
 
         print("===============================")
         print("Starting Positions")
@@ -477,14 +481,15 @@ class AuvEnvManager():
         print(shark_init_pos)
         print("-")
         print(obstacle_array)
-        print("-")
-        print(habitats_array)
+        print("Number of habitats")
+        print(NUM_OF_HABITATS)
+        print(len(self.habitat_grid.habitat_array))
         print("===============================")
 
         if DEBUG:
             text = input("stop")
 
-        return self.env.init_env(auv_init_pos, shark_init_pos, obstacle_array, habitats_array)
+        return self.env.init_env(auv_init_pos, shark_init_pos, obstacle_array, self.habitat_grid)
 
 
     def reset(self):
@@ -514,6 +519,12 @@ class AuvEnvManager():
             self.env.render_2D_plot(state['auv_pos'], state['shark_pos'])
             
         return state
+
+    def reset_render_graph(self, mode='human', live_graph_3D = False, live_graph_2D = False):
+        if live_graph_3D:
+            self.env.live_graph.ax.clear()
+        elif live_graph_2D:
+            self.env.live_graph.ax_2D.clear()
 
 
     def take_action(self, action, timestep):
@@ -820,14 +831,15 @@ class DQN():
     def save_real_experiece(self, state, next_state, action, done, timestep):
         old_range = calculate_range(state['auv_pos'], state['shark_pos'])
 
-        visited_habitat_index_array = self.em.env.check_in_habitat(next_state['auv_pos'], next_state['habitats_pos'])
+        visited_habitat_cell = self.em.habitat_grid.inside_habitat(next_state['auv_pos'])
 
         reward = self.em.get_reward_with_habitats_no_decay(next_state['auv_pos'], next_state['shark_pos'], old_range,\
-            next_state['habitats_pos'], visited_habitat_index_array)
+            next_state['habitats_pos'], visited_habitat_cell)
 
         self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
 
         # print("**********************")
+        # # print(next_state['habitats_pos'])
         # print("real experience")
         # print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
         # text = input("stop")
@@ -855,10 +867,10 @@ class DQN():
                 'habitats_pos': state['habitats_pos']\
             }
 
-            visited_habitat_index_array = self.em.env.check_in_habitat(next_state['auv_pos'], new_curr_state['habitats_pos'])
+            visited_habitat_cell = self.em.habitat_grid.inside_habitat(next_state['auv_pos'])
 
-            new_habitats_array = self.em.env.update_num_time_visited_for_habitats(new_curr_state['habitats_pos'], visited_habitat_index_array)
-        
+            new_habitats_array = self.em.env.update_num_time_visited_for_habitats(new_curr_state['habitats_pos'], visited_habitat_cell)
+
             new_next_state = {\
                 'auv_pos': next_state['auv_pos'],\
                 'shark_pos': goal['auv_pos'],\
@@ -869,7 +881,7 @@ class DQN():
             old_range = calculate_range(new_curr_state['auv_pos'], new_curr_state['shark_pos'])
 
             reward = self.em.get_reward_with_habitats_no_decay(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range,\
-                new_next_state['habitats_pos'], visited_habitat_index_array)
+                new_next_state['habitats_pos'], visited_habitat_cell)
 
             done = torch.tensor([0], device=DEVICE).int()
             if self.em.env.check_collision(new_next_state['auv_pos']):
@@ -946,6 +958,9 @@ class DQN():
 
             self.loss_in_eps = []
 
+            if (eps % RENDER_EVERY == 0) and (live_graph_2D or live_graph_3D):
+                self.em.env.init_live_graph(live_graph_2D = live_graph_2D)
+
             for t in range(1, max_step):
                 action = self.agent.select_action(state, self.policy_net)
                 action_array.append(action)
@@ -974,6 +989,10 @@ class DQN():
 
             # reset the state before we start updating the neural network
             state = self.em.reset()
+
+            # reset the rendering
+            if (eps % RENDER_EVERY == 0) and (live_graph_2D or live_graph_3D):
+                self.em.reset_render_graph(live_graph_3D = live_graph_3D, live_graph_2D = live_graph_2D)
 
             for t in range(iteration):
                 action = action_array[t]

@@ -1,4 +1,5 @@
-from habitatState import HabitatState
+from habitatCell import HabitatCell
+from habitat import Habitat
 
 """
 A wrapper class to discretize the environment into grids
@@ -8,42 +9,46 @@ that arrray instead. Then, we can increment the number of time that way. In this
 """
 
 class HabitatGrid:
-    def __init__(self, env_x, env_y, env_size_x, env_size_y, cell_side_length = 1, habitat_side_length = 10):
+    def __init__(self, env_x, env_y, env_size_x, env_size_y, habitat_side_length = 10, cell_side_length = 1):
         self.env_x = env_x
         self.env_y = env_y
         self.env_size_x = env_size_x
         self.env_size_y = env_size_y
-        self.cell_side_length = cell_side_length
         self.habitat_side_length = habitat_side_length
+        self.cell_side_length = cell_side_length
         
         row_hab_id = 0
         col_hab_id = 0
 
-        self.habitat_grid = []
+        self.habitat_cell_grid = []
+        
+        self.habitat_array = []
 
-        for row in range(self.env_size_y // self.cell_side_length):
-            self.habitat_grid.append([])
-            if row % self.habitat_side_length == 0 and row != 0:
+        for row in range(int(self.env_size_y) // int(self.cell_side_length)):
+            self.habitat_cell_grid.append([])
+            if row % (int(self.habitat_side_length) // int(self.cell_side_length)) == 0 and row != 0:
                 # inside a new habitat
                 row_hab_id = col_hab_id + 1
 
             col_hab_id = row_hab_id
             
-            for col in range(self.env_size_x // self.cell_side_length):
-                if col % self.habitat_side_length == 0 and col != 0:
-                    # inside a new habitat
-                    col_hab_id += 1
+            for col in range(int(self.env_size_x) // int(self.cell_side_length)):
                 hab_x = env_x + col * cell_side_length
                 hab_y = env_y + row * cell_side_length
-                self.habitat_grid[row].append(HabitatState(hab_x, hab_y, col_hab_id, side_length = self.cell_side_length))
 
-        number_of_habitats = self.habitat_grid[-1][-1].habitat_id + 1
+                if col % (int(self.habitat_side_length) // int(self.cell_side_length))== 0:
+                    if col != 0:
+                        # inside a new habitat
+                        col_hab_id += 1
+                    if row % (int(self.habitat_side_length) // int(self.cell_side_length)) == 0:
+                        # need to add a new habitat into the habitat array
+                        self.habitat_array.append(Habitat(hab_x, hab_y, col_hab_id, self.habitat_side_length))
 
-        self.habitat_num_of_time_visited = [0] * number_of_habitats
+                self.habitat_cell_grid[row].append(HabitatCell(hab_x, hab_y, col_hab_id, side_length = self.cell_side_length))
 
 
-    def print_habitat_grid(self):
-        for row in self.habitat_grid:
+    def print_habitat_cell_grid(self):
+        for row in self.habitat_cell_grid:
             for habitat_cell in row:
                 print(habitat_cell.habitat_id, end=' ')
             print()
@@ -69,23 +74,14 @@ class HabitatGrid:
         hab_index_row = int(auv_y / self.cell_side_length)
         hab_index_col = int(auv_x / self.cell_side_length)
 
-        if hab_index_row >= len(self.habitat_grid):
+        if hab_index_row >= len(self.habitat_cell_grid):
             print("auv is out of the habitat environment bound verticaly")
             return False
         
-        if hab_index_col >= len(self.habitat_grid[0]):
+        if hab_index_col >= len(self.habitat_cell_grid[0]):
             print("auv is out of the habitat environment bound horizontally")
             return False
 
-        return self.habitat_grid[hab_index_row][hab_index_col]
+        return self.habitat_cell_grid[hab_index_row][hab_index_col]
 
-
-def main():
-    testing_grid = HabitatGrid(0, 0, 50, 50)
-
-    testing_grid.print_habitat_grid()
-
-    auv_pos = [2, 1]
-    testing_grid.inside_habitat(auv_pos)
-
-
+        
