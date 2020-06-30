@@ -29,7 +29,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 """
 
 # define the range between the starting point of the auv and shark
-DIST = 40.0
+DIST = 20.0
 
 NUM_OF_EPISODES = 500
 MAX_STEP = 1000
@@ -93,11 +93,11 @@ def process_state_for_nn(state):
     obstacle_tensor = torch.from_numpy(state['obstacles_pos'])
     obstacle_tensor = torch.flatten(obstacle_tensor)
 
-    habitat_tensor = torch.from_numpy(state['habitats_pos'])
-    habitat_tensor = torch.flatten(habitat_tensor)
+    # habitat_tensor = torch.from_numpy(state['habitats_pos'])
+    # habitat_tensor = torch.flatten(habitat_tensor)
     
     # join tensors together
-    return torch.cat((auv_tensor, shark_tensor, obstacle_tensor, habitat_tensor)).float()
+    return torch.cat((auv_tensor, shark_tensor, obstacle_tensor)).float()
 
 
 def extract_tensors(experiences):
@@ -164,7 +164,7 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shar
     for _ in range(num_of_obstacles):
         obs_x = np.random.uniform(shark_min_x, shark_max_x)
         obs_y = np.random.uniform(shark_min_y, shark_max_y)
-        obs_size = np.random.randint(1,11)
+        obs_size = np.random.randint(1,5)
         # to prevent this from going into an infinite loop
         counter = 0
         while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array) and counter < 100:
@@ -195,7 +195,7 @@ def generate_rand_habitats(num_of_habitats, habitat_bound_min_x, habitat_bound_m
     for _ in range(num_of_habitats):
         hab_x = np.random.uniform(habitat_bound_min_x, habitat_bound_max_x)
         hab_y = np.random.uniform(habitat_bound_min_y, habitat_bound_max_y)
-        hab_size = np.random.randint(8,21)
+        hab_size = np.random.randint(4,11)
         # to prevent this from going into an infinite loop
         counter = 0
         while validate_new_habitat([hab_x, hab_y], hab_size, habitats_array) and counter < 100:
@@ -252,6 +252,8 @@ class Neural_network(nn.Module):
             output_size_y - int, the number of possible options for w
         """
         super().__init__()
+        
+        # self.bn0 = nn.LayerNorm(input_size)
 
         self.fc1 = nn.Linear(in_features = input_size, out_features = hidden_layer_in)
         self.bn1 = nn.LayerNorm(hidden_layer_in)
@@ -277,6 +279,7 @@ class Neural_network(nn.Module):
         # pass through the layers then have relu applied to it
         # relu is the activation function that will turn any negative value to 0,
         #   and keep any positive value
+        # t = self.bn0(t)
 
         t = self.fc1(t)
         t = F.relu(t)
@@ -617,6 +620,12 @@ class AuvEnvManager():
 
         return torch.tensor([reward], device=self.device).float()
 
+    def get_reward_with_habitats_no_decay(self, auv_pos, shark_pos, old_range, habitats_array, visited_habitat_index_array):
+
+        reward = self.env.get_reward_with_habitats_no_decay(auv_pos, shark_pos, old_range, habitats_array, visited_habitat_index_array)
+
+        return torch.tensor([reward], device=self.device).float()
+
 """
 Use QValues class's 
 """
@@ -849,10 +858,8 @@ class DQN():
 
         # visited_habitat_index_array = self.em.env.check_in_habitat(next_state['auv_pos'], next_state['habitats_pos'])
 
-        # reward = self.em.get_reward_with_habitats(next_state['auv_pos'], next_state['shark_pos'], old_range,\
-        #     next_state['habitats_pos'], visited_habitat_index_array)
-        
-        reward = self.em.get_range_reward(next_state['auv_pos'], next_state['shark_pos'], old_range)
+        reward = self.em.get_reward_with_habitats_no_decay(next_state['auv_pos'], next_state['shark_pos'], old_range,\
+            next_state['habitats_pos'], visited_habitat_index_array)
 
         self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
 
@@ -897,10 +904,8 @@ class DQN():
             
             old_range = calculate_range(new_curr_state['auv_pos'], new_curr_state['shark_pos'])
 
-            # reward = self.em.get_reward_with_habitats(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range,\
-            #     new_next_state['habitats_pos'], visited_habitat_index_array)
-
-            reward = self.em.get_range_reward(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range)
+            reward = self.em.get_reward_with_habitats_no_decay(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range,\
+                new_next_state['habitats_pos'], visited_habitat_index_array)
 
             done = torch.tensor([0], device=DEVICE).int()
             if self.em.env.check_collision(new_next_state['auv_pos']):
@@ -1021,9 +1026,9 @@ class DQN():
                 
                 target_update_counter += 1
 
-                if target_update_counter % TARGET_UPDATE == 0:
-                    print("UPDATE TARGET NETWORK")
-                    self.target_net.load_state_dict(self.policy_net.state_dict())
+                # if target_update_counter % TARGET_UPDATE == 0:
+                #     print("UPDATE TARGET NETWORK")
+                #     self.target_net.load_state_dict(self.policy_net.state_dict())
 
             print("*********************************")
             print("final state")
@@ -1336,12 +1341,110 @@ class DQN():
         }
 
         return result
+
+
+    def test_q_value_control_auv (self, num_episodes, max_step, live_graph_3D = False, live_graph_2D = False):
+        episode_durations = []
+        starting_dist_array = []
+        traveled_dist_array = []
+        final_reward_array = []
+        total_reward_array = []
+
+        # if we want to continue training an already trained network
+        self.load_trained_network()
+        self.policy_net.eval()
+        
+        for eps in range(num_episodes):
+            # initialize the starting point of the shark and the auv randomly
+            # receive initial observation state s1 
+            state = self.em.init_env_randomly()
+
+            starting_dist = calculate_range(state['auv_pos'], state['shark_pos'])
+            starting_dist_array.append(starting_dist)
+
+            episode_durations.append(max_step)
+            traveled_dist_array.append(0.0)
+            final_reward_array.append(0.0)
+            total_reward_array.append(0.0)
+
+            reward = 0
+
+            for t in range(1, max_step):
+                action = self.agent.select_action(state, self.policy_net)
+                print("neural network chosen action")
+                print(action)
+                print("-------")
+
+                print(self.em.possible_actions)
+                print("===============")
+                v_index = input("linear velocity index: ")
+                w_index = input("angular velocity index: ")
+
+                action = torch.tensor([int(v_index), int(w_index)])
+
+                reward = self.em.take_action(action, t)
+
+                final_reward_array[eps] = reward.item()
+                total_reward_array[eps] += reward.item()
+
+                traveled_dist_array[eps] += self.em.env.distance_traveled
+
+                self.em.render(print_state = False, live_graph_3D = live_graph_3D, live_graph_2D = live_graph_2D)
+
+                state = self.em.get_state()
+
+                if self.em.done:
+                    episode_durations[eps] = t
+                    break
+            
+            
+            print("+++++++++++++++++++++++++++++")
+            print("Episode # ", eps, "end with reward: ", reward, " used time: ", episode_durations[-1])
+            print("+++++++++++++++++++++++++++++")
+
+
+        self.em.close()
+
+        print("final sums of time")
+        print(episode_durations)
+        print("average time")
+        print(np.mean(episode_durations))
+        print("-----------------")
+
+        text = input("stop")
+
+        print("all the starting distances")
+        print(starting_dist_array)
+        print("average starting distance")
+        print(np.mean(starting_dist_array))
+        print("-----------------")
+
+        text = input("stop")
+
+        print("all the traveled distances")
+        print(traveled_dist_array)
+        print("average traveled dissta")
+        print(np.mean(traveled_dist_array))
+        print("-----------------")
+
+        text = input("stop")
+
+        print("final reward")
+        print(final_reward_array)
+        print("-----------------")
+
+        text = input("stop")
+
+        print("total reward")
+        print(total_reward_array)
+        print("-----------------")
     
 
 def main():
     dqn = DQN(N_V, N_W)
-    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_3D = False, live_graph_2D = True)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = True, live_graph_3D = False, live_graph_2D = True)
     dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
+    # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 
 if __name__ == "__main__":
