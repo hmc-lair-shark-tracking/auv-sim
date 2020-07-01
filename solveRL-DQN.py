@@ -50,7 +50,7 @@ EPS_DECAY = 0.001
 LEARNING_RATE = 0.001
 
 MEMORY_SIZE = 100000
-BATCH_SIZE = 32 #64
+BATCH_SIZE = 64
 
 # number of additional goals to be added to the replay memory
 NUM_GOALS_SAMPLED_HER = 4
@@ -527,7 +527,7 @@ class AuvEnvManager():
             self.env.live_graph.ax_2D.clear()
 
 
-    def take_action(self, action, timestep):
+    def take_action(self, action):
         """
         Parameter: 
             action - tensor of the format: tensor([v_index, w_index])
@@ -541,7 +541,7 @@ class AuvEnvManager():
         
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
-        self.current_state, reward, self.done, _ = self.env.step((v_action, w_action), timestep)
+        self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
 
         if DEBUG:
             print("=========================")
@@ -965,7 +965,7 @@ class DQN():
                 action = self.agent.select_action(state, self.policy_net)
                 action_array.append(action)
 
-                score = self.em.take_action(action, t)
+                score = self.em.take_action(action)
                 eps_reward += score.item()
 
                 next_state = copy.deepcopy(self.em.get_state())
@@ -1092,13 +1092,15 @@ class DQN():
             final_reward_array.append(0.0)
             total_reward_array.append(0.0)
 
-
             reward = 0
+
+            if (live_graph_2D or live_graph_3D):
+                self.em.env.init_live_graph(live_graph_2D = live_graph_2D)
 
             for t in range(1, max_step):
                 action = self.agent.select_action(state, self.policy_net)
 
-                reward = self.em.take_action(action, t)
+                reward = self.em.take_action(action)
 
                 final_reward_array[eps] = reward.item()
                 total_reward_array[eps] += reward.item()
@@ -1197,7 +1199,7 @@ class DQN():
 
                 dist_btw_auv_shark_array.append(calculate_range(state["auv_pos"], state["shark_pos"]))
 
-                reward = self.em.take_action(action, t)
+                reward = self.em.take_action(action)
 
                 traveled_dist_array[eps] += self.em.env.distance_traveled
 
@@ -1297,7 +1299,7 @@ class DQN():
 
                 action = torch.tensor([int(v_index), int(w_index)])
 
-                reward = self.em.take_action(action, t)
+                reward = self.em.take_action(action)
 
                 final_reward_array[eps] = reward.item()
                 total_reward_array[eps] += reward.item()
@@ -1359,8 +1361,8 @@ class DQN():
 
 def main():
     dqn = DQN(N_V, N_W)
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_3D = False, live_graph_2D = True)
-    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = True, live_graph_3D = False, live_graph_2D = True)
+    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 
