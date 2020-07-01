@@ -215,7 +215,7 @@ class AuvEnv(gym.Env):
 
         # calculate the range between the auv and the shark in the previous timestep
         # use this to calculate reward
-        old_range = self.calculate_range(self.state['auv_pos'], self.state['shark_pos'])
+        """old_range = self.calculate_range(self.state['auv_pos'], self.state['shark_pos'])"""
         
         # get the old position and orientation data for the auv
         x, y, z, theta = self.state['auv_pos']
@@ -232,7 +232,7 @@ class AuvEnv(gym.Env):
             y = y + dist_y
             self.distance_traveled += np.sqrt(dist_x ** 2 + dist_y ** 2)
        
-        shark_x, shark_y, shark_z, shark_theta = self.state['shark_pos']
+        """shark_x, shark_y, shark_z, shark_theta = self.state['shark_pos']
 
         # randomly pick the linear and angular velocity of the shark
         shark_v = np.random.uniform(SHARK_MIN_V, SHARK_MAX_V)
@@ -243,11 +243,11 @@ class AuvEnv(gym.Env):
             shark_x = shark_x + shark_v * np.cos(shark_theta) * DELTA_T
             shark_y = shark_y + shark_v * np.sin(shark_theta) * DELTA_T
 
-        new_shark_pos = np.array([shark_x, shark_y, shark_z, shark_theta])
+        new_shark_pos = np.array([shark_x, shark_y, shark_z, shark_theta])"""
         
         # update the current state to the new state
         self.state['auv_pos'] = np.array([x, y, z, theta])
-        self.state['shark_pos'] = new_shark_pos
+        """self.state['shark_pos'] = new_shark_pos"""
 
         # the episode will only end (done = True) if
         #   - the auv has hit an obstacle, or
@@ -271,8 +271,9 @@ class AuvEnv(gym.Env):
         self.state['habitats_pos'] = copy.deepcopy(self.habitats_array)
 
         # reward = self.get_reward_with_habitats(self.state['auv_pos'], self.state['shark_pos'], old_range, self.state['habitats_pos'],self.visited_habitat_index_array)
-        reward = self.get_reward_with_habitats_no_decay(self.state['auv_pos'], self.state['shark_pos'], old_range, self.state['habitats_pos'], self.visited_habitat_cell)
+        # reward = self.get_reward_with_habitats_no_decay(self.state['auv_pos'], self.state['shark_pos'], old_range, self.state['habitats_pos'], self.visited_habitat_cell)
         # reward = self.get_range_reward(self.state['auv_pos'], self.state['shark_pos'], old_range)
+        reward = self.get_reward_with_habitats_no_shark(self.state['auv_pos'], self.state['habitats_pos'], self.visited_habitat_cell)
 
         return self.state, reward, done, {}
 
@@ -513,6 +514,46 @@ class AuvEnv(gym.Env):
                     reward += R_IN_HAB
             
             return reward
+
+    
+    def get_reward_with_habitats_no_shark(self, auv_pos, habitats_array, visited_habitat_cell):
+        """
+        Return the reward that the auv gets at a specific state (at a specific time step)
+
+        The condition is only based on:
+            - whether the auv has hit an obstacle
+            - whether the auv is close to an obstacle
+            - whether the auv is within a FOLLOW_DIST with the shark
+            - whether the auv is visiting any new habitat
+            - the range between the auv and the shark
+        """
+        # if the auv collides with an obstacle
+        if not self.habitat_grid.within_habitat_env(self.state['auv_pos']):
+            return R_OUT_OF_BOUND
+        elif self.check_collision(auv_pos):
+            return R_COLLIDE_100
+        elif self.check_close_to_obstacles(auv_pos):
+            return R_CLOSE_TO_OBS
+        else:
+            if DEBUG:
+                print("else case in reward")
+            reward = 0
+
+            if visited_habitat_cell != False:
+                # if the auv has visited any habitat in this time step
+                hab_idx = visited_habitat_cell.habitat_id
+                hab = habitats_array[hab_idx]
+                num_of_time_visited = hab[3]
+                # when the habitat is visited for the first time
+                if num_of_time_visited == 1:
+                    if DEBUG:
+                        print("visit new habitat")
+                    self.visited_unique_habitat_count += 1
+                    reward += R_NEW_HAB
+                elif num_of_time_visited > 1:
+                    reward += R_IN_HAB
+            
+            return reward
     
 
     def reset(self):
@@ -537,7 +578,6 @@ class AuvEnv(gym.Env):
 
         self.state = {
             'auv_pos': np.array([self.auv_init_pos.x, self.auv_init_pos.y, self.auv_init_pos.z, self.auv_init_pos.theta]),\
-            'shark_pos': np.array([self.shark_init_pos.x, self.shark_init_pos.y, self.shark_init_pos.z, self.shark_init_pos.theta]),\
             'obstacles_pos': self.obstacle_array,\
             'habitats_pos': self.habitats_array,\
         }
@@ -554,7 +594,8 @@ class AuvEnv(gym.Env):
         Return:
             a dictionary representing the current auv position, shark position, obstacles data, habitats data
         """
-        auv_pos = self.state['auv_pos']
+        
+        """auv_pos = self.state['auv_pos']
         shark_pos = self.state['shark_pos']
         
         if print_state: 
@@ -563,7 +604,7 @@ class AuvEnv(gym.Env):
             print("x = ", auv_pos[0], " y = ", auv_pos[1], " z = ", auv_pos[2], " theta = ", auv_pos[3])
             print("shark position: ")
             print("x = ", shark_pos[0], " y = ", shark_pos[1], " z = ", shark_pos[2], " theta = ", shark_pos[3])
-            print("==========================")
+            print("==========================")"""
 
         return self.state
 
@@ -619,7 +660,7 @@ class AuvEnv(gym.Env):
         self.live_graph.ax.clear()
 
 
-    def render_2D_plot(self, auv_pos, shark_pos):
+    def render_2D_plot(self, auv_pos, shark_pos=[]):
         """
         Render the environment in a 2D environment
 
@@ -632,27 +673,27 @@ class AuvEnv(gym.Env):
         self.auv_y_array_plot.append(auv_pos[1])
         self.auv_z_array_plot.append(auv_pos[2])
 
-        self.shark_x_array_plot.append(shark_pos[0])
+        """self.shark_x_array_plot.append(shark_pos[0])
         self.shark_y_array_plot.append(shark_pos[1])
-        self.shark_z_array_plot.append(shark_pos[2])
+        self.shark_z_array_plot.append(shark_pos[2])"""
 
         auv_ln, = self.live_graph.plot_entity_2D(self.auv_x_array_plot, self.auv_y_array_plot, label = 'auv', color = 'r', marker = ',')
 
-        shark_ln, = self.live_graph.plot_entity_2D(self.shark_x_array_plot, self.shark_y_array_plot, label = 'shark', color = 'b', marker = ',')
+        """shark_ln, = self.live_graph.plot_entity_2D(self.shark_x_array_plot, self.shark_y_array_plot, label = 'shark', color = 'b', marker = ',')"""
 
-        goal_region = Circle((shark_pos[0],shark_pos[1]), radius=FOLLOWING_RADIUS, color='b', fill=False)
-        self.live_graph.ax_2D.add_patch(goal_region)
+        """goal_region = Circle((shark_pos[0],shark_pos[1]), radius=FOLLOWING_RADIUS, color='b', fill=False)
+        self.live_graph.ax_2D.add_patch(goal_region)"""
 
-        self.live_graph.ax_2D.legend(["auv", "shark"])
+        self.live_graph.ax_2D.legend(["auv"])
         
         plt.draw()
 
         # pause so the plot can be updated
         plt.pause(0.0001)
 
-        goal_region.remove()
+        """goal_region.remove()"""
         auv_ln.remove()
-        shark_ln.remove()
+        """shark_ln.remove()"""
         
         # self.live_graph.ax_2D.clear()
 
