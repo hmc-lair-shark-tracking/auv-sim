@@ -63,7 +63,9 @@ HABITAT_SIDE_LENGTH = 20
 HABITAT_CELL_SIDE_LENGTH = 20
 NUM_OF_HABITATS = int((DIST * 20 / HABITAT_SIDE_LENGTH) ** 2)
 
-STATE_SIZE = 4 + NUM_OF_OBSTACLES * 4 + NUM_OF_HABITATS * 4
+INFO_ABT_DIST_FROM_WALLS = 1
+
+STATE_SIZE = 4 + NUM_OF_OBSTACLES * 4 + NUM_OF_HABITATS * 4 + INFO_ABT_DIST_FROM_WALLS * 4
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -98,9 +100,11 @@ def process_state_for_nn(state):
 
     habitat_tensor = torch.from_numpy(state['habitats_pos'])
     habitat_tensor = torch.flatten(habitat_tensor)
+
+    dist_from_walls_tensor = torch.from_numpy(state['auv_dist_from_walls'])
     
     # join tensors together
-    return torch.cat((auv_tensor, obstacle_tensor, habitat_tensor)).float()
+    return torch.cat((auv_tensor, obstacle_tensor, habitat_tensor, dist_from_walls_tensor)).float()
 
 
 def extract_tensors(experiences):
@@ -470,7 +474,7 @@ class AuvEnvManager():
         habitat_bound_y = 0.0
         habitat_bound_size_y = dist * 20
 
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = 0)
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
         shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
         # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
         obstacle_array = [\
@@ -546,7 +550,7 @@ class AuvEnvManager():
         w_action_index = action[1].item()
         v_action = self.possible_actions[0][v_action_index]
         w_action = self.possible_actions[1][w_action_index]
-        
+
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
         self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
@@ -560,7 +564,7 @@ class AuvEnvManager():
             print("reward: ")
             print(reward)
             print("=========================")
-            text = input("stop")
+            # text = input("stop")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
@@ -622,8 +626,8 @@ class AuvEnvManager():
         return torch.tensor([reward], device=self.device).float()
 
 
-    def get_reward_with_habitats_no_shark(self, auv_pos, habitats_array, visited_habitat_cell):
-        reward = self.env.get_reward_with_habitats_no_shark(auv_pos, habitats_array, visited_habitat_cell)
+    def get_reward_with_habitats_no_shark(self, auv_pos, habitats_array, visited_habitat_cell, dist_from_walls_array = []):
+        reward = self.env.get_reward_with_habitats_no_shark(auv_pos, habitats_array, visited_habitat_cell, dist_from_walls_array)
 
         return torch.tensor([reward], device=self.device).float()
 
@@ -859,7 +863,7 @@ class DQN():
 
         """reward = self.em.get_reward_with_habitats_no_decay(next_state['auv_pos'], next_state['shark_pos'], old_range,\
             next_state['habitats_pos'], visited_habitat_cell)"""
-        reward = self.em.get_reward_with_habitats_no_shark(next_state['auv_pos'], next_state['habitats_pos'], visited_habitat_cell)
+        reward = self.em.get_reward_with_habitats_no_shark(next_state['auv_pos'], next_state['habitats_pos'], visited_habitat_cell, next_state['auv_dist_from_walls'])
 
         self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
 
@@ -888,7 +892,8 @@ class DQN():
             new_curr_state = {\
                 'auv_pos': state['auv_pos'],\
                 'obstacles_pos': state['obstacles_pos'],\
-                'habitats_pos': state['habitats_pos']\
+                'habitats_pos': state['habitats_pos'],\
+                'auv_dist_from_walls': state['auv_dist_from_walls']
             }
 
             visited_habitat_cell = self.em.habitat_grid.inside_habitat(next_state['auv_pos'])
@@ -898,7 +903,8 @@ class DQN():
             new_next_state = {\
                 'auv_pos': next_state['auv_pos'],\
                 'obstacles_pos': next_state['obstacles_pos'],\
-                'habitats_pos': new_habitats_array\
+                'habitats_pos': new_habitats_array,\
+                'auv_dist_from_walls': next_state['auv_dist_from_walls']
             }
             
             """old_range = calculate_range(new_curr_state['auv_pos'], new_curr_state['shark_pos'])
@@ -906,7 +912,7 @@ class DQN():
             reward = self.em.get_reward_with_habitats_no_decay(new_next_state['auv_pos'], new_next_state['shark_pos'], old_range,\
                 new_next_state['habitats_pos'], visited_habitat_cell)"""
 
-            reward = self.em.get_reward_with_habitats_no_shark(new_next_state['auv_pos'], new_next_state['habitats_pos'], visited_habitat_cell)
+            reward = self.em.get_reward_with_habitats_no_shark(new_next_state['auv_pos'], new_next_state['habitats_pos'], visited_habitat_cell, new_next_state['auv_dist_from_walls'])
 
             done = torch.tensor([0], device=DEVICE).int()
             if self.em.env.check_collision(new_next_state['auv_pos']) or (not (self.em.habitat_grid.within_habitat_env(new_next_state['auv_pos']))):
@@ -1394,8 +1400,8 @@ class DQN():
 
 def main():
     dqn = DQN(N_V, N_W)
-    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = True, live_graph_3D = False, live_graph_2D = True, use_HER=False)
-    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_3D = False, live_graph_2D = True, use_HER=False)
+    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 

@@ -36,6 +36,7 @@ FOLLOWING_RADIUS = 50.0
 
 # the auv will receive an immediate negative reward if it is close to the obstacles
 OBSTACLE_ZONE = 3.0
+WALL_ZONE = 10.0
 
 # constants for reward (old)
 R_COLLIDE = -10.0       # when the auv collides with an obstacle
@@ -44,14 +45,17 @@ R_RANGE = 0.1           # this is a scaler to help determine immediate reward at
 R_TIME = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
 
 # constants for reward with habitats
-R_OUT_OF_BOUND = -1000
-R_COLLIDE_100 = -1000
+R_OUT_OF_BOUND = -10000
+R_CLOSE_TO_BOUND = -1000
+
+R_COLLIDE_100 = -10000
 R_CLOSE_TO_OBS = -10
 
 R_MAINTAIN_DIST = 5
 
 R_NEW_HAB = 10
 R_IN_HAB = 0
+R_IN_HAB_TOO_LONG = -10
 
 # determine how quickly the reward will decay when the auv stays in an habitat
 # decay rate should be between 0 and 1
@@ -249,6 +253,10 @@ class AuvEnv(gym.Env):
         
         # update the current state to the new state
         self.state['auv_pos'] = np.array([x, y, z, theta])
+
+        # calculate the new distance from the wall
+        self.state['auv_dist_from_walls'] = self.habitat_grid.distance_from_grid_boundary(self.state['auv_pos'])
+
         """self.state['shark_pos'] = new_shark_pos"""
 
         # the episode will only end (done = True) if
@@ -275,7 +283,7 @@ class AuvEnv(gym.Env):
         # reward = self.get_reward_with_habitats(self.state['auv_pos'], self.state['shark_pos'], old_range, self.state['habitats_pos'],self.visited_habitat_index_array)
         # reward = self.get_reward_with_habitats_no_decay(self.state['auv_pos'], self.state['shark_pos'], old_range, self.state['habitats_pos'], self.visited_habitat_cell)
         # reward = self.get_range_reward(self.state['auv_pos'], self.state['shark_pos'], old_range)
-        reward = self.get_reward_with_habitats_no_shark(self.state['auv_pos'], self.state['habitats_pos'], self.visited_habitat_cell)
+        reward = self.get_reward_with_habitats_no_shark(self.state['auv_pos'], self.state['habitats_pos'], self.visited_habitat_cell, self.state['auv_dist_from_walls'])
 
         return self.state, reward, done, {}
 
@@ -391,6 +399,15 @@ class AuvEnv(gym.Env):
             if distance <= (obs[3] + OBSTACLE_ZONE):
                 if DEBUG: 
                     print("Close to an obstacles")
+                return True
+        return False
+
+
+    def check_close_to_walls(self, auv_pos, dist_from_walls_array):
+        for dist_from_wall in dist_from_walls_array:
+            if dist_from_wall <= WALL_ZONE:
+                if DEBUG:
+                    print("Close to the wall")
                 return True
         return False
     
@@ -559,7 +576,7 @@ class AuvEnv(gym.Env):
             return reward
 
     
-    def get_reward_with_habitats_no_shark(self, auv_pos, habitats_array, visited_habitat_cell):
+    def get_reward_with_habitats_no_shark(self, auv_pos, habitats_array, visited_habitat_cell, dist_from_walls_array = []):
         """
         Return the reward that the auv gets at a specific state (at a specific time step)
 
@@ -573,6 +590,8 @@ class AuvEnv(gym.Env):
         # if the auv collides with an obstacle
         if not self.habitat_grid.within_habitat_env(self.state['auv_pos']):
             return R_OUT_OF_BOUND
+        elif self.check_close_to_walls(auv_pos, dist_from_walls_array):
+            return R_CLOSE_TO_BOUND
         elif self.check_collision(auv_pos):
             return R_COLLIDE_100
         elif self.check_close_to_obstacles(auv_pos):
@@ -619,10 +638,13 @@ class AuvEnv(gym.Env):
         # reset the count for how many time steps had the auv visited an habitat
         self.total_time_in_hab = 0
 
+        auv_init_pos = np.array([self.auv_init_pos.x, self.auv_init_pos.y, self.auv_init_pos.z, self.auv_init_pos.theta])
+
         self.state = {
-            'auv_pos': np.array([self.auv_init_pos.x, self.auv_init_pos.y, self.auv_init_pos.z, self.auv_init_pos.theta]),\
+            'auv_pos': auv_init_pos,\
             'obstacles_pos': self.obstacle_array,\
             'habitats_pos': self.habitats_array,\
+            'auv_dist_from_walls': self.habitat_grid.distance_from_grid_boundary(auv_init_pos)
         }
 
         return self.state

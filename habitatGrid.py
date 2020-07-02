@@ -1,3 +1,5 @@
+import numpy as np
+
 from habitatCell import HabitatCell
 from habitat import Habitat
 
@@ -84,4 +86,19 @@ class HabitatGrid:
 
         return self.habitat_cell_grid[hab_index_row][hab_index_col]
 
-        
+
+    def distance_from_grid_boundary(self, auv_pos):
+        """
+
+        Return:
+            an array represent the distance from the four walls: [top wall, right wall, bottom wall, left wall]
+        """
+        auv_x = auv_pos[0]
+        auv_y = auv_pos[1]
+
+        top_wall_y = self.env_y + self.env_size_y
+        right_wall_x = self.env_x + self.env_size_x
+        left_wall_x = self.env_x
+        bottom_wall_y = self.env_y
+
+        return np.array([top_wall_y - auv_y, right_wall_x - auv_x, auv_y - bottom_wall_y, auv_x - left_wall_x])
