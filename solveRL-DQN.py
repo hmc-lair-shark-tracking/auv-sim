@@ -565,6 +565,15 @@ class AuvEnvManager():
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
 
+    
+    def adjust_action(self, action, state, num_of_options_v, num_of_options_w):
+        v_action_index = action[0].item()
+        w_action_index = action[1].item()
+        
+        new_v_action_index, new_w_action_index = self.env.adjust_action(v_action_index, w_action_index, state["auv_pos"], num_of_options_v, num_of_options_w)
+
+        return torch.tensor([new_v_action_index, new_w_action_index]).to(self.device) # explore  
+
 
     def get_state(self):
         """
@@ -979,6 +988,14 @@ class DQN():
 
             for t in range(1, max_step):
                 action = self.agent.select_action(state, self.policy_net)
+
+                # print("old action")
+                # print(action)
+
+                # action = self.em.adjust_action(action, state, self.agent.actions_range_v, self.agent.actions_range_w)
+                # print(action)
+                # print("new action")
+
                 action_array.append(action)
 
                 score = self.em.take_action(action)
@@ -1040,11 +1057,11 @@ class DQN():
                 avg_loss = np.mean(self.loss_in_eps)
                 avg_loss_in_training.append(avg_loss)
                 print("+++++++++++++++++++++++++++++")
-                print("Episode # ", eps, "end with reward: ", score, "average loss", avg_loss, " used time: ", iteration)
+                print("Episode # ", eps, "end with reward: ", score, "total reward: ", eps_reward, "average loss", avg_loss, " used time: ", iteration)
                 print("+++++++++++++++++++++++++++++")
             else:
                 print("+++++++++++++++++++++++++++++")
-                print("Episode # ", eps, "end with reward: ", score, "average loss nan", " used time: ", iteration)
+                print("Episode # ", eps, "end with reward: ", score, "total reward: ", eps_reward, "average loss nan", " used time: ", iteration)
                 print("+++++++++++++++++++++++++++++")
 
             # if eps % TARGET_UPDATE == 0:
@@ -1377,8 +1394,8 @@ class DQN():
 
 def main():
     dqn = DQN(N_V, N_W)
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_3D = False, live_graph_2D = True, use_HER=False)
-    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = True, live_graph_3D = False, live_graph_2D = True, use_HER=False)
+    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 

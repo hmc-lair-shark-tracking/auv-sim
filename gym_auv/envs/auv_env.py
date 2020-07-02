@@ -7,6 +7,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.patches import Circle, Rectangle
 import mpl_toolkits.mplot3d.art3d as Art3d
 import copy
+import random
 
 from gym_auv.envs.live3DGraph_auv_env import Live3DGraph
 
@@ -185,16 +186,17 @@ class AuvEnv(gym.Env):
                 - v_options: available options for linear velocity
                 - w_options: available options for angular velocity
         """
-        v_options = np.linspace(AUV_MIN_V, AUV_MAX_V, N_v)
-        w_options = np.linspace(-AUV_MAX_W, AUV_MAX_W, N_w)
+
+        self.v_options = np.linspace(AUV_MIN_V, AUV_MAX_V, N_v)
+        self.w_options = np.linspace(-AUV_MAX_W, AUV_MAX_W, N_w)
 
         # guaranteed to have 0 as one of the angular velocity
-        w_options[N_w//2] = 0
+        self.w_options[N_w//2] = 0
 
-        print((v_options, w_options))
+        print((self.v_options, self.w_options))
         text = input("stop")
 
-        return (v_options, w_options)
+        return (self.v_options, self.w_options)
 
 
     def step(self, action):
@@ -277,6 +279,47 @@ class AuvEnv(gym.Env):
 
         return self.state, reward, done, {}
 
+
+    def adjust_action(self, v_init_index, w_init_index, starting_auv_pos, num_of_options_v, num_of_options_w):
+        x, y, z, theta = starting_auv_pos
+
+        v_action_index = v_init_index
+        w_action_index = w_init_index
+
+        v = self.v_options[v_action_index]
+        w = self.w_options[w_action_index]
+
+        # calculate the new position and orientation of the auv
+        for _ in range(REPEAT_ACTION_TIME):
+            theta = angle_wrap(theta + w * DELTA_T)
+            dist_x = v * np.cos(theta) * DELTA_T
+            x = x + dist_x
+            dist_y = v * np.sin(theta) * DELTA_T
+            y = y + dist_y
+
+
+        # while the auv is hitting the wall
+        while (not self.habitat_grid.within_habitat_env([x, y, z, theta])):
+            print("gotta adjust")
+            # randomly choose v and w, hopefully it will prevent us from hitting the wall
+            
+            v_action_index = random.choice(range(num_of_options_v))
+            w_action_index = random.choice(range(num_of_options_w))
+
+            v = self.v_options[v_action_index]
+            w = self.w_options[w_action_index]
+
+            # calculate the new position and orientation of the auv
+            for _ in range(REPEAT_ACTION_TIME):
+                theta = angle_wrap(theta + w * DELTA_T)
+                dist_x = v * np.cos(theta) * DELTA_T
+                x = x + dist_x
+                dist_y = v * np.sin(theta) * DELTA_T
+                y = y + dist_y
+          
+
+        return v_action_index, w_action_index
+        
     
     def calculate_range(self, a_pos, b_pos):
         """
