@@ -55,7 +55,7 @@ class RRT:
         self.diff_max = diff_max
         self.freq = freq
 
-    def exploring(self, shark_dict, plot_interval, bin_interval, v, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1,-1], sonar_range=50):
+    def exploring(self, shark_dict, sharkGrid, plot_interval, bin_interval, v, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1,-1], sonar_range=50):
         """
         rrt path planning without setting a specific goal, rather try to explore the configuration space as much as possible
         calculate cost while expand and keep track of the current optimal cost path
@@ -78,8 +78,7 @@ class RRT:
         cal_cost = Cost()
 
         #initialize shark occupancy grid
-        self.sharkOccupancyGrid = SharkOccupancyGrid(shark_dict, sonar_range, self.boundary_poly, bin_interval)
-        self.sharkGrid = self.sharkOccupancyGrid.convert()
+        self.sharkGrid = sharkGrid
         self.sharkDict = shark_dict
 
         self.mps_list = [self.start]
