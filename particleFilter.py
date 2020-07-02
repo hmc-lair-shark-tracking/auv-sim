@@ -41,6 +41,16 @@ def velocity_wrap(velocity):
         velocity += -5
         return velocity_wrap(velocity)
 
+def add_noise(sigma): 
+    mu = 0   #mean
+    #sigma = 60 #standard deviation
+    noise = np.random.normal(mu, sigma, 1)
+    noise = float(noise)
+    #noise = np.vectorize(noise)
+    return noise
+    #noise = 1/(sigma * 2.50599) * np.exp( - (bins - mu)**2 / (2 * sigma**2) 
+
+
 class Particle: 
         def __init__(self, x_shark, y_shark):
             #set L (side length of square that the random particles are in) and N (number of particles)
@@ -160,11 +170,13 @@ class particleFilter:
         self.x_shark = self.x_shark + (v_x_shark * dt)
         self.y_shark = self.y_shark + (v_y_shark * dt)
         return [self.x_shark, self.y_shark]
+
     def auv_to_alpha(self):
         #calculates auv's alpha from the shark
         list_of_real_alpha = []
         real_alpha = angle_wrap(math.atan2((-self.y_auv + self.y_shark), (self.x_shark- self.x_auv)) - self.theta)
         #real_alpha_2 = angle_wrap(math.atan2((-self.y_auv_2 + self.y_shark), (self.x_shark- self.x_auv_2)) - self.theta_2)
+        real_alpha = real_alpha + float(add_noise(.5))
         list_of_real_alpha.append(real_alpha)
         list_of_real_alpha.append(-real_alpha)
         return list_of_real_alpha
@@ -173,6 +185,7 @@ class particleFilter:
         #calculates auv's alpha from the shark
         list_of_real_alpha = []
         real_alpha_2 = angle_wrap(math.atan2((-self.y_auv_2 + self.y_shark), (self.x_shark- self.x_auv_2)) - self.theta_2)
+        real_alpha_2 = real_alpha_2 + add_noise(.5)
         list_of_real_alpha.append(real_alpha_2)
         list_of_real_alpha.append(-real_alpha_2)
         return list_of_real_alpha
@@ -180,6 +193,7 @@ class particleFilter:
     def range_auv(self):
         range = []
         range_value = (float(self.y_auv)- self.y_shark)**2 + (float(self.x_auv)-float(self.x_shark))**2
+        range_value = range_value + add_noise(10)
         #print("range of auv is")
         #print(range)
         return range_value
@@ -187,6 +201,7 @@ class particleFilter:
     def range_auv_2(self):
         range = []
         range_value = (float(self.y_auv_2)- self.y_shark)**2 + (float(self.x_auv_2)-float(self.x_shark))**2
+        range_value = range_value + add_noise(10)
         range.append(range_value)
         #print("range of auv is")
         #print(range)
@@ -460,6 +475,9 @@ def main():
         sim_time_list = []
         index_number_of_particles = 0
         sim_time_list.append(sim_time)
+        total_tracking_error = []
+
+
         for j in range(num_of_inner_loops):
             time.sleep(.1)
                 #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
@@ -485,6 +503,7 @@ def main():
                     str(test_shark.shark_sensor_data_dict))
             """
             particles = test_particle.main_navigation_loops(particles)
+            
             if loops%20 == 0:
                 print("==============================")
                 test_list_shark = test_particle.updateShark(1)
@@ -504,6 +523,13 @@ def main():
                 xy_mean = test_particle.particleMean(particles)
                 range_error = test_particle.meanError(xy_mean[0],xy_mean[1])
                 print("range error ", range_error)
+
+                total_tracking_error.append(range_error)
+                tracking_error = sum(total_tracking_error)/len(total_tracking_error)
+                print("--------------------------------")
+                print("mean tracking error", tracking_error)
+        
+
             #print("mean of all particles (x, y): ", xy_mean)
             x_mean_over_time.append(xy_mean[0])
             y_mean_over_time.append(xy_mean[1])
@@ -521,10 +547,10 @@ def main():
             #print("+++++++++++++++++++++++++++++++")
 
             
-            test_shark.live_graph.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y, actual_shark_coordinate_x, actual_shark_coordinate_y)
-            plt.draw()
-            plt.pause(.1)
-            test_shark.live_graph.ax.clear()
+            #test_shark.live_graph.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y, actual_shark_coordinate_x, actual_shark_coordinate_y)
+            #plt.draw()
+            #plt.pause(.1)
+            #test_shark.live_graph.ax.clear()
             """
             
 
@@ -546,3 +572,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    
