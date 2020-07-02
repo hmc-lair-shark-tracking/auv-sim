@@ -57,7 +57,7 @@ NUM_GOALS_SAMPLED_HER = 4
 
 TARGET_UPDATE = 10000
 
-NUM_OF_OBSTACLES = 5
+NUM_OF_OBSTACLES = 4
 
 HABITAT_SIDE_LENGTH = 20
 HABITAT_CELL_SIDE_LENGTH = 20
@@ -472,7 +472,14 @@ class AuvEnvManager():
 
         auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = 0)
         shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
-        obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
+        # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
+        obstacle_array = [\
+            Motion_plan_state(x = shark_min_x, y = shark_min_y, z = -5.0, size = 5),
+            Motion_plan_state(x = shark_min_x, y = shark_max_y, z = -5.0, size = 5),
+            Motion_plan_state(x = shark_max_x, y = shark_min_y, z = -5.0, size = 5),
+            Motion_plan_state(x = shark_max_x, y = shark_max_y, z = -5.0, size = 5),
+        ]
+
         self.habitat_grid = HabitatGrid(habitat_bound_x, habitat_bound_y, habitat_bound_size_x, habitat_bound_size_y, HABITAT_SIDE_LENGTH, HABITAT_CELL_SIDE_LENGTH)
 
         print("===============================")
@@ -1093,8 +1100,8 @@ class DQN():
             # receive initial observation state s1 
             state = self.em.init_env_randomly()
 
-            starting_dist = calculate_range(state['auv_pos'], state['shark_pos'])
-            starting_dist_array.append(starting_dist)
+            """starting_dist = calculate_range(state['auv_pos'], state['shark_pos'])
+            starting_dist_array.append(starting_dist)"""
 
             episode_durations.append(max_step)
             traveled_dist_array.append(0.0)
@@ -1141,13 +1148,13 @@ class DQN():
 
         text = input("stop")
 
-        print("all the starting distances")
+        """print("all the starting distances")
         print(starting_dist_array)
         print("average starting distance")
         print(np.mean(starting_dist_array))
         print("-----------------")
 
-        text = input("stop")
+        text = input("stop")"""
 
         print("all the traveled distances")
         print(traveled_dist_array)
@@ -1370,7 +1377,7 @@ class DQN():
 
 def main():
     dqn = DQN(N_V, N_W)
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_3D = False, live_graph_2D = True)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_3D = False, live_graph_2D = True, use_HER=False)
     # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 

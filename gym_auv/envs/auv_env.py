@@ -50,7 +50,7 @@ R_CLOSE_TO_OBS = -10
 R_MAINTAIN_DIST = 5
 
 R_NEW_HAB = 10
-R_IN_HAB = 1
+R_IN_HAB = 0
 
 # determine how quickly the reward will decay when the auv stays in an habitat
 # decay rate should be between 0 and 1
