@@ -1,5 +1,10 @@
 import math
-from shapely.geometry import box, Polygon, MultiPolygon, GeometryCollection, Point
+from shapely.geometry import box, Polygon, MultiPolygon, GeometryCollection, Point, LinearRing
+import matplotlib.pyplot as plt
+from descartes import PolygonPatch
+from matplotlib import cm, patches, collections
+import numpy as np
+
 
 import catalina
 from motion_plan_state import Motion_plan_state
@@ -31,6 +36,7 @@ class SharkOccupancyGrid:
         self.cell_list = self.splitCell(boundary)
         self.bin_interval = bin_interval
         self.detect_range = detect_range
+        self.boundary = boundary
 
         self.bin_list = self.createBinList()
     
@@ -126,6 +132,8 @@ class SharkOccupancyGrid:
             tempAUVGrid = self.constructAUVGrid(tempOccGrid)
             for cell in self.cell_list:
                 auvGrid[cell.bounds] = auvGrid[cell.bounds] * tempAUVGrid[cell.bounds]
+                if auvGrid[cell.bounds] > 1:
+                    print("problem here!", auvGrid[cell.bounds])
         
         return auvGrid
     
@@ -152,9 +160,10 @@ class SharkOccupancyGrid:
                 neighbor_center = neighbor.centroid
                 dist = math.sqrt((neighbor_center.x - cell_center.x) ** 2 + (neighbor_center.y - cell_center.y) ** 2)
                 if dist < self.detect_range:
-                    detectGrid[cell.bounds] += (occGrid[neighbor.bounds])
-            if detectGrid[cell.bounds] > 1 + len(self.cell_list) * 0.01:
-                print("problem!")
+                    detectGrid[cell.bounds] += occGrid[neighbor.bounds]
+                    #print(occGrid[neighbor.bounds], detectGrid[cell.bounds])
+            if detectGrid[cell.bounds] > 1:
+                print("problem!", detectGrid[cell.bounds])
         return detectGrid
     
     def constructSharkOccupancyGrid(self, traj):
@@ -174,18 +183,22 @@ class SharkOccupancyGrid:
         for cell in self.cell_list:
             grid[cell.bounds] = 0.01
 
+        #normalize factor
+        nor = (len(traj) + len(self.cell_list) * 0.01)
+
         #calculate occupancy probability
         for point in traj:
             for cell in self.cell_list:
                 point = Point(point.x, point.y)
                 if point.within(cell) or cell.touches(point):
-                    grid[cell.bounds] += 1 / len(traj)
+                    grid[cell.bounds] += 1
                     break
         
-        # temp_sum = 0
-        # for _, prob in grid.items():
-        #     temp_sum += prob
-        # print(temp_sum - len(self.cell_list) * 0.01)
+        temp_sum = 0
+        for cell, prob in grid.items():
+            grid[cell] = prob / nor
+            temp_sum += grid[cell]
+        print(temp_sum)
         return grid
     
 
@@ -254,13 +267,48 @@ class SharkOccupancyGrid:
         
         return grid
 
+    def plot(self, grid):
+        fig = plt.figure(1)
+        x,y = self.boundary.exterior.xy
+        ax = fig.add_subplot(111)
+        ax.plot(x, y, color="black")
+
+        patch = []
+        for cell in self.cell_list:
+            polygon = patches.Polygon(list(cell.exterior.coords), True)
+            patch.append(polygon)
+
+        occ = [grid[cell.bounds] for cell in self.cell_list]
+        p = collections.PatchCollection(patch)
+        p.set_cmap("Greys")
+        p.set_array(np.array(occ))
+        ax.add_collection(p)
+        fig.colorbar(p, ax=ax)
+
+        ax.set_xlim([self.boundary.bounds[0]-10, self.boundary.bounds[2]+10])
+        ax.set_ylim([self.boundary.bounds[1]-10, self.boundary.bounds[3]+10])
+        
+        for shark_id, traj in self.data.items():
+            ax.plot([mps.x for mps in traj], [mps.y for mps in traj], label=shark_id, color="red")
+        ax.legend()
+        
+        plt.show()
+        
+
 
 boundary = []
+boundary_poly = []
 for b in catalina.BOUNDARIES:
     pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
-    boundary.append((pos[0], pos[1]))
-boundary_poly = box(0.0, 0.0, 100.0, 100.0)
-shark_dict = {1: [Motion_plan_state(0 + (0.5 * i), 3 + (0.4 * i), traj_time_stamp=0.1*i) for i in range(1,201)],
-    2:[Motion_plan_state(100 - (0.45 * i), 75 - (0.3 * i), traj_time_stamp=0.1*i) for i in range(1,201)]}
+    boundary.append(Motion_plan_state(pos[0], pos[1]))
+    boundary_poly.append((pos[0],pos[1]))
+boundary_poly = Polygon(boundary_poly)
+shark_dict = {1: [Motion_plan_state(-202 + (0.1 * i), -90 + (0.1 * i), traj_time_stamp=0.1*i) for i in range(1,501)], 
+    2: [Motion_plan_state(-150 - (0.2 * i), -20 + (0.3 * i), traj_time_stamp=0.1*i) for i in range(1,501)]}
 testing = SharkOccupancyGrid(shark_dict, 10, boundary_poly, 5, 50)
-print(testing.convert())
+# boundary_poly = box(0.0, 0.0, 10.0, 10.0)
+# shark_dict = {1: [Motion_plan_state(0 + (0.1 * i), 2 + (0.1 * i), traj_time_stamp=0.1*i) for i in range(1,81)], 
+#     2: [Motion_plan_state(8 - (0.1 * i), 9 - (0.1 * i), traj_time_stamp=0.1*i) for i in range(1,81)]}
+# testing = SharkOccupancyGrid(shark_dict, 2, boundary_poly, 5, 10)
+occGrid = testing.constructSharkOccupancyGrid(shark_dict[1])
+testing.plot(testing.constructAUVGrid(occGrid))

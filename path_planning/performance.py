@@ -3,10 +3,12 @@ import time
 import statistics
 import matplotlib.pyplot as plt
 import numpy as np
+from shapely.geometry import Polygon
 
 from rrt_dubins import RRT
 from motion_plan_state import Motion_plan_state
 import catalina
+from sharkOccupancyGrid import SharkOccupancyGrid
 
 def summary_1(cost_funcs, num_habitats=10, test_num=100):
     '''
@@ -119,7 +121,7 @@ def plot_summary_1(labels, summary):
 
     plt.show()
 
-def summary_2(start, goal, obstacle_array, boundary, habitats, shark_dict, test_num, test_time, plot_interval, weights):
+def summary_2(start, goal, obstacle_array, boundary, habitats, shark_dict, sharkGrid, test_num, test_time, plot_interval, weights):
     '''generate the average cost of optimal paths of one weight scheme'''
     cost_list = [[]for _ in range(math.ceil(test_time//plot_interval))]
     improvement = []
@@ -135,7 +137,7 @@ def summary_2(start, goal, obstacle_array, boundary, habitats, shark_dict, test_
         elif weights[1] == "random (x,y)":
             plan_time = False
             traj_time_stamp = False
-        result = rrt.exploring(shark_dict, 0.5, 5, 1, traj_time_stamp=traj_time_stamp, max_plan_time=test_time, max_traj_time=500, plan_time=plan_time, weights=weights[0])
+        result = rrt.exploring(shark_dict, sharkGrid, 0.5, 5, 1, traj_time_stamp=traj_time_stamp, max_plan_time=test_time, max_traj_time=500, plan_time=plan_time, weights=weights[0])
         if result:
             cost = result["cost list"]
             for i in range(len(cost)):
@@ -149,7 +151,7 @@ def summary_2(start, goal, obstacle_array, boundary, habitats, shark_dict, test_
         cost_mean.append(temp_mean)
     
     #plot_summary_2(time_list, cost_list)
-    print(cost_mean, improvement)
+    #print(cost_mean, improvement)
     return cost_mean, improvement
 
 def plot_summary_2(x_list, y_list):
@@ -163,7 +165,7 @@ def plot_summary_2(x_list, y_list):
 
     plt.show()
 
-def summary_3(start, goal, boundary, obstacle_array, habitats, shark_dict, test_num, plan_time, plot_interval):
+def summary_3(start, goal, boundary, boundary_poly, obstacle_array, habitats, shark_dict, test_num, plan_time, plot_interval):
     '''draw average cost of optimal path from different weight schemes as a function of time'''
     results = []
     improvements = []
@@ -173,9 +175,12 @@ def summary_3(start, goal, boundary, obstacle_array, habitats, shark_dict, test_
     weight2 = [[1, -3, -3, -3], "random time", "planning time stamp"]
     weight3 = [[1, -3, -3, -3], "random (x,y)"]
     weights = [weight1, weight2, weight3]
+
+    sharkTesting = SharkOccupancyGrid(shark_dict, 20, boundary_poly, 5, 50)
+    sharkGrid = sharkTesting.convert()
     
     for weight in weights:
-        result, improvement = summary_2(start, goal, obstacle_array, boundary, habitats, shark_dict, test_num, plan_time, plot_interval, weight)
+        result, improvement = summary_2(start, goal, obstacle_array, boundary, habitats, shark_dict, sharkGrid, test_num, plan_time, plot_interval, weight)
         results.append(result)
         improvements.append(improvement)
 
@@ -232,9 +237,12 @@ for ob in catalina.OBSTACLES:
     obstacles.append(Motion_plan_state(pos[0], pos[1], size=ob.size))
         
 boundary = []
+boundary_poly = []
 for b in catalina.BOUNDARIES:
     pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
     boundary.append(Motion_plan_state(pos[0], pos[1]))
+    boundary_poly.append((pos[0],pos[1]))
+boundary_poly = Polygon(boundary_poly)
         
 boat_list = []
 for boat in catalina.BOATS:
@@ -250,4 +258,4 @@ for habitat in catalina.HABITATS:
 #testing data for shark trajectories
 shark_dict = {1: [Motion_plan_state(-102 + (0.1 * i), -91 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)], 
     2: [Motion_plan_state(-150 - (0.1 * i), 0 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)]}
-summary_3(start, goal, boundary, obstacles+boat_list, habitats, shark_dict, 15, 20.0, 0.5)
+summary_3(start, goal, boundary, boundary_poly, obstacles+boat_list, habitats, shark_dict, 10, 15, 0.5)
