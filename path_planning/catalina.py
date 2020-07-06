@@ -81,6 +81,8 @@ BOATS = [Motion_plan_state(33.445425, -118.486314, size=5),
         Motion_plan_state(33.444412, -118.485508, size=5),
         Motion_plan_state(33.443940, -118.485384, size=5)]  
 
+
+
 HABITATS = [Motion_plan_state(33.445733, -118.487789, size=45),
     Motion_plan_state(33.446198, -118.486652, size=32),
     Motion_plan_state(33.445400, -118.485959, size=20),
