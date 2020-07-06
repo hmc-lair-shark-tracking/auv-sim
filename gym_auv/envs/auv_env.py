@@ -46,7 +46,7 @@ R_TIME = -0.01          # negative reward (the longer for the auv to reach the g
 
 # constants for reward with habitats
 R_OUT_OF_BOUND = -10000
-R_CLOSE_TO_BOUND = -1000
+R_CLOSE_TO_BOUND = -10
 
 R_COLLIDE_100 = -10000
 R_CLOSE_TO_OBS = -10
@@ -294,6 +294,7 @@ class AuvEnv(gym.Env):
         v_action_index = v_init_index
         w_action_index = w_init_index
 
+
         v = self.v_options[v_action_index]
         w = self.w_options[w_action_index]
 
@@ -304,27 +305,15 @@ class AuvEnv(gym.Env):
             x = x + dist_x
             dist_y = v * np.sin(theta) * DELTA_T
             y = y + dist_y
+        
+        auv_pos = [x, y, z, theta]
 
+        distance_from_walls = self.habitat_grid.distance_from_grid_boundary(auv_pos)
 
-        # while the auv is hitting the wall
-        while (not self.habitat_grid.within_habitat_env([x, y, z, theta])):
-            print("gotta adjust")
-            # randomly choose v and w, hopefully it will prevent us from hitting the wall
-            
-            v_action_index = random.choice(range(num_of_options_v))
-            w_action_index = random.choice(range(num_of_options_w))
-
-            v = self.v_options[v_action_index]
-            w = self.w_options[w_action_index]
-
-            # calculate the new position and orientation of the auv
-            for _ in range(REPEAT_ACTION_TIME):
-                theta = angle_wrap(theta + w * DELTA_T)
-                dist_x = v * np.cos(theta) * DELTA_T
-                x = x + dist_x
-                dist_y = v * np.sin(theta) * DELTA_T
-                y = y + dist_y
-          
+        if self.check_close_to_walls(auv_pos, distance_from_walls) or self.check_close_to_obstacles(auv_pos):
+            # reselect the actions
+            v_action_index = num_of_options_v-1
+            w_action_index = num_of_options_w-1
 
         return v_action_index, w_action_index
         
@@ -590,12 +579,8 @@ class AuvEnv(gym.Env):
         # if the auv collides with an obstacle
         if not self.habitat_grid.within_habitat_env(self.state['auv_pos']):
             return R_OUT_OF_BOUND
-        elif self.check_close_to_walls(auv_pos, dist_from_walls_array):
-            return R_CLOSE_TO_BOUND
         elif self.check_collision(auv_pos):
             return R_COLLIDE_100
-        elif self.check_close_to_obstacles(auv_pos):
-            return R_CLOSE_TO_OBS
         else:
             if DEBUG:
                 print("else case in reward")
@@ -612,8 +597,8 @@ class AuvEnv(gym.Env):
                         print("visit new habitat")
                     self.visited_unique_habitat_count += 1
                     reward += R_NEW_HAB
-                elif num_of_time_visited > 1:
-                    reward += R_IN_HAB
+                elif num_of_time_visited >= 50:
+                    reward += R_IN_HAB_TOO_LONG
             
             return reward
     

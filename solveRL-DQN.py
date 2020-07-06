@@ -995,12 +995,8 @@ class DQN():
             for t in range(1, max_step):
                 action = self.agent.select_action(state, self.policy_net)
 
-                # print("old action")
-                # print(action)
-
-                # action = self.em.adjust_action(action, state, self.agent.actions_range_v, self.agent.actions_range_w)
-                # print(action)
-                # print("new action")
+                # adjust the auv's action to hardcode it and prevent it from hitting the wall
+                action = self.em.adjust_action(action, state, self.agent.actions_range_v, self.agent.actions_range_w)
 
                 action_array.append(action)
 
@@ -1111,10 +1107,11 @@ class DQN():
         episode_durations = []
         starting_dist_array = []
         traveled_dist_array = []
-        final_reward_array = []
         total_reward_array = []
 
-        # if we want to continue training an already trained network
+        collision_obstacles_count = 0
+        collision_walls_count = 0
+
         self.load_trained_network()
         self.policy_net.eval()
         
@@ -1123,12 +1120,8 @@ class DQN():
             # receive initial observation state s1 
             state = self.em.init_env_randomly()
 
-            """starting_dist = calculate_range(state['auv_pos'], state['shark_pos'])
-            starting_dist_array.append(starting_dist)"""
-
             episode_durations.append(max_step)
             traveled_dist_array.append(0.0)
-            final_reward_array.append(0.0)
             total_reward_array.append(0.0)
 
             reward = 0
@@ -1139,9 +1132,11 @@ class DQN():
             for t in range(1, max_step):
                 action = self.agent.select_action(state, self.policy_net)
 
+                 # adjust the auv's action to hardcode it and prevent it from hitting the wall
+                action = self.em.adjust_action(action, state, self.agent.actions_range_v, self.agent.actions_range_w)
+
                 reward = self.em.take_action(action)
 
-                final_reward_array[eps] = reward.item()
                 total_reward_array[eps] += reward.item()
 
                 traveled_dist_array[eps] += self.em.env.distance_traveled
@@ -1151,10 +1146,16 @@ class DQN():
                 state = self.em.get_state()
 
                 if self.em.done:
+                    if self.em.env.check_collision(state["auv_pos"]):
+                        collision_obstacles_count += 1
+                    elif not self.em.habitat_grid.within_habitat_env(state["auv_pos"]):
+                        collision_walls_count += 1
+
                     episode_durations[eps] = t
                     break
-
-            self.em.reset_render_graph(live_graph_3D = live_graph_3D, live_graph_2D = live_graph_2D)
+            
+            if (live_graph_2D or live_graph_3D):
+                self.em.reset_render_graph(live_graph_3D = live_graph_3D, live_graph_2D = live_graph_2D)
             
             print("+++++++++++++++++++++++++++++")
             print("Episode # ", eps, "end with reward: ", reward, " used time: ", episode_durations[-1])
@@ -1187,15 +1188,18 @@ class DQN():
 
         text = input("stop")
 
-        print("final reward")
-        print(final_reward_array)
+        print("total reward")
+        print(total_reward_array)
+        print("average total reward")
+        print(np.mean(total_reward_array))
         print("-----------------")
 
         text = input("stop")
 
-        print("total reward")
-        print(total_reward_array)
-        print("-----------------")
+        print("collision obstacles")
+        print(collision_obstacles_count)
+        print("collision walls")
+        print(collision_walls_count)
 
 
     def test_model_during_training (self, num_episodes, max_step, starting_dist):
@@ -1400,7 +1404,7 @@ class DQN():
 
 def main():
     dqn = DQN(N_V, N_W)
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_3D = False, live_graph_2D = True, use_HER=False)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_3D = False, live_graph_2D = True, use_HER = False)
     # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
