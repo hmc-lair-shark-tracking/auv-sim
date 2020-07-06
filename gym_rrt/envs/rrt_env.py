@@ -10,7 +10,8 @@ import copy
 import random
 
 from gym_rrt.envs.live3DGraph_rrt_env import Live3DGraph
-
+from gym_rrt.envs.rrt_dubins import Planner_RRT
+from gym_rrt.envs.motion_plan_state import Motion_plan_state
 
 # auv's max speed (unit: m/s)
 AUV_MAX_V = 2.0
@@ -138,14 +139,18 @@ class RRTEnv(gym.Env):
         self.visited_unique_habitat_count = 0
 
 
-    def init_env(self, auv_init_pos, shark_init_pos, obstacle_array = [], habitat_grid = []):
+    def init_env(self, auv_init_pos, shark_init_pos, boundary_array, obstacle_array = [], habitat_grid = None):
         """
         Initialize the environment based on the auv and shark's initial position
 
         Parameters:
             auv_init_pos - an motion plan state object
             shark_init_pos - an motion plan state object
-            obstacle_array - an array of motino plan state objects
+            boundary_array - an array of 2 motion plan state objects
+                TODO: For now, let the environment be a rectangle
+                1st mps represents the bottom left corner of the env
+                2nd mps represents the upper right corner of the env
+            obstacle_array - an array of motion plan state objects
             habitat_grid - an HabitatGrid object (discretize the environment into grid)
 
         Return:
@@ -153,15 +158,25 @@ class RRTEnv(gym.Env):
         """
         self.auv_init_pos = auv_init_pos
         self.shark_init_pos = shark_init_pos
-        self.obstacle_array_for_rendering = obstacle_array
 
-        self.habitat_grid = habitat_grid
-        self.habitats_array_for_rendering = habitat_grid.habitat_array
+        self.obstacle_array_for_rendering = obstacle_array
+        
+        self.habitats_array_for_rendering = []
+        if habitat_grid != None:
+            self.habitat_grid = habitat_grid
+            self.habitats_array_for_rendering = habitat_grid.habitat_array
 
         self.obstacle_array = []
         for obs in obstacle_array:
             self.obstacle_array.append([obs.x, obs.y, obs.z, obs.size])
         self.obstacle_array = np.array(self.obstacle_array)
+
+        self.boundary_array = boundary_array
+
+        # initialize the RRT planner
+        self.rrt_planner = Planner_RRT(self.auv_init_pos, self.shark_init_pos, boundary_array, obstacle_array, self.habitats_array_for_rendering)
+
+        self.discretize_env(grid_side_length = 10)
 
         # declare the observation space (required by OpenAI)
         self.observation_space = spaces.Dict({
@@ -177,30 +192,27 @@ class RRTEnv(gym.Env):
         return self.reset()
 
 
-    def actions_range(self, N_v, N_w):
+    def discretize_env(self, grid_side_length=10):
         """
-        For DQN, discretize the action space of linear velocity and angular velocity based on the bounds
-
-        Parameters:
-            N_v - an int, indicating how many options of linear velocity will the auv have
-            N_w - an int, indicating how many options of angular velocity will the auv have
-
-        Return:
-            a tuple of 2 arrays: (v_options, w_options)
-                - v_options: available options for linear velocity
-                - w_options: available options for angular velocity
+        Separate the environment into grid
         """
+        env_btm_left_corner = self.boundary_array[0]
+        env_top_right_corner = self.boundary_array[1]
+        env_width = env_top_right_corner.x - env_btm_left_corner.x
+        env_height = env_top_right_corner.y - env_btm_left_corner.y
 
-        self.v_options = np.linspace(AUV_MIN_V, AUV_MAX_V, N_v)
-        self.w_options = np.linspace(-AUV_MAX_W, AUV_MAX_W, N_w)
+        self.env_grid = []
 
-        # guaranteed to have 0 as one of the angular velocity
-        self.w_options[N_w//2] = 0
+        for row in range(int(env_height) // int(grid_side_length)):
+            self.env_grid.append([])
+            for col in range(int(env_width) // int(grid_side_length)):
+                env_cell_x = env_btm_left_corner.x + col * grid_side_length
+                env_cell_y = env_btm_left_corner.y + row * grid_side_length
+                self.env_grid[row].append(Motion_plan_state(env_cell_x, env_cell_y, size = grid_side_length))
+        
+        print(self.env_grid)
 
-        print((self.v_options, self.w_options))
         text = input("stop")
-
-        return (self.v_options, self.w_options)
 
 
     def step(self, action):

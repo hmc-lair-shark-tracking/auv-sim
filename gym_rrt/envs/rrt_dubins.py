@@ -20,25 +20,23 @@ from sharkOccupancyGrid import SharkOccupancyGrid
 show_animation = True
 
 
-class RRT:
+class Planner_RRT:
     """
     Class for RRT planning
     """
     def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 50):
-        '''setting parameters:
-            initial_location: initial Motion_plan_state of AUV, [x, y, z, theta, v, w, time_stamp]
-            goal_location: Motion_plan_state of the shark, [x, y, z]
-            obstacle_list: Motion_plan_state of obstacles [[x1, y1, z1, size1], [x2, y2, z2, size2] ...]
-            boundary: max & min Motion_plan_state of the configuration space [[x_min, y_min, z_min],[x_max, y_max, z_max]]'''
-        #initialize start, goal, obstacle, boundary, habitats for path planning
+        '''
+        Parameters:
+            start - initial Motion_plan_state of AUV, [x, y, z, theta, v, w, time_stamp]
+            goal - Motion_plan_state of the shark, [x, y, z]
+            boundary - max & min Motion_plan_state of the configuration space [[x_min, y_min, z_min],[x_max, y_max, z_max]]
+            obstacles - array of Motion_plan_state, representing obstacles [[x1, y1, z1, size1], [x2, y2, z2, size2] ...]
+        '''
+        # initialize start, goal, obstacle, boundaryfor path planning
         self.start = start
         self.goal = goal
         self.boundary = boundary
-        #initialize corners for boundaries
-        coords = []
-        for corner in self.boundary: 
-            coords.append((corner.x, corner.y))
-        self.boundary_poly = Polygon(coords)
+        
         self.obstacle_list = obstacles
         #testing data for habitats
         self.habitats = habitats
@@ -119,7 +117,7 @@ class RRT:
                         continue
                 new_mps = self.steer(closest_mps, self.dist_to_end, self.diff_max, self.freq, v, traj_time_stamp)  
                 
-                if self.check_collision(new_mps, self.obstacle_list):
+                if self.check_collision_free(new_mps, self.obstacle_list):
                     new_mps.parent = closest_mps
                     path = self.generate_final_course(new_mps)
                     new_mps.length = self.cal_length(path)
@@ -167,34 +165,48 @@ class RRT:
 
     def planning(self, max_traj_time=5.0, animation=False, min_length = 250, plan_time=True):
         """
-        rrt path planning
-        animation: flag for animation on or off
-        """
+        RRT path planning with a specific goal
 
+        path planning will terminate when:
+            1. the path has reached a goal
+            2. the maximum planning time has passed
+
+        Parameters:
+            animation: flag for animation on or off
+
+        """
+    
         self.mps_list = [self.start]
+        
         self.t_start = time.time()
+        # determine the planning time
         t_end = time.time() + max_traj_time
         while time.time()<t_end:
-            #find the closest motion_plan_state by generating a random time stamp and 
-            #find the motion_plan_state whose time stamp is closest to it
+            
+            # TODO: this is the primary place where we are modifying how we generate a random state and finding the nearest neighbor
+            #   matching line 3 and 4 in the RRT paper pseudocode
+
+            # find the closest motion_plan_state by generating a random time stamp and 
+            # find the motion_plan_state whose time stamp is closest to it
             if plan_time:
                 ran_time = random.uniform(0, max_traj_time * self.freq)
                 closest_mps = self.get_closest_mps_time(ran_time, self.mps_list)
-            #find the closest motion_plan_state by generating a random motion_plan_state
-            #and find the motion_plan_state with smallest distance
+            # find the closest motion_plan_state by generating a random motion_plan_state
+            # and find the motion_plan_state with smallest distance
             else:
                 ran_mps = self.get_random_mps()
                 closest_mps = self.get_closest_mps(ran_mps, self.mps_list)
             
             new_mps = self.steer(closest_mps, self.dist_to_end, self.diff_max, self.freq)
 
-            if self.check_collision(new_mps, self.obstacle_list):
+            if self.check_collision_free(new_mps, self.obstacle_list):
                 new_mps.parent = closest_mps
                 new_mps.length += closest_mps.length
                 self.mps_list.append(new_mps)
                 
             final_mps = self.connect_to_goal_curve_alt(self.mps_list[-1], self.exp_rate)
-            if self.check_collision(final_mps, self.obstacle_list):
+
+            if self.check_collision_free(final_mps, self.obstacle_list):
                 final_mps.parent = self.mps_list[-1]
                 path = self.generate_final_course(final_mps)
                 final_mps.length = self.cal_length(path)
@@ -209,22 +221,10 @@ class RRT:
         
         return None  # cannot find path
 
-    def steer(self, mps, dist_to_end, diff_max, freq, velocity=1, traj_time_stamp=False):
-        #dubins library
-        '''new_mps = Motion_plan_state(from_mps.x, from_mps.y, theta = from_mps.theta)
-        new_mps.path = []
-        q0 = (from_mps.x, from_mps.y, from_mps.theta)
-        q1 = (to_mps.x, to_mps.y, to_mps.theta)
-        turning_radius = 1.0
-        path = dubins.shortest_path(q0, q1, turning_radius)
-        configurations, _ = path.sample_many(exp_rate)
-        for configuration in configurations:
-            new_mps.path.append(Motion_plan_state(x = configuration[0], y = configuration[1], theta = configuration[2]))
-        new_mps.path.append(to_mps)
-        dubins_path = new_mps.path
-        new_mps = dubins_path[-2]
-        new_mps.path = dubins_path'''
 
+    def steer(self, mps, dist_to_end, diff_max, freq, velocity=1, traj_time_stamp=False):
+        """
+        """
         if traj_time_stamp:
             new_mps = Motion_plan_state(mps.x, mps.y, theta = mps.theta, traj_time_stamp=mps.traj_time_stamp)
         else:
@@ -232,19 +232,14 @@ class RRT:
 
         new_mps.path = [mps]
 
-        '''if dist_to_end > d:
-            dist_to_end = dist_to_end / 10
-        n_expand = math.floor(dist_to_end / exp_rate)'''
-
         n_expand = random.uniform(0, freq)
         n_expand = math.floor(n_expand/1)
         for _ in range(n_expand):
             #setting random parameters
-            dist = random.uniform(0, dist_to_end)#setting random range
-            diff = random.uniform(-diff_max, diff_max)#setting random range
+            dist = random.uniform(0, dist_to_end)  # setting random range
+            diff = random.uniform(-diff_max, diff_max)  # setting random range
 
             if abs(dist) > abs(diff):
-
                 s1 = dist + diff
                 s2 = dist - diff
                 radius = (s1 + s2)/(-s1 + s2)
@@ -263,13 +258,6 @@ class RRT:
                     new_mps.traj_time_stamp += (math.sqrt(delta_x ** 2 + delta_y ** 2)) / velocity
                 new_mps.path.append(Motion_plan_state(new_mps.x, new_mps.y, theta=new_mps.theta, traj_time_stamp=new_mps.traj_time_stamp, plan_time_stamp=new_mps.plan_time_stamp))
 
-            #d, theta = self.get_distance_angle(new_mps, to_mps)
-
-        '''d, _ = self.get_distance_angle(new_mps, to_mps)
-        if d <= dist_to_end:
-            new_mps.path.append(to_mps)'''
-
-        #new_node.parent = from_node
         new_mps.path[0] = mps
 
         return new_mps
@@ -490,8 +478,13 @@ class RRT:
         
         return mps_list[0]
 
-    def check_collision(self, mps, obstacleList):
-
+    def check_collision_free(self, mps, obstacleList):
+        """
+        Collision
+        Return:
+            True -  if the new node (as a motion plan state) and its path is collision free
+            False - otherwise
+        """
         if mps is None:
             return False
 
@@ -511,6 +504,7 @@ class RRT:
 
         return True  # safe
     
+
     def check_collision_obstacle(self, mps, obstacleList):
         for obstacle in obstacleList:
             d, _ = self.get_distance_angle(obstacle, mps)
@@ -518,7 +512,30 @@ class RRT:
                 return False
         return True
 
+
+    def check_within_boundary(self, mps):
+        """
+        Warning: 
+            For a rectangular environment only
+
+        Return:
+            True - if it's within the environment boundary
+            False - otherwise
+        """
+        env_btm_left_corner = self.boundary[0]
+        env_top_right_corner = self.boundary[1]
+
+        within_x_bound = mps.x > env_btm_left_corner.x and mps.x < env_top_right_corner.x
+        within_y_bound = mps.y > env_btm_left_corner.y and mps.y > env_top_right_corner.y
+
+        return (within_x_bound and within_y_bound)
+
     def get_distance_angle(self, start_mps, end_mps):
+        """
+        Return
+            - the range and 
+            - the bearing between 2 points, represented as 2 Motion_plan_states
+        """
         dx = end_mps.x-start_mps.x
         dy = end_mps.y-start_mps.y
         #dz = end_mps.z-start_mps.z
@@ -526,12 +543,14 @@ class RRT:
         theta = math.atan2(dy,dx)
         return dist, theta
     
+
     def cal_length(self, path):
         length = 0
         for i in range(1, len(path)):
             length += math.sqrt((path[i].x-path[i-1].x)**2 + (path[i].y-path[i-1].y)**2)
         return length
     
+
     def cal_boundary_peri(self):
         peri = 0
         for i in range(len(self.boundary)-1):

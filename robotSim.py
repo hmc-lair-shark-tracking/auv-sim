@@ -241,9 +241,9 @@ class RobotSim:
         if planner == "RRT":
             path_planning = RRT(auv_pos, shark_pos, boundary, obstacle, habitats)
 
-        result = path_planning.exploring(habitats, 0.5, 5, 1)
-        
-        return result["path"]
+            result = path_planning.exploring(habitats, 0.5, 5, 1)
+            
+            return result["path"]
     
     def create_trajectory_list(self, traj_list):
         """
