@@ -176,9 +176,6 @@ class RRTEnv(gym.Env):
         # initialize the RRT planner
         self.rrt_planner = Planner_RRT(self.auv_init_pos, self.shark_init_pos, boundary_array, obstacle_array, self.habitats_array_for_rendering)
 
-        # discretize the environment into square cells so that the neural net will be able to pick which location to expand the tree
-        self.discretize_env(grid_side_length = 10)
-
         # declare the observation space (required by OpenAI)
         self.observation_space = spaces.Dict({
             'auv_pos': spaces.Box(low = np.array([auv_init_pos.x - ENV_SIZE, auv_init_pos.y - ENV_SIZE, -ENV_SIZE, 0.0]), high = np.array([auv_init_pos.x + ENV_SIZE, auv_init_pos.y + ENV_SIZE, 0.0, 0.0]), dtype = np.float64),
@@ -191,30 +188,6 @@ class RRTEnv(gym.Env):
         self.init_data_for_plot(auv_init_pos, shark_init_pos)
         
         return self.reset()
-
-
-    def discretize_env(self, grid_side_length=10):
-        """
-        Separate the environment into grid
-        """
-        env_btm_left_corner = self.boundary_array[0]
-        env_top_right_corner = self.boundary_array[1]
-        env_width = env_top_right_corner.x - env_btm_left_corner.x
-        env_height = env_top_right_corner.y - env_btm_left_corner.y
-
-        self.env_grid = []
-
-        for row in range(int(env_height) // int(grid_side_length)):
-            self.env_grid.append([])
-            for col in range(int(env_width) // int(grid_side_length)):
-                env_cell_x = env_btm_left_corner.x + col * grid_side_length
-                env_cell_y = env_btm_left_corner.y + row * grid_side_length
-                self.env_grid[row].append(Motion_plan_state(env_cell_x, env_cell_y, size = grid_side_length))
-        
-        print(self.env_grid)
-
-        text = input("stop")
-
 
     def step(self, chosen_grid):
         """

@@ -11,10 +11,13 @@ import numpy as np
 from shapely.wkt import loads as load_wkt 
 from shapely.geometry import Polygon, Point
 
-from motion_plan_state import Motion_plan_state
-from cost import Cost
+from gym_rrt.envs.motion_plan_state import Motion_plan_state
+from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
+
+# TODO: wrong import
 import catalina
 from sharkOccupancyGrid import SharkOccupancyGrid
+
 #from shortest_rrt import Shrt_path
 
 show_animation = True
@@ -24,7 +27,7 @@ class Planner_RRT:
     """
     Class for RRT planning
     """
-    def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 50):
+    def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 50, cell_side_length = 10):
         '''
         Parameters:
             start - initial Motion_plan_state of AUV, [x, y, z, theta, v, w, time_stamp]
@@ -36,6 +39,22 @@ class Planner_RRT:
         self.start = start
         self.goal = goal
         self.boundary_point = boundary
+        self.cell_side_length = cell_side_length
+
+        # discretize the environment into grids
+        self.discretize_env(self.cell_side_length)
+
+        print("before adding the start and the goal")
+        print(self.env_grid)
+        text = input("stop")
+
+        # add the start and the goal to the grid
+        self.add_node_to_grid(self.start)
+        self.add_node_to_grid(self.goal)
+
+        print("after adding the start and the goal")
+        print(self.env_grid)
+        text = input("stop")
         
         self.obstacle_list = obstacles
         # testing data for habitats
@@ -55,6 +74,45 @@ class Planner_RRT:
         self.freq = freq
 
         self.t_start = time.time()
+
+
+    def discretize_env(self, cell_side_length):
+        """
+        Separate the environment into grid
+        """
+        env_btm_left_corner = self.boundary_point[0]
+        env_top_right_corner = self.boundary_point[1]
+        env_width = env_top_right_corner.x - env_btm_left_corner.x
+        env_height = env_top_right_corner.y - env_btm_left_corner.y
+
+        self.env_grid = []
+
+        for row in range(int(env_height) // int(cell_side_length)):
+            self.env_grid.append([])
+            for col in range(int(env_width) // int(cell_side_length)):
+                env_cell_x = env_btm_left_corner.x + col * cell_side_length
+                env_cell_y = env_btm_left_corner.y + row * cell_side_length
+                self.env_grid[row].append(Grid_cell_RRT(env_cell_x, env_cell_y, side_length = cell_side_length))
+
+    
+    def add_node_to_grid(self, mps):
+        """
+
+        Parameter:
+            mps - a motion plan state object, represent the RRT node that we are trying add to the grid
+        """
+        hab_index_row = int(mps.y / self.cell_side_length)
+        hab_index_col = int(mps.x / self.cell_side_length)
+
+        if hab_index_row >= len(self.env_grid):
+            print("auv is out of the habitat environment bound verticaly")
+            return
+        
+        if hab_index_col >= len(self.env_grid[0]):
+            print("auv is out of the habitat environment bound horizontally")
+            return
+
+        self.env_grid[hab_index_row][hab_index_col].node_list.append(mps)
 
 
     def exploring(self, shark_dict, sharkGrid, plot_interval, bin_interval, v, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1,-1], sonar_range=50):
@@ -166,7 +224,7 @@ class Planner_RRT:
         return {"path length": opt_path[0], "path": opt_path[1], "cost": opt_cost, "cost list": opt_cost_list}
         
 
-    def planning(self, start, goal, obstacles_array, max_traj_time=5.0, animation=False, min_length = 250, plan_time=True, agent=None, policy_net=None):
+    def planning(self, obstacles_array, max_traj_time=5.0, animation=False, min_length = 250, plan_time=True, agent=None, policy_net=None):
         """
         RRT path planning with a specific goal
 
@@ -179,20 +237,6 @@ class Planner_RRT:
             animation - flag for animation on or off
 
         """
-        if type(start) == np.ndarray or type(start) == list:
-            self.start = Motion_plan_state(x=start[0], y=start[1], z=start[2], theta=start[3])
-        else:
-            self.start = start
-
-        if type(goal) == np.ndarray or type(goal) == list:
-            self.goal = Motion_plan_state(x=goal[0], y=goal[1], z=goal[2], theta=goal[3])
-        else:
-            self.goal = goal
-    
-        self.mps_list = [self.start]
-        
-        self.t_start = time.time()
-        # determine the planning time
         t_end = time.time() + max_traj_time
 
         while time.time() < t_end:
