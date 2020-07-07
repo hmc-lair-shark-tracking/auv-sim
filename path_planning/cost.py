@@ -109,7 +109,7 @@ class Cost:
 
         return [sum(cost), cost]
     
-    def habitat_shark_cost_func(self, path, length, peri, total_traj_time, habitats, shark_dict, weight, sonar_range):
+    def habitat_shark_cost_func(self, path, length, peri, total_traj_time, habitats, shark_dict, weight):
         '''
         cost function for habitat exploration and shark tracking
         we want to find a path minimizing path length, maximizing the time spent in different habitats visited,

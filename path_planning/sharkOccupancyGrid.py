@@ -55,15 +55,16 @@ class SharkOccupancyGrid:
         '''
 
         #convert to a dictionary, whose key is time bin
-        timeBinDict = self.convertToTimeBin()
+        self.timeBinDict = self.convertToTimeBin()
 
-        result = {}
-        for time, traj_dict in timeBinDict.items():
+        resultArr = {}
+        resultCell = {}
+        for time, traj_dict in self.timeBinDict.items():
             grid = self.constructGrid(traj_dict)
-            grid = self.simplifyGrid(grid)
-            result[time] = grid
-
-        return result
+            # grid = self.simplifyGrid(grid)
+            resultArr[time] = grid
+            resultCell[time] = self.convert2DArr(grid)
+        return (resultArr, resultCell)
     
     def split(self, polygon):
         minx, miny, maxx, maxy = polygon.bounds
@@ -268,12 +269,29 @@ class SharkOccupancyGrid:
 
         return result
     
+    def convert2DArr(self, arr):
+        result = {}
+        for i in range(len(arr)):
+            for j in range(len(arr[0])):
+                if arr[i][j] == 0:
+                    continue
+                else:
+                    cell_bounds = self.indexToCell(i, j)
+                    result[cell_bounds] = arr[i][j]
+        return result
+    
     def cellToIndex(self, cell):
         minx, miny, _, _ = self.boundary.bounds
         lowx, lowy, _, _ = cell.bounds
         col = int((lowx - minx) / self.cell_size)
         row = int((lowy - miny) / self.cell_size)
-        return (row, col) 
+        return (row, col)
+
+    def indexToCell(self, row, col):
+        minx, miny, _, _ = self.boundary.bounds
+        lowx = (col * self.cell_size) + minx
+        lowy = (row * self.cell_size) + miny
+        return (lowx, lowy, lowx+self.cell_size, lowy+self.cell_size)
     
     def createBinList(self):
         '''
@@ -301,31 +319,37 @@ class SharkOccupancyGrid:
         
         return grid
 
-    def plot(self, grid):
-        fig = plt.figure(1)
+    def plot(self, grid_dict):
+        fig = plt.figure(1, figsize=(10,8))
         x,y = self.boundary.exterior.xy
-        ax = fig.add_subplot(111)
-        ax.plot(x, y, color="black")
+        for i in range(len(list(grid_dict.keys()))):
+            ax = fig.add_subplot(2,2,i+1)
+            ax.plot(x, y, color="black")
 
-        patch = []
-        for cell in self.cell_list:
-            polygon = patches.Polygon(list(cell.exterior.coords), True)
-            patch.append(polygon)
+            patch = []
+            occ = []
+            key = list(grid_dict.keys())[i]
+            for cell in self.cell_list:
+                polygon = patches.Polygon(list(cell.exterior.coords), True)
+                patch.append(polygon)
+                row, col = self.cellToIndex(cell)
+                occ.append(grid_dict[key][row][col])
 
-        occ = [grid[self.cellToIndex(cell)[0]][self.cellToIndex(cell)[1]] for cell in self.cell_list]
-        p = collections.PatchCollection(patch)
-        p.set_cmap("Greys")
-        p.set_array(np.array(occ))
-        ax.add_collection(p)
-        fig.colorbar(p, ax=ax)
+            p = collections.PatchCollection(patch)
+            p.set_cmap("Greys")
+            p.set_array(np.array(occ))
+            ax.add_collection(p)
+            fig.colorbar(p, ax=ax)
 
-        ax.set_xlim([self.boundary.bounds[0]-10, self.boundary.bounds[2]+10])
-        ax.set_ylim([self.boundary.bounds[1]-10, self.boundary.bounds[3]+10])
+            ax.set_xlim([self.boundary.bounds[0]-10, self.boundary.bounds[2]+10])
+            ax.set_ylim([self.boundary.bounds[1]-10, self.boundary.bounds[3]+10])
+
+            ax.title.set_text(str(list(grid_dict.keys())[i]))
         
-        for shark_id, traj in self.data.items():
-            ax.plot([mps.x for mps in traj], [mps.y for mps in traj], label=shark_id)
-        ax.legend()
+            for shark_id, traj in self.timeBinDict[key].items():
+                ax.plot([mps.x for mps in traj], [mps.y for mps in traj], label=shark_id)
         
+        plt.legend(loc="lower right")
         plt.show()
         
 
@@ -335,16 +359,16 @@ for b in catalina.BOUNDARIES:
     pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
     boundary_poly.append((pos[0],pos[1]))
 boundary_poly = Polygon(boundary_poly)
-shark_dict = {1: [Motion_plan_state(-120 + (1 * i), -60 + (1 * i), traj_time_stamp=0.1*i) for i in range(1,51)], 
-    2: [Motion_plan_state(-75 - (1 * i), -40 + (1 * i), traj_time_stamp=0.1*i) for i in range(1,51)],
-    3: [Motion_plan_state(-110 + (1 * i), -40 - (1 * i), traj_time_stamp=0.1*i) for i in range(1,51)], 
-    4: [Motion_plan_state(-105 - (1 * i), -55 + (1 * i), traj_time_stamp=0.1*i) for i in range(1,51)],
-    5: [Motion_plan_state(-120 + (1 * i), -50 - (1 * i), traj_time_stamp=0.1*i) for i in range(1,51)], 
-    6: [Motion_plan_state(-85 - (1 * i), -45 + (1 * i), traj_time_stamp=0.1*i) for i in range(1,51)],
-    7: [Motion_plan_state(-250 + (1 * i), 60 + (1 * i), traj_time_stamp=0.1*i) for i in range(1,51)], 
-    8: [Motion_plan_state(-250 - (1 * i), 75 + (1 * i), traj_time_stamp=0.1*i) for i in range(1,51)],
-    9: [Motion_plan_state(-260 - (1 * i), 75 + (1 * i), traj_time_stamp=0.1*i) for i in range(1,51)], 
-    10: [Motion_plan_state(-260 + (1 * i), 100 - (1 * i), traj_time_stamp=0.1*i) for i in range(1,51)]}
+shark_dict = {1: [Motion_plan_state(-120 + (0.3 * i), -60 + (0.3 * i), traj_time_stamp=0.1*i) for i in range(1,201)], 
+    2: [Motion_plan_state(-65 - (0.3 * i), -50 + (0.3 * i), traj_time_stamp=0.1*i) for i in range(1,201)],
+    3: [Motion_plan_state(-110 + (0.3 * i), -40 - (0.3 * i), traj_time_stamp=0.1*i) for i in range(1,201)], 
+    4: [Motion_plan_state(-105 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=0.1*i) for i in range(1,201)],
+    5: [Motion_plan_state(-120 + (0.3 * i), -50 - (0.3 * i), traj_time_stamp=0.1*i) for i in range(1,201)], 
+    6: [Motion_plan_state(-85 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=0.1*i) for i in range(1,201)],
+    7: [Motion_plan_state(-270 + (0.3 * i), 50 + (0.3 * i), traj_time_stamp=0.1*i) for i in range(1,201)], 
+    8: [Motion_plan_state(-250 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=0.1*i) for i in range(1,201)],
+    9: [Motion_plan_state(-260 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=0.1*i) for i in range(1,201)], 
+    10: [Motion_plan_state(-275 + (0.3 * i), 80 - (0.3 * i), traj_time_stamp=0.1*i) for i in range(1,201)]}
 testing = SharkOccupancyGrid(shark_dict, 10, boundary_poly, 5, 50)
 # boundary_poly = box(0.0, 0.0, 10.0, 10.0)
 # shark_dict = {1: [Motion_plan_state(0 + (0.1 * i), 2 + (0.1 * i), traj_time_stamp=0.1*i) for i in range(1,81)], 
@@ -352,6 +376,6 @@ testing = SharkOccupancyGrid(shark_dict, 10, boundary_poly, 5, 50)
 # testing = SharkOccupancyGrid(shark_dict, 2, boundary_poly, 5, 10)
 # occGrid = testing.constructSharkOccupancyGrid(shark_dict[5])
 # auvGrid = testing.constructAUVGrid(occGrid)
-grid = testing.constructGrid(shark_dict)
-print(grid)
-testing.plot(grid)
+grid = testing.convert()
+print("finish")
+testing.plot(grid[0])
