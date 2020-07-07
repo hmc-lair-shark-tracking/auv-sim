@@ -144,16 +144,18 @@ class SharkOccupancyGrid:
         '''
         #initialize AUV detecing grid
         minx, miny, maxx, maxy = self.boundary.bounds
-        grid = [[1 for _ in range(int(math.ceil(maxx - minx) / self.cell_size)+1)] for _ in range(int(math.ceil(maxy - miny) / self.cell_size)+1)]
+        grid = [[0 for _ in range(int(math.ceil(maxx - minx) / self.cell_size)+1)] for _ in range(int(math.ceil(maxy - miny) / self.cell_size)+1)]
 
         for shark_id, traj in shark_traj_dict.items():
             tempOccGrid = self.constructSharkOccupancyGrid(traj)
             tempAUVGrid = self.constructAUVGrid(tempOccGrid)
             for i in range(len(grid)):
                 for j in range(len(grid[0])):
-                    grid[i][j] = grid[i][j] * tempAUVGrid[i][j]
-                    if grid[i][j] >= 1:
-                        print("problem here!", grid[i][j])
+                    grid[i][j] = grid[i][j] + tempAUVGrid[i][j]
+
+        for i in range(len(grid)):
+            for j in range(len(grid[0])):
+                grid[i][j] = grid[i][j] / len(list(shark_traj_dict.keys()))
         
         return grid
     
