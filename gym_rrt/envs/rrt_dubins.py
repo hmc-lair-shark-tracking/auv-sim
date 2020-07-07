@@ -35,23 +35,26 @@ class Planner_RRT:
         # initialize start, goal, obstacle, boundaryfor path planning
         self.start = start
         self.goal = goal
-        self.boundary = boundary
+        self.boundary_point = boundary
         
         self.obstacle_list = obstacles
-        #testing data for habitats
+        # testing data for habitats
         self.habitats = habitats
         
-        self.mps_list = [] # a list of motion_plan_state
+        # a list of motion_plan_state
+        self.mps_list = [self.start]
         self.time_bin = {}
 
-        #if minimum path length is not achieved within maximum iteration, return the latest path
+        # if minimum path length is not achieved within maximum iteration, return the latest path
         self.last_path = []
 
-        #setting parameters for path planning
+        # setting parameters for path planning
         self.exp_rate = exp_rate
         self.dist_to_end = dist_to_end
         self.diff_max = diff_max
         self.freq = freq
+
+        self.t_start = time.time()
 
 
     def exploring(self, shark_dict, sharkGrid, plot_interval, bin_interval, v, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1,-1], sonar_range=50):
@@ -238,6 +241,38 @@ class Planner_RRT:
             return self.last_path, (time.time() - self.t_start)
         
         return None, (time.time() - self.t_start)  # cannot find path
+
+
+    def generate_one_node(self, grid_cell, min_length=250):   
+
+        rand_mps = self.get_random_mps_from_region(grid_cell)
+        closest_mps = self.get_closest_mps(rand_mps, self.mps_list)
+        
+        new_mps = self.steer(closest_mps, self.dist_to_end, self.diff_max, self.freq)
+
+        if self.check_collision_free(new_mps, self.obstacle_list):
+            new_mps.parent = closest_mps
+            new_mps.length += closest_mps.length
+            self.mps_list.append(new_mps)
+            
+        final_mps = self.connect_to_goal_curve_alt(self.mps_list[-1], self.exp_rate)
+
+        if self.check_collision_free(final_mps, self.obstacle_list):
+            final_mps.parent = self.mps_list[-1]
+            path = self.generate_final_course(final_mps)
+            final_mps.length = self.cal_length(path)
+
+            if final_mps.length >= min_length:
+                # TODO: return the path?
+                return [final_mps.length, path]
+            else:
+                self.last_path = [final_mps.length, path]
+
+        # TODO: this is not right..
+        if self.last_path != []:
+            return self.last_path
+        
+        return None
 
 
     def steer(self, mps, dist_to_end, diff_max, freq, velocity=1, traj_time_stamp=False):

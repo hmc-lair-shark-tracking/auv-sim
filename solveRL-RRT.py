@@ -200,7 +200,7 @@ def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
 Class for building policy and target neural network
 """
 class Neural_network(nn.Module):
-    def __init__(self, input_size, output_size_v, output_size_w, hidden_layer_in = 400, hidden_layer_out = 300):
+    def __init__(self, input_size, output_size, hidden_layer_1_in = 600, hidden_layer_1_out = 400, hidden_layer_2_out = 300, hidden_layer_3_out = 200):
         """
         Initialize the Q neural network with input
 
@@ -211,20 +211,23 @@ class Neural_network(nn.Module):
         """
         super().__init__()
         
-        # self.bn0 = nn.LayerNorm(input_size)
+        # input layer
+        self.input = nn.Linear(in_features = input_size, out_features = hidden_layer_1_in)
+        self.bn_in = nn.LayerNorm(hidden_layer_1_in)
 
-        self.fc1 = nn.Linear(in_features = input_size, out_features = hidden_layer_in)
-        self.bn1 = nn.LayerNorm(hidden_layer_in)
+        # hidden layer 1, 600 nodes
+        self.hidden_1 = nn.Linear(in_features = hidden_layer_1_in, out_features = hidden_layer_1_out) 
+        self.bn_h1 = nn.LayerNorm(hidden_layer_1_out)  
 
-        # branch for selecting v
-        self.fc2_v = nn.Linear(in_features = hidden_layer_in, out_features = hidden_layer_out) 
-        self.bn2_v = nn.LayerNorm(hidden_layer_out)     
-        self.out_v = nn.Linear(in_features = hidden_layer_out, out_features = output_size_v)
-     
-        # branch for selecting w
-        self.fc2_w = nn.Linear(in_features = hidden_layer_in, out_features = hidden_layer_out)
-        self.bn2_w = nn.LayerNorm(hidden_layer_out)     
-        self.out_w = nn.Linear(in_features = hidden_layer_out, out_features = output_size_w)
+        # hidden layer 2, 400 nodes
+        self.hidden_2 = nn.Linear(in_features = hidden_layer_1_out, out_features = hidden_layer_2_out)
+        self.bn_h2 = nn.LayerNorm(hidden_layer_2_out)
+
+        # hideen layer 3, 300 nodes
+        self.hidden_3 = nn.Linear(in_features = hidden_layer_2_out, out_features = hidden_layer_3_out)
+        self.bn_h3 = nn.LayerNorm(hidden_layer_3_out)
+
+        self.out = nn.Linear(in_features = hidden_layer_3_out, out_features = output_size)   
         
 
     def forward(self, t):
@@ -234,30 +237,29 @@ class Neural_network(nn.Module):
         Parameters:
             t - the state as a tensor
         """
-        # pass through the layers then have relu applied to it
-        # relu is the activation function that will turn any negative value to 0,
-        #   and keep any positive value
-        # t = self.bn0(t)
-
-        t = self.fc1(t)
+        # input layer
+        t = self.input(t)
         t = F.relu(t)
-        t = self.bn1(t)
+        t = self.bn_in(t)
 
-        # the neural network is separated into 2 separate branch
-        t_v = self.fc2_v(t)
-        t_v = F.relu(t_v)
-        t_v = self.bn2_v(t_v)
+        # hidden layer 1
+        t = self.hidden_1(t)
+        t = F.relu(t)
+        t = self.bn_h1(t)
 
-        t_w = self.fc2_w(t)
-        t_w = F.relu(t_w)
-        t_w = self.bn2_w(t_w)
+        # hidden layer 2
+        t = self.hidden_2(t)
+        t = F.relu(t)
+        t = self.bn_h2(t)
+
+        # hidden layer 3
+        t = self.hidden_3(t)
+        t = F.relu(t)
+        t = self.bn_h3(t)
   
-        # pass through the last layer, the output layer
-        # output is a tensor of Q-Values for all the optinons for v/w
-        t_v = self.out_v(t_v)  
-        t_w = self.out_w(t_w)
+        t = self.out(t)
 
-        return torch.stack((t_v, t_w))
+        return t
 
 
 
@@ -748,7 +750,6 @@ class DQN():
 
         self.plot_summary_graph(episode_array, avg_total_reward_array, upper_plot_ylabel, upper_plot_title, \
             avg_dist_btw_auv_shark_array, lower_plot_ylabel, lower_plot_title)
-
 
         # plot #2: 
         #   collision rate vs epsiodes

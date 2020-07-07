@@ -216,7 +216,7 @@ class RRTEnv(gym.Env):
         text = input("stop")
 
 
-    def step(self, agent, policy_net):
+    def step(self, chosen_grid):
         """
         In each step, we will generate an additional node in the RRT tree.
 
@@ -231,19 +231,10 @@ class RRTEnv(gym.Env):
             info - dictionary, can provide debugging info (TODO: right now, it's just an empty one)
         """
 
-        auv_pos = self.state["auv_pos"]
-        shark_pos = self.state["shark_pos"]
-        obstacles_array = self.state["obstacles_pos"]
-
-        rrt_path, used_time = self.rrt_planner.planning(auv_pos, shark_pos, obstacles_array,\
-            agent = agent, policy_net = policy_net)
-        
-        self.state['rrt_path'] = rrt_path
-
-        done = False
+        updated_grid, done = self.rrt_planner.generate_one_node(self, chosen_grid)
 
         # TODO: For now, the reward encourages using less time to plan the path
-        reward = -used_time
+        reward = -1
 
         return self.state, reward, done, {}
 
@@ -591,8 +582,8 @@ class RRTEnv(gym.Env):
             'auv_pos': auv_init_pos,\
             'shark_pos': shark_init_pos,\
             'obstacles_pos': self.obstacle_array,\
-            'habitats_pos': self.habitats_array,\
-            'auv_dist_from_walls': self.habitat_grid.distance_from_grid_boundary(auv_init_pos)
+            'rrt_grid': [],\
+            'rrt_grid_info': []
         }
 
         return self.state
