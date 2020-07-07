@@ -163,7 +163,7 @@ class Planner_RRT:
         return {"path length": opt_path[0], "path": opt_path[1], "cost": opt_cost, "cost list": opt_cost_list}
         
 
-    def planning(self, max_traj_time=5.0, animation=False, min_length = 250, plan_time=True):
+    def planning(self, start, goal, obstacles_array, max_traj_time=5.0, animation=False, min_length = 250, plan_time=True, agent=None, policy_net=None):
         """
         RRT path planning with a specific goal
 
@@ -172,21 +172,38 @@ class Planner_RRT:
             2. the maximum planning time has passed
 
         Parameters:
-            animation: flag for animation on or off
+            start -  an np array
+            animation - flag for animation on or off
 
         """
+        if type(start) == np.ndarray or type(start) == list:
+            self.start = Motion_plan_state(x=start[0], y=start[1], z=start[2], theta=start[3])
+        else:
+            self.start = start
+
+        if type(goal) == np.ndarray or type(goal) == list:
+            self.goal = Motion_plan_state(x=goal[0], y=goal[1], z=goal[2], theta=goal[3])
+        else:
+            self.goal = goal
     
         self.mps_list = [self.start]
         
         self.t_start = time.time()
         # determine the planning time
         t_end = time.time() + max_traj_time
-        while time.time()<t_end:
+
+        while time.time() < t_end:
             
             # TODO: this is the primary place where we are modifying how we generate a random state and finding the nearest neighbor
             #   matching line 3 and 4 in the RRT paper pseudocode
+            if agent != None and policy_net != None:
+                # a motion plan state representing the region to pick random node
+                region_to_generate_rand_mps = agent.select_action()
 
-            # find the closest motion_plan_state by generating a random time stamp and 
+                rand_mps = self.get_random_mps_from_region(region_to_generate_rand_mps)
+                closest_mps = self.get_closest_mps(rand_mps, self.mps_list)
+                
+            """# find the closest motion_plan_state by generating a random time stamp and 
             # find the motion_plan_state whose time stamp is closest to it
             if plan_time:
                 ran_time = random.uniform(0, max_traj_time * self.freq)
@@ -195,7 +212,7 @@ class Planner_RRT:
             # and find the motion_plan_state with smallest distance
             else:
                 ran_mps = self.get_random_mps()
-                closest_mps = self.get_closest_mps(ran_mps, self.mps_list)
+                closest_mps = self.get_closest_mps(ran_mps, self.mps_list)"""
             
             new_mps = self.steer(closest_mps, self.dist_to_end, self.diff_max, self.freq)
 
@@ -210,16 +227,17 @@ class Planner_RRT:
                 final_mps.parent = self.mps_list[-1]
                 path = self.generate_final_course(final_mps)
                 final_mps.length = self.cal_length(path)
+
                 if final_mps.length >= min_length:
-                    return [final_mps.length, path]
+                    return [final_mps.length, path], (time.time() - self.t_start)
                 else:
                     self.last_path = [final_mps.length, path]
 
         #return the latest possible path
         if self.last_path != []:
-            return self.last_path
+            return self.last_path, (time.time() - self.t_start)
         
-        return None  # cannot find path
+        return None, (time.time() - self.t_start)  # cannot find path
 
 
     def steer(self, mps, dist_to_end, diff_max, freq, velocity=1, traj_time_stamp=False):
@@ -261,6 +279,7 @@ class Planner_RRT:
         new_mps.path[0] = mps
 
         return new_mps
+
 
     def connect_to_goal(self, mps, exp_rate, dist_to_end=float("inf")):
         new_mps = Motion_plan_state(mps.x, mps.y)
@@ -312,6 +331,23 @@ class Planner_RRT:
         #ran_z = random.uniform(self.min_area.z, self.max_area.z)
         
         return mps
+
+    
+    def get_random_mps_from_region(self, region, size_max = 15):
+        """
+        Generate a random size based on the region picked by the neural network
+        """
+        x_min = region.x
+        x_max = region.x + region.size
+        y_min = region.y
+        y_max = region.x + region.size
+        
+        ran_x = random.uniform(x_min, x_max)
+        ran_y = random.uniform(y_min, y_max)
+        ran_theta = random.uniform(-math.pi, math.pi)
+        ran_size = random.uniform(1, size_max)
+
+        return Motion_plan_state(ran_x, ran_y, theta=ran_theta, size=ran_size)
 
     def draw_graph(self, traj_path, rnd=None):
         #plt.clf()
@@ -375,6 +411,7 @@ class Planner_RRT:
         #plt.plot(self.goal.x, self.goal.y, "xr")
         # plot trajectory
 
+
     @staticmethod
     def plot_circle(x, y, size, color="-b"):  # pragma: no cover
         deg = list(range(0, 360, 5))
@@ -383,6 +420,7 @@ class Planner_RRT:
         yl = [y + size * math.sin(np.deg2rad(d)) for d in deg]
         plt.plot(xl, yl, color)
     
+
     def connect_to_goal_curve(self, mps1):
         a = (self.goal.y - mps1.y)/(np.cosh(self.goal.x) - np.cosh(mps1.x))
         b = mps1.y - a * np.cosh(mps1.x)
@@ -401,6 +439,7 @@ class Planner_RRT:
         plt.plot([mps.x for mps in new_mps.path], [mps.y for mps in new_mps.path], color)
         plt.show()'''
         return new_mps
+    
     
     def connect_to_goal_curve_alt(self, mps, exp_rate):
         new_mps = Motion_plan_state(mps.x, mps.y, theta=mps.theta, traj_time_stamp=mps.traj_time_stamp)
@@ -454,7 +493,7 @@ class Planner_RRT:
             return self.angle_wrap(ang)
 
     def get_closest_mps(self, ran_mps, mps_list):
-        min_dist, _ = self.get_distance_angle(mps_list[0],ran_mps)
+        min_dist, _ = self.get_distance_angle(mps_list[0], ran_mps)
         closest_mps = mps_list[0]
         for mps in mps_list:
             dist, _ = self.get_distance_angle(mps, ran_mps)
@@ -498,8 +537,10 @@ class Planner_RRT:
                 return False  # collision
         
         for point in mps.path:
-            point = Point(point.x, point.y)
-            if not point.within(self.boundary_poly):
+            print("check collision free, is point a motion plan state")
+            print(type(point))
+            text = input("stop")
+            if not self.check_within_boundary(point):
                 return False
 
         return True  # safe

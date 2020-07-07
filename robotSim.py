@@ -9,7 +9,6 @@ import gym
 import time
 import timeit
 
-
 from sharkState import SharkState
 from sharkTrajectory import SharkTrajectory
 from live3DGraph import Live3DGraph
@@ -170,6 +169,7 @@ class RobotSim:
 
             return False
         
+        
     def get_habitats(self):
         '''
         get the location of all habitats within the boundary, represented as a list of motion_plan_states
@@ -184,6 +184,7 @@ class RobotSim:
             Motion_plan_state(825, 330, size=6), Motion_plan_state(830, 335, size=5)]
         
         return habitats
+
 
     def track_trajectory(self, trajectory, new_trajectory):
         """

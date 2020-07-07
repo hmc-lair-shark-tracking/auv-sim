@@ -176,6 +176,7 @@ class RRTEnv(gym.Env):
         # initialize the RRT planner
         self.rrt_planner = Planner_RRT(self.auv_init_pos, self.shark_init_pos, boundary_array, obstacle_array, self.habitats_array_for_rendering)
 
+        # discretize the environment into square cells so that the neural net will be able to pick which location to expand the tree
         self.discretize_env(grid_side_length = 10)
 
         # declare the observation space (required by OpenAI)
@@ -215,9 +216,9 @@ class RRTEnv(gym.Env):
         text = input("stop")
 
 
-    def step(self, action):
+    def step(self, agent, policy_net):
         """
-        Run one time step (defined as DELTA_T) of the dynamics in the environment
+        In each step, we will generate an additional node in the RRT tree.
 
         Parameter:
             action - a tuple, representing the linear velocity and angular velocity of the auv
@@ -229,73 +230,20 @@ class RRTEnv(gym.Env):
             done - float, whether the episode has ended
             info - dictionary, can provide debugging info (TODO: right now, it's just an empty one)
         """
-        v, w = action
 
-        # calculate the range between the auv and the shark in the previous timestep
-        # use this to calculate reward
-        """old_range = self.calculate_range(self.state['auv_pos'], self.state['shark_pos'])"""
+        auv_pos = self.state["auv_pos"]
+        shark_pos = self.state["shark_pos"]
+        obstacles_array = self.state["obstacles_pos"]
+
+        rrt_path, used_time = self.rrt_planner.planning(auv_pos, shark_pos, obstacles_array,\
+            agent = agent, policy_net = policy_net)
         
-        # get the old position and orientation data for the auv
-        x, y, z, theta = self.state['auv_pos']
-      
-        # for testing, keep track of the distance that the auv has traveled in this time step
-        self.distance_traveled = 0
+        self.state['rrt_path'] = rrt_path
 
-        # calculate the new position and orientation of the auv
-        for _ in range(REPEAT_ACTION_TIME):
-            theta = angle_wrap(theta + w * DELTA_T)
-            dist_x = v * np.cos(theta) * DELTA_T
-            x = x + dist_x
-            dist_y = v * np.sin(theta) * DELTA_T
-            y = y + dist_y
-            self.distance_traveled += np.sqrt(dist_x ** 2 + dist_y ** 2)
-       
-        """shark_x, shark_y, shark_z, shark_theta = self.state['shark_pos']
+        done = False
 
-        # randomly pick the linear and angular velocity of the shark
-        shark_v = np.random.uniform(SHARK_MIN_V, SHARK_MAX_V)
-        shark_w = np.random.uniform(-SHARK_MAX_W, SHARK_MAX_W)
-
-        for _ in range(REPEAT_ACTION_TIME):
-            shark_theta = angle_wrap(shark_theta + shark_w * DELTA_T)
-            shark_x = shark_x + shark_v * np.cos(shark_theta) * DELTA_T
-            shark_y = shark_y + shark_v * np.sin(shark_theta) * DELTA_T
-
-        new_shark_pos = np.array([shark_x, shark_y, shark_z, shark_theta])"""
-        
-        # update the current state to the new state
-        self.state['auv_pos'] = np.array([x, y, z, theta])
-
-        # calculate the new distance from the wall
-        self.state['auv_dist_from_walls'] = self.habitat_grid.distance_from_grid_boundary(self.state['auv_pos'])
-
-        """self.state['shark_pos'] = new_shark_pos"""
-
-        # the episode will only end (done = True) if
-        #   - the auv has hit an obstacle, or
-        #   - the auv has exceeded the habitat grid
-        done = self.check_collision(self.state['auv_pos']) or (not (self.habitat_grid.within_habitat_env(self.state['auv_pos'])))
-
-        # a HabitatCell object, able to indicate which habitat is the auv in currently
-        # might be a boolean when the auv is out of bound
-        self.visited_habitat_cell = self.habitat_grid.inside_habitat(self.state['auv_pos'])
-
-        # keep track of the total time that the auv has spent in a habitat
-        # need to check if it's False, because that indicates that the auv is out of bound
-        if self.visited_habitat_cell != False:
-            self.total_time_in_hab += 1
-
-        # update the habitats array so that it will increment "the number of time visited" for the habitat that the auv has just visited in this time step
-        self.habitats_array = self.update_num_time_visited_for_habitats(self.habitats_array, self.visited_habitat_cell)
-
-        # because we are constantly modifying "number of time visited", 
-        # we want to make sure that we are actually storing a new copy of habitats_array into the state, instead of just making a reference
-        self.state['habitats_pos'] = copy.deepcopy(self.habitats_array)
-
-        # reward = self.get_reward_with_habitats(self.state['auv_pos'], self.state['shark_pos'], old_range, self.state['habitats_pos'],self.visited_habitat_index_array)
-        # reward = self.get_reward_with_habitats_no_decay(self.state['auv_pos'], self.state['shark_pos'], old_range, self.state['habitats_pos'], self.visited_habitat_cell)
-        # reward = self.get_range_reward(self.state['auv_pos'], self.state['shark_pos'], old_range)
-        reward = self.get_reward_with_habitats_no_shark(self.state['auv_pos'], self.state['habitats_pos'], self.visited_habitat_cell, self.state['auv_dist_from_walls'])
+        # TODO: For now, the reward encourages using less time to plan the path
+        reward = -used_time
 
         return self.state, reward, done, {}
 
@@ -625,10 +573,10 @@ class RRTEnv(gym.Env):
             a dictionary with the initial observation of the environment
         """
         # reset the habitat array, make sure that the number of time visited is cleared to 0
-        self.habitats_array = []
-        for hab in self.habitats_array_for_rendering:
-            self.habitats_array.append([hab.x, hab.y, hab.side_length, hab.num_of_time_visited])
-        self.habitats_array = np.array(self.habitats_array)
+        # self.habitats_array = []
+        # for hab in self.habitats_array_for_rendering:
+        #     self.habitats_array.append([hab.x, hab.y, hab.side_length, hab.num_of_time_visited])
+        # self.habitats_array = np.array(self.habitats_array)
 
         # reset the count for how many unique habitat had the auv visited
         self.visited_unique_habitat_count = 0
@@ -637,8 +585,11 @@ class RRTEnv(gym.Env):
 
         auv_init_pos = np.array([self.auv_init_pos.x, self.auv_init_pos.y, self.auv_init_pos.z, self.auv_init_pos.theta])
 
+        shark_init_pos = np.array([self.shark_init_pos.x, self.shark_init_pos.y, self.shark_init_pos.z, self.shark_init_pos.theta])
+
         self.state = {
             'auv_pos': auv_init_pos,\
+            'shark_pos': shark_init_pos,\
             'obstacles_pos': self.obstacle_array,\
             'habitats_pos': self.habitats_array,\
             'auv_dist_from_walls': self.habitat_grid.distance_from_grid_boundary(auv_init_pos)
