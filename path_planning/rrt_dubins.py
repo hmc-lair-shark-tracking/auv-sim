@@ -55,7 +55,7 @@ class RRT:
         self.diff_max = diff_max
         self.freq = freq
 
-    def exploring(self, shark_dict, sharkGrid, plot_interval, bin_interval, v, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1,-1], sonar_range=50):
+    def exploring(self, shark_dict, sharkGrid, plot_interval, bin_interval, v, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1,-1]):
         """
         rrt path planning without setting a specific goal, rather try to explore the configuration space as much as possible
         calculate cost while expand and keep track of the current optimal cost path
@@ -148,7 +148,7 @@ class RRT:
                         temp_length = new_mps.length - closest_mps.length
                         traj_time = new_mps.traj_time_stamp - closest_mps.traj_time_stamp
                         if traj_time != 0:    
-                            new_cost = cal_cost.habitat_shark_cost_func(new_mps.path, temp_length, peri_boundary, traj_time, self.habitats, sharkOccupancyDict, weights, sonar_range=sonar_range)
+                            new_cost = cal_cost.habitat_shark_cost_func(new_mps.path, temp_length, peri_boundary, traj_time, self.habitats, sharkOccupancyDict, weights)
                             if closest_mps.cost == []:
                                 new_mps.cost = new_cost
                             else:
