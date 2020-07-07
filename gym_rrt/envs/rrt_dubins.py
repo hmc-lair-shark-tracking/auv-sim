@@ -11,12 +11,12 @@ import numpy as np
 from shapely.wkt import loads as load_wkt 
 from shapely.geometry import Polygon, Point
 
-from gym_rrt.envs.motion_plan_state import Motion_plan_state
-from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
+from motion_plan_state import Motion_plan_state
+from grid_cell_rrt import Grid_cell_RRT
 
 # TODO: wrong import
-import catalina
-from sharkOccupancyGrid import SharkOccupancyGrid
+# import catalina
+# from sharkOccupancyGrid import SharkOccupancyGrid
 
 #from shortest_rrt import Shrt_path
 
@@ -27,7 +27,7 @@ class Planner_RRT:
     """
     Class for RRT planning
     """
-    def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 50, cell_side_length = 10):
+    def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 50, cell_side_length = 2):
         '''
         Parameters:
             start - initial Motion_plan_state of AUV, [x, y, z, theta, v, w, time_stamp]
@@ -43,18 +43,13 @@ class Planner_RRT:
 
         # discretize the environment into grids
         self.discretize_env(self.cell_side_length)
-
-        print("before adding the start and the goal")
-        print(self.env_grid)
-        text = input("stop")
+        
+        self.occupied_grid_cells_array = []
 
         # add the start and the goal to the grid
         self.add_node_to_grid(self.start)
         self.add_node_to_grid(self.goal)
 
-        print("after adding the start and the goal")
-        print(self.env_grid)
-        text = input("stop")
         
         self.obstacle_list = obstacles
         # testing data for habitats
@@ -113,6 +108,10 @@ class Planner_RRT:
             return
 
         self.env_grid[hab_index_row][hab_index_col].node_list.append(mps)
+
+        # add the grid cell into the occupied grid cell array if it hasn't been added
+        if len(self.env_grid[hab_index_row][hab_index_col].node_list) == 1:
+            self.occupied_grid_cells_array.append((hab_index_row, hab_index_col))
 
 
     def exploring(self, shark_dict, sharkGrid, plot_interval, bin_interval, v, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1,-1], sonar_range=50):
@@ -224,7 +223,7 @@ class Planner_RRT:
         return {"path length": opt_path[0], "path": opt_path[1], "cost": opt_cost, "cost list": opt_cost_list}
         
 
-    def planning(self, obstacles_array, max_traj_time=5.0, animation=False, min_length = 250, plan_time=True, agent=None, policy_net=None):
+    def planning(self, max_traj_time=10.0, animation=False, min_length = 250, plan_time=True):
         """
         RRT path planning with a specific goal
 
@@ -237,87 +236,60 @@ class Planner_RRT:
             animation - flag for animation on or off
 
         """
+        # maximum amount for the planner to expand the tree
         t_end = time.time() + max_traj_time
 
-        while time.time() < t_end:
-            
-            # TODO: this is the primary place where we are modifying how we generate a random state and finding the nearest neighbor
-            #   matching line 3 and 4 in the RRT paper pseudocode
-            if agent != None and policy_net != None:
-                # a motion plan state representing the region to pick random node
-                region_to_generate_rand_mps = agent.select_action()
+        path = []
 
-                rand_mps = self.get_random_mps_from_region(region_to_generate_rand_mps)
-                closest_mps = self.get_closest_mps(rand_mps, self.mps_list)
-                
-            """# find the closest motion_plan_state by generating a random time stamp and 
-            # find the motion_plan_state whose time stamp is closest to it
-            if plan_time:
-                ran_time = random.uniform(0, max_traj_time * self.freq)
-                closest_mps = self.get_closest_mps_time(ran_time, self.mps_list)
-            # find the closest motion_plan_state by generating a random motion_plan_state
-            # and find the motion_plan_state with smallest distance
-            else:
-                ran_mps = self.get_random_mps()
-                closest_mps = self.get_closest_mps(ran_mps, self.mps_list)"""
-            
-            new_mps = self.steer(closest_mps, self.dist_to_end, self.diff_max, self.freq)
+        while time.time()<t_end:
 
-            if self.check_collision_free(new_mps, self.obstacle_list):
-                new_mps.parent = closest_mps
-                new_mps.length += closest_mps.length
-                self.mps_list.append(new_mps)
-                
-            final_mps = self.connect_to_goal_curve_alt(self.mps_list[-1], self.exp_rate)
+            # pick the row index and col index for the grid cell where the tree will get expanded
+            grid_cell_row, grid_cell_col = random.choice(self.occupied_grid_cells_array)
 
-            if self.check_collision_free(final_mps, self.obstacle_list):
-                final_mps.parent = self.mps_list[-1]
-                path = self.generate_final_course(final_mps)
-                final_mps.length = self.cal_length(path)
+            done, path = self.generate_one_node(self.env_grid[grid_cell_row][grid_cell_col], animation = animation)
 
-                if final_mps.length >= min_length:
-                    return [final_mps.length, path], (time.time() - self.t_start)
-                else:
-                    self.last_path = [final_mps.length, path]
+            if done:
+                break
 
-        #return the latest possible path
-        if self.last_path != []:
-            return self.last_path, (time.time() - self.t_start)
+        return path
+
+
+    def generate_one_node(self, grid_cell, animation=False, min_length=250):
+        """
+        Based on the grid cell, randomly pick a node to expand the tree from from
+
+        Return:
+            done - True if we have found a collision-free path from the start to the goal
+            path - the collision-free path if there is one, otherwise it's null
+        """
+        # randomly pick a node from the grid cell
+        rand_node = random.choice(grid_cell.node_list)
+
+        new_node = self.steer(rand_node, self.dist_to_end, self.diff_max, self.freq)
         
-        return None, (time.time() - self.t_start)  # cannot find path
+        # only add the new node if it's collision free
+        if self.check_collision_free(new_node, self.obstacle_list):
+            new_node.parent = rand_node
+            new_node.length += rand_node.length
+            self.mps_list.append(new_node)
 
+        if animation:
+            self.draw_graph(new_node)
 
-    def generate_one_node(self, grid_cell, min_length=250):   
+        final_node = self.connect_to_goal_curve_alt(self.mps_list[-1], self.exp_rate)
 
-        rand_mps = self.get_random_mps_from_region(grid_cell)
-        closest_mps = self.get_closest_mps(rand_mps, self.mps_list)
+        # if we can create a path between the newly generated node and the goal
+        if self.check_collision_free(final_node, self.obstacle_list):
+            final_node.parent = self.mps_list[-1]
+            path = self.generate_final_course(final_node)   
+            return True, path
+
+        if animation:
+            self.draw_graph(final_node)
         
-        new_mps = self.steer(closest_mps, self.dist_to_end, self.diff_max, self.freq)
+        return False, None
 
-        if self.check_collision_free(new_mps, self.obstacle_list):
-            new_mps.parent = closest_mps
-            new_mps.length += closest_mps.length
-            self.mps_list.append(new_mps)
-            
-        final_mps = self.connect_to_goal_curve_alt(self.mps_list[-1], self.exp_rate)
-
-        if self.check_collision_free(final_mps, self.obstacle_list):
-            final_mps.parent = self.mps_list[-1]
-            path = self.generate_final_course(final_mps)
-            final_mps.length = self.cal_length(path)
-
-            if final_mps.length >= min_length:
-                # TODO: return the path?
-                return [final_mps.length, path]
-            else:
-                self.last_path = [final_mps.length, path]
-
-        # TODO: this is not right..
-        if self.last_path != []:
-            return self.last_path
         
-        return None
-
 
     def steer(self, mps, dist_to_end, diff_max, freq, velocity=1, traj_time_stamp=False):
         """
@@ -384,6 +356,7 @@ class Planner_RRT:
 
         return new_mps
     
+
     def generate_final_course(self, mps):
         path = [mps]
         mps = mps
@@ -395,21 +368,6 @@ class Planner_RRT:
         #path.append(mps)
 
         return path
-
-    def get_random_mps(self, size_max=15):
-        x_max = max([mps.x for mps in self.boundary])
-        x_min = min([mps.x for mps in self.boundary])
-        y_max = max([mps.y for mps in self.boundary])
-        y_min = min([mps.y for mps in self.boundary])
-
-        ran_x = random.uniform(x_min, x_max)
-        ran_y = random.uniform(y_min, y_max)
-        ran_theta = random.uniform(-math.pi, math.pi)
-        ran_size = random.uniform(0, size_max)
-        mps = Motion_plan_state(ran_x, ran_y, theta=ran_theta, size=ran_size)
-        #ran_z = random.uniform(self.min_area.z, self.max_area.z)
-        
-        return mps
 
     
     def get_random_mps_from_region(self, region, size_max = 15):
@@ -428,67 +386,28 @@ class Planner_RRT:
 
         return Motion_plan_state(ran_x, ran_y, theta=ran_theta, size=ran_size)
 
-    def draw_graph(self, traj_path, rnd=None):
-        #plt.clf()
-        
-        _, ax = plt.subplots()
+
+    def draw_graph(self, rnd=None):
+        plt.clf()
         # for stopping simulation with the esc key.
         plt.gcf().canvas.mpl_connect('key_release_event',
                                      lambda event: [exit(0) if event.key == 'escape' else None])
         if rnd is not None:
             plt.plot(rnd.x, rnd.y, "^k")
-
-        # plot the boundaries as polygon lines
-        Path = mpath.Path
-        path_data = []
-
-        for i in range(len(catalina.BOUNDARIES)): 
-            pos = catalina.create_cartesian((catalina.BOUNDARIES[i].x, catalina.BOUNDARIES[i].y), catalina.ORIGIN_BOUND)
-            if i == 0: 
-                path_data.append((Path.MOVETO, pos))
-            else:
-                path_data.append((Path.LINETO, pos))
-
-        last = catalina.create_cartesian((catalina.BOUNDARIES[0].x, catalina.BOUNDARIES[0].y), catalina.ORIGIN_BOUND)
-        path_data.append((Path.CLOSEPOLY, last))
-
-        codes, verts = zip(*path_data)
-        path = mpath.Path(verts, codes)
-        patch = mpatches.PathPatch(path, facecolor=None, alpha=0)
-
-        ax.add_patch(patch)
-
-        # for mps in self.mps_list:
-        #     if mps.parent:
-        #         plt.plot([point.x for point in mps.path], [point.y for point in mps.path], '-g')
-
-        # plot obstacels as circles 
-        for obs in catalina.OBSTACLES:
-            pos_circle = catalina.create_cartesian((obs.x, obs.y), catalina.ORIGIN_BOUND)
-            ax.add_patch(plt.Circle(pos_circle, obs.size, color = '#000000', fill = False))
         
-        # plot boats as circles
-        for boat in catalina.BOATS:
-            pos_boat = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
-            ax.add_patch(plt.Circle(pos_boat, boat.size, color = '#000000', fill = False))
-        
-        for habitat in catalina.HABITATS:
-            pos_habitat = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
-            ax.add_patch(plt.Circle(pos_habitat, habitat.size, color = 'b', fill = False))
-        
-        #plot sharks
-        for shark_id, shark_traj in self.sharkDict.items():
-            plt.plot([mps.x for mps in shark_traj], [mps.y for mps in shark_traj], label=shark_id)
+        for mps in self.mps_list:
+            if mps.parent:
+                plt.plot([point.x for point in mps.path], [point.y for point in mps.path], '-g')
 
-        plt.legend()
-        ax.grid()
-        ax.axis('equal')
+        for obstacle in self.obstacle_list:
+            self.plot_circle(obstacle.x, obstacle.y, obstacle.size)
+
         plt.plot(self.start.x, self.start.y, "xr")
-        plt.plot([mps.x for mps in traj_path], [mps.y for mps in traj_path], '-r')
+        plt.plot(self.goal.x, self.goal.y, "xr")
+        plt.axis("equal")
+
         plt.grid(True)
-        plt.show()
-        #plt.plot(self.goal.x, self.goal.y, "xr")
-        # plot trajectory
+        plt.pause(1)
 
 
     @staticmethod
@@ -616,9 +535,6 @@ class Planner_RRT:
                 return False  # collision
         
         for point in mps.path:
-            print("check collision free, is point a motion plan state")
-            print(type(point))
-            text = input("stop")
             if not self.check_within_boundary(point):
                 return False
 
@@ -642,8 +558,8 @@ class Planner_RRT:
             True - if it's within the environment boundary
             False - otherwise
         """
-        env_btm_left_corner = self.boundary[0]
-        env_top_right_corner = self.boundary[1]
+        env_btm_left_corner = self.boundary_point[0]
+        env_top_right_corner = self.boundary_point[1]
 
         within_x_bound = mps.x > env_btm_left_corner.x and mps.x < env_top_right_corner.x
         within_y_bound = mps.y > env_btm_left_corner.y and mps.y > env_top_right_corner.y
@@ -689,47 +605,25 @@ class Planner_RRT:
 
         plt.show()
 
-# def main():
-#     start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
-#     start = Motion_plan_state(start[0], start[1])
+def main():
+    start = Motion_plan_state(0,0)
+    goal = Motion_plan_state(7,4)
+    boundary = [Motion_plan_state(0,0), Motion_plan_state(10,10)]
+    obstacle_array = [Motion_plan_state(5,7, size=2),Motion_plan_state(4,2, size=1)]
+    rrt = Planner_RRT(start, goal, boundary, obstacle_array, [])
+    path = rrt.planning(animation = True)
+    print(path)
 
-#     goal = catalina.create_cartesian(catalina.GOAL, catalina.ORIGIN_BOUND)
-#     goal = Motion_plan_state(goal[0], goal[1])
-
-#     obstacles = []
-#     for ob in catalina.OBSTACLES:
-#         pos = catalina.create_cartesian((ob.x, ob.y), catalina.ORIGIN_BOUND)
-#         obstacles.append(Motion_plan_state(pos[0], pos[1], size=ob.size))
-        
-#     boundary = []
-#     for b in catalina.BOUNDARIES:
-#         pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
-#         boundary.append(Motion_plan_state(pos[0], pos[1]))
-        
-#     boat_list = []
-#     for boat in catalina.BOATS:
-#         pos = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
-#         boat_list.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
-        
-#     #testing data for habitats
-#     habitats = []
-#     for habitat in catalina.HABITATS:
-#         pos = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
-#         habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
-    
-#     #testing data for shark trajectories
-#     shark_dict = {1: [Motion_plan_state(-102 + (0.1 * i), -91 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)], 
-#         2: [Motion_plan_state(-200 - (0.1 * i), -150 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)]}
-    
-#     rrt = RRT(goal, goal, boundary, obstacles, habitats)
-#     #path = rrt.planning(animation=False, min_length=0)
-#     path = rrt.exploring(shark_dict, 0.5, 5, 20, True, 10.0, 500.0, True, [1, -1, -1, -1])
-#     print(path["cost"])
-
-#     # Draw final path
-#     rrt.draw_graph(path["path"])
+    # Draw final path
+    if path is not None:
+        if show_animation:
+            rrt.draw_graph()
+            plt.plot([mps.x for mps in path[1]], [mps.y for mps in path[1]], '-r')
+            plt.grid(True)
+            plt.pause(0.01)
+            plt.show()
         
 
 
-# if __name__ == '__main__':
-#     main()
+if __name__ == '__main__':
+    main()
