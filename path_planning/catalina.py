@@ -29,10 +29,37 @@ def create_cartesian(pos, origin):
 
     return (x[0], y[0])
 
+def create_environs(obstacles, boundaries, boats, habitats):
+    """
+    
+    """
+    obstacle_list = []
+    boundary_list = []
+    boat_list = []
+    habitat_list = []
+
+    for obs in obstacles:
+        pos = create_cartesian((obs.x, obs.y), ORIGIN_BOUND)
+        obstacle_list.append(Motion_plan_state(pos[0], pos[1], size=obs.size))
+
+    for b in boundaries:
+        pos = create_cartesian((b.x, b.y), ORIGIN_BOUND)
+        boundary_list.append(Motion_plan_state(pos[0], pos[1]))
+    
+    for boat in boats:
+        pos = create_cartesian((boat.x, boat.y), ORIGIN_BOUND)
+        boat_list.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
+
+    for habi in habitats:
+        pos = create_cartesian((habi.x, habi.y), ORIGIN_BOUND)
+        habitat_list.append(Motion_plan_state(pos[0], pos[1], size=habi.size))
+    
+    return ([obstacle_list, boundary_list, boat_list, habitat_list])
+
 ORIGIN_BOUND = (33.445142, -118.484609)
-# ORIGIN_OBS = (33.445760, -118.486787)
 START = (33.445170, -118.484080)
-GOAL = (33.444497, -118.485390)
+GOAL = (33.445914, -118.489636)
+
 
 BOUNDARIES = [Motion_plan_state(33.445914, -118.489636), Motion_plan_state(33.446866, -118.488471),
             Motion_plan_state(33.445064, -118.483723), Motion_plan_state(33.443758, -118.485219),
@@ -55,7 +82,14 @@ BOATS = [Motion_plan_state(33.445425, -118.486314, size=5),
         Motion_plan_state(33.444412, -118.485508, size=5),
         Motion_plan_state(33.443940, -118.485384, size=5)]  
 
-HABITATS = [Motion_plan_state(33.444505, -118.485485, size=10),
-            Motion_plan_state(33.444788, -118.485393, size=15),
-            Motion_plan_state(33.444100, -118.485296, size=15),
-            Motion_plan_state(33.443900, -118.485088, size=17)]
+
+HABITATS = [Motion_plan_state(33.445733, -118.487789, size=45),
+    Motion_plan_state(33.446198, -118.486652, size=32),
+    Motion_plan_state(33.445400, -118.485959, size=20),
+    Motion_plan_state(33.445287, -118.484928, size=55)]
+
+GOAL_LIST = [(33.444928, -118.484448), (33.444686, -118.484716), 
+(33.444328, -118.485606), (33.444811, -118.486454), 
+(33.445491, -118.486894), (33.445491, -118.487731), 
+(33.446171, -118.488010), (33.446243, -118.488697), (33.445914, -118.489636)]
+

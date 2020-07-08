@@ -52,7 +52,6 @@ class Cost:
         #number of habitats visited
         count = 0
 
-
         for habitat in habitats:
             for mps in path:
                 dist = math.sqrt((habitat.x-mps.x) **2 + (habitat.y-mps.y) **2)
@@ -63,7 +62,47 @@ class Cost:
         cost = w1 * length - w2 * count
 
         return cost
-    
+
+
+    def cost_of_edge (self, new_node, habitat_open_list, habitat_closed_list, weights):
+
+        """
+        Calculate the cost of the new edge constructed when the new node is appended to the path list. 
+        The cost of edge accumulates to form the ultimate cost of the particular path under the specified condition.
+
+        Parameter: 
+            new_node: a Node object represents the next node to connect to the existing path 
+            current_path: a list of Motion_plan_state objects, dynamically changing as more Node objects added to the existing path
+            habitat_open_list: a list of Motion_plan_state objects holds habitats that have been covered 
+            habitat_closed_list: a list of Motion_plan_state objects holds new habitats that have not been covered 
+            weights: a list of three numbers 
+        """
+
+        #set the weight for each term in cost function
+        w1 = weights[0]
+        w2 = weights[1]
+        w3 = weights[2]
+
+        d_2 = 0 
+        d_3 = 0 
+
+        # set d_2
+        for habi in habitat_open_list+habitat_closed_list:
+            dist = math.sqrt((new_node.position[0]-habi.x) **2 + (new_node.position[1]-habi.y) **2)
+            if dist <= habi.size:
+                d_2 = 1
+                
+        # set d_3
+        for habi in habitat_closed_list:
+            dist = math.sqrt((new_node.position[0]-habi.x) **2 + (new_node.position[1]-habi.y) **2)
+            if dist <= habi.size:
+                d_3 = 1
+        
+        cost_of_edge = - w2 * d_2 - w3 * d_3
+
+        return ([cost_of_edge, d_2, d_3])
+
+
     def habitat_time_cost_func(self, path, length, habitats, dist, weights=[1,-1,-1]):
         '''
         cost function for habitat exploration, we want to find a path minimizing path length 
@@ -96,6 +135,7 @@ class Cost:
                 if dist <= habitats[i].size:
                     visited[i+1] = True
                     cost[2] += w3
+
         #normalize the cost for time spent in habitats
         cost[2] = cost[2] / (0.5 * dist)
     
@@ -109,6 +149,7 @@ class Cost:
 
         return [sum(cost), cost]
     
+
     def habitat_shark_cost_func(self, path, length, peri, total_traj_time, habitats, shark_dict, weight, sonar_range):
         '''
         cost function for habitat exploration and shark tracking
@@ -172,3 +213,4 @@ class Cost:
         cost[1] = w2 * count / len(habitats)
 
         return [sum(cost), cost]
+
