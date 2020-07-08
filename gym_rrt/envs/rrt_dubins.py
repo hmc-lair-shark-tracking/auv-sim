@@ -48,8 +48,9 @@ class Planner_RRT:
 
         # add the start and the goal to the grid
         self.add_node_to_grid(self.start)
-        self.add_node_to_grid(self.goal)
 
+        print("environment grid: ")
+        self.print_env_grid()
         
         self.obstacle_list = obstacles
         # testing data for habitats
@@ -89,6 +90,11 @@ class Planner_RRT:
                 env_cell_y = env_btm_left_corner.y + row * cell_side_length
                 self.env_grid[row].append(Grid_cell_RRT(env_cell_x, env_cell_y, side_length = cell_side_length))
 
+
+    def print_env_grid(self):
+        for row in self.env_grid:
+            for grid_cell in row:
+                print(grid_cell)
     
     def add_node_to_grid(self, mps):
         """
@@ -223,7 +229,7 @@ class Planner_RRT:
         return {"path length": opt_path[0], "path": opt_path[1], "cost": opt_cost, "cost list": opt_cost_list}
         
 
-    def planning(self, max_traj_time=10.0, animation=False, min_length = 250, plan_time=True):
+    def planning(self, max_traj_time = 10.0, max_time_step = 100, animation=False, min_length = 250, plan_time=True):
         """
         RRT path planning with a specific goal
 
@@ -241,7 +247,7 @@ class Planner_RRT:
 
         path = []
 
-        while time.time()<t_end:
+        for _ in range(max_time_step):
 
             # pick the row index and col index for the grid cell where the tree will get expanded
             grid_cell_row, grid_cell_col = random.choice(self.occupied_grid_cells_array)
@@ -262,19 +268,39 @@ class Planner_RRT:
             done - True if we have found a collision-free path from the start to the goal
             path - the collision-free path if there is one, otherwise it's null
         """
+        print("+++++++")
+        print(grid_cell)
+        print("+++++++")
+
         # randomly pick a node from the grid cell
         rand_node = random.choice(grid_cell.node_list)
 
         new_node = self.steer(rand_node, self.dist_to_end, self.diff_max, self.freq)
+       
+        if animation:
+            self.draw_graph(new_node)
+
         
         # only add the new node if it's collision free
         if self.check_collision_free(new_node, self.obstacle_list):
             new_node.parent = rand_node
             new_node.length += rand_node.length
             self.mps_list.append(new_node)
+            self.add_node_to_grid(new_node)
 
-        if animation:
-            self.draw_graph(new_node)
+            print("=========")
+            print("new node")
+            print(new_node)
+            print("-")
+            self.print_env_grid()
+            print("-")
+            print(self.occupied_grid_cells_array)
+            # text = input("stop")
+
+            # if animation:
+            #     plt.clf()
+            #     self.draw_graph(new_node)
+
 
         final_node = self.connect_to_goal_curve_alt(self.mps_list[-1], self.exp_rate)
 
@@ -282,14 +308,13 @@ class Planner_RRT:
         if self.check_collision_free(final_node, self.obstacle_list):
             final_node.parent = self.mps_list[-1]
             path = self.generate_final_course(final_node)   
-            return True, path
+            if animation:
+                self.draw_graph(final_node)
 
-        if animation:
-            self.draw_graph(final_node)
+            return True, path
         
         return False, None
 
-        
 
     def steer(self, mps, dist_to_end, diff_max, freq, velocity=1, traj_time_stamp=False):
         """
@@ -388,12 +413,14 @@ class Planner_RRT:
 
 
     def draw_graph(self, rnd=None):
-        plt.clf()
+        # plt.clf()  # if we want to clear the plot
         # for stopping simulation with the esc key.
         plt.gcf().canvas.mpl_connect('key_release_event',
                                      lambda event: [exit(0) if event.key == 'escape' else None])
         if rnd is not None:
             plt.plot(rnd.x, rnd.y, "^k")
+
+            plt.plot([point.x for point in rnd.path], [point.y for point in rnd.path], '-')
         
         for mps in self.mps_list:
             if mps.parent:
@@ -445,6 +472,7 @@ class Planner_RRT:
         _, theta = self.get_distance_angle(mps, self.goal)
         diff = theta - theta_0
         diff = self.angle_wrap(diff)
+        
         if abs(diff) > math.pi / 2:
             return
 
@@ -452,9 +480,18 @@ class Planner_RRT:
         r_G = math.hypot(self.goal.x - new_mps.x, self.goal.y - new_mps.y)
         phi_G = math.atan2(self.goal.y - new_mps.y, self.goal.x - new_mps.x)
 
-        #arc
-        phi = 2 * self.angle_wrap(phi_G - new_mps.theta)
-        radius = r_G / (2 * math.sin(phi_G - new_mps.theta))
+
+        # arc
+        if phi_G - new_mps.theta != 0:
+            phi = 2 * self.angle_wrap(phi_G - new_mps.theta)
+            # prevent a dividing by 0 error
+        else:
+            return
+        
+        if math.sin(phi_G - new_mps.theta) != 0:
+            radius = r_G / (2 * math.sin(phi_G - new_mps.theta))
+        else:
+            return
 
         length = radius * phi
         if phi > math.pi:
@@ -533,7 +570,7 @@ class Planner_RRT:
 
             if min(dList) <= obstacle.size:
                 return False  # collision
-        
+    
         for point in mps.path:
             if not self.check_within_boundary(point):
                 return False
@@ -561,8 +598,8 @@ class Planner_RRT:
         env_btm_left_corner = self.boundary_point[0]
         env_top_right_corner = self.boundary_point[1]
 
-        within_x_bound = mps.x > env_btm_left_corner.x and mps.x < env_top_right_corner.x
-        within_y_bound = mps.y > env_btm_left_corner.y and mps.y > env_top_right_corner.y
+        within_x_bound = (mps.x >= env_btm_left_corner.x) and (mps.x <= env_top_right_corner.x)
+        within_y_bound = (mps.y >= env_btm_left_corner.y) and (mps.y <= env_top_right_corner.y)
 
         return (within_x_bound and within_y_bound)
 
@@ -606,19 +643,32 @@ class Planner_RRT:
         plt.show()
 
 def main():
-    start = Motion_plan_state(0,0)
-    goal = Motion_plan_state(7,4)
-    boundary = [Motion_plan_state(0,0), Motion_plan_state(10,10)]
-    obstacle_array = [Motion_plan_state(5,7, size=2),Motion_plan_state(4,2, size=1)]
-    rrt = Planner_RRT(start, goal, boundary, obstacle_array, [])
+    auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
+    shark_init_pos = Motion_plan_state(x = 40.0, y = 40.0, z = -5.0, theta = 0.0)
+    # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
+    obstacle_array = [\
+        Motion_plan_state(x=15.0, y=38.0, size=4),\
+        Motion_plan_state(x=20.0, y=34.0, size=4),\
+        Motion_plan_state(x=25.0, y=25.0, size=4),\
+        Motion_plan_state(x=34.0, y=19.0, size=4),\
+        Motion_plan_state(x=43.0, y=5.0, size=4)\
+    ]
+
+    boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x=50.0, y=50.0)]
+
+
+    rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=5, cell_side_length=5)
+
     path = rrt.planning(animation = True)
+    print("completed path???")
     print(path)
+    text = input("stop")
 
     # Draw final path
     if path is not None:
         if show_animation:
             rrt.draw_graph()
-            plt.plot([mps.x for mps in path[1]], [mps.y for mps in path[1]], '-r')
+            plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
             plt.grid(True)
             plt.pause(0.01)
             plt.show()
