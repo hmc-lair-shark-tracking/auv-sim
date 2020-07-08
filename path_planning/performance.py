@@ -176,8 +176,8 @@ def summary_3(start, goal, boundary, boundary_poly, obstacle_array, habitats, sh
     weight3 = [[1, -3, -3, -3], "random (x,y)"]
     weights = [weight1, weight2, weight3]
 
-    sharkTesting = SharkOccupancyGrid(shark_dict, 20, boundary_poly, 5, 50)
-    sharkGrid = sharkTesting.convert()
+    sharkTesting = SharkOccupancyGrid(shark_dict, 10, boundary_poly, 5, 50)
+    sharkGrid = sharkTesting.convert()[1]
     
     for weight in weights:
         result, improvement = summary_2(start, goal, obstacle_array, boundary, habitats, shark_dict, sharkGrid, test_num, plan_time, plot_interval, weight)
@@ -256,6 +256,14 @@ for habitat in catalina.HABITATS:
     habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
         
 #testing data for shark trajectories
-shark_dict = {1: [Motion_plan_state(-102 + (0.1 * i), -91 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)], 
-    2: [Motion_plan_state(-150 - (0.1 * i), 0 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)]}
-summary_3(start, goal, boundary, boundary_poly, obstacles+boat_list, habitats, shark_dict, 10, 15, 0.5)
+shark_dict = shark_dict = {1: [Motion_plan_state(-120 + (0.3 * i), -60 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+    2: [Motion_plan_state(-65 - (0.3 * i), -50 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+    3: [Motion_plan_state(-110 + (0.3 * i), -40 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+    4: [Motion_plan_state(-105 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+    5: [Motion_plan_state(-120 + (0.3 * i), -50 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+    6: [Motion_plan_state(-85 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+    7: [Motion_plan_state(-270 + (0.3 * i), 50 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+    8: [Motion_plan_state(-250 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+    9: [Motion_plan_state(-260 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+    10: [Motion_plan_state(-275 + (0.3 * i), 80 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)]}
+summary_3(start, goal, boundary, boundary_poly, obstacles+boat_list, habitats, shark_dict, 5, 10, 0.5)

@@ -1,9 +1,8 @@
 import math
 import random
 import time
+import csv
 
-import matplotlib
-matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import matplotlib.path as mpath
 import matplotlib.patches as mpatches
@@ -24,7 +23,7 @@ class RRT:
     """
     Class for RRT planning
     """
-    def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 50):
+    def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 10):
         '''setting parameters:
             initial_location: initial Motion_plan_state of AUV, [x, y, z, theta, v, w, time_stamp]
             goal_location: Motion_plan_state of the shark, [x, y, z]
@@ -78,7 +77,9 @@ class RRT:
         cal_cost = Cost()
 
         #initialize shark occupancy grid
-        self.sharkGrid = sharkGrid
+        self.sharkOccupancyGrid = SharkOccupancyGrid(shark_dict, 10, self.boundary_poly, 5, 50)
+        cell_list = self.sharkOccupancyGrid.cell_list
+        self.sharkGrid = self.createSharkGrid('path_planning/AUVGrid_prob.csv', cell_list)
         self.sharkDict = shark_dict
 
         self.mps_list = [self.start]
@@ -164,7 +165,7 @@ class RRT:
         return {"path length": opt_path[0], "path": opt_path[1], "cost": opt_cost, "cost list": opt_cost_list}
         
 
-    def planning(self, max_traj_time=5.0, animation=False, min_length = 250, plan_time=True):
+    def planning(self, bin_interval=5, v=1, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True):
         """
         rrt path planning
         animation: flag for animation on or off
@@ -172,39 +173,53 @@ class RRT:
 
         self.mps_list = [self.start]
         self.t_start = time.time()
-        t_end = time.time() + max_traj_time
+        t_end = time.time() + max_plan_time
+        if traj_time_stamp:
+            time_expand = math.ceil(max_traj_time / bin_interval)
+            for i in range(1, time_expand + 1):
+                self.time_bin[bin_interval * i] = []
+            self.time_bin[bin_interval].append(self.start)
         while time.time()<t_end:
             #find the closest motion_plan_state by generating a random time stamp and 
             #find the motion_plan_state whose time stamp is closest to it
             if plan_time:
-                ran_time = random.uniform(0, max_traj_time * self.freq)
-                closest_mps = self.get_closest_mps_time(ran_time, self.mps_list)
+                if traj_time_stamp:
+                    ran_bin = int(random.uniform(1, time_expand + 1))
+                    while self.time_bin[bin_interval * ran_bin] == []:
+                        ran_bin = int(random.uniform(1, time_expand + 1))
+                    ran_index = int(random.uniform(0, len(self.time_bin[bin_interval * ran_bin])))
+                    closest_mps = self.time_bin[bin_interval * ran_bin][ran_index]
+                else:
+                    ran_time = random.uniform(0, max_plan_time * self.freq)
+                    closest_mps = self.get_closest_mps_time(ran_time, self.mps_list)
+                    if closest_mps.traj_time_stamp > max_traj_time:
+                        continue
             #find the closest motion_plan_state by generating a random motion_plan_state
             #and find the motion_plan_state with smallest distance
             else:
                 ran_mps = self.get_random_mps()
                 closest_mps = self.get_closest_mps(ran_mps, self.mps_list)
+                if closest_mps.traj_time_stamp > max_traj_time:
+                    continue
             
-            new_mps = self.steer(closest_mps, self.dist_to_end, self.diff_max, self.freq)
-
+            new_mps = self.steer(closest_mps, self.dist_to_end, self.diff_max, self.freq, v, traj_time_stamp)
             if self.check_collision(new_mps, self.obstacle_list):
+                print(new_mps)
                 new_mps.parent = closest_mps
-                new_mps.length += closest_mps.length
                 self.mps_list.append(new_mps)
+                #add to time stamp bin
+                if traj_time_stamp:
+                    curr_bin = (new_mps.traj_time_stamp // bin_interval + 1) * bin_interval
+                    if curr_bin > max_traj_time:
+                        #continue
+                        self.time_bin[curr_bin] = []
+                    self.time_bin[curr_bin].append(new_mps)
                 
             final_mps = self.connect_to_goal_curve_alt(self.mps_list[-1], self.exp_rate)
             if self.check_collision(final_mps, self.obstacle_list):
                 final_mps.parent = self.mps_list[-1]
                 path = self.generate_final_course(final_mps)
-                final_mps.length = self.cal_length(path)
-                if final_mps.length >= min_length:
-                    return [final_mps.length, path]
-                else:
-                    self.last_path = [final_mps.length, path]
-
-        #return the latest possible path
-        if self.last_path != []:
-            return self.last_path
+                return path
         
         return None  # cannot find path
 
@@ -380,11 +395,10 @@ class RRT:
         ax.grid()
         ax.axis('equal')
         plt.plot(self.start.x, self.start.y, "xr")
+        plt.plot(self.goal.x, self.goal.y, "xr")
         plt.plot([mps.x for mps in traj_path], [mps.y for mps in traj_path], '-r')
         plt.grid(True)
         plt.show()
-        #plt.plot(self.goal.x, self.goal.y, "xr")
-        # plot trajectory
 
     @staticmethod
     def plot_circle(x, y, size, color="-b"):  # pragma: no cover
@@ -548,48 +562,73 @@ class RRT:
         ax.legend()
 
         plt.show()
-
-# def main():
-#     start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
-#     start = Motion_plan_state(start[0], start[1])
-
-#     goal = catalina.create_cartesian(catalina.GOAL, catalina.ORIGIN_BOUND)
-#     goal = Motion_plan_state(goal[0], goal[1])
-
-#     obstacles = []
-#     for ob in catalina.OBSTACLES:
-#         pos = catalina.create_cartesian((ob.x, ob.y), catalina.ORIGIN_BOUND)
-#         obstacles.append(Motion_plan_state(pos[0], pos[1], size=ob.size))
-        
-#     boundary = []
-#     for b in catalina.BOUNDARIES:
-#         pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
-#         boundary.append(Motion_plan_state(pos[0], pos[1]))
-        
-#     boat_list = []
-#     for boat in catalina.BOATS:
-#         pos = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
-#         boat_list.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
-        
-#     #testing data for habitats
-#     habitats = []
-#     for habitat in catalina.HABITATS:
-#         pos = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
-#         habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
     
-#     #testing data for shark trajectories
-#     shark_dict = {1: [Motion_plan_state(-102 + (0.1 * i), -91 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)], 
-#         2: [Motion_plan_state(-200 - (0.1 * i), -150 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)]}
-    
-#     rrt = RRT(goal, goal, boundary, obstacles, habitats)
-#     #path = rrt.planning(animation=False, min_length=0)
-#     path = rrt.exploring(shark_dict, 0.5, 5, 20, True, 10.0, 500.0, True, [1, -1, -1, -1])
-#     print(path["cost"])
+    def createSharkGrid(self, filepath, cell_list):
+        test = {}
+        with open(filepath, newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
 
-#     # Draw final path
-#     rrt.draw_graph(path["path"])
+                string = row["time bin"]
+                strings = string.split(", ")
+                key = []
+                key.append(int(strings[0][1:]))
+                key.append(int(strings[1][0:len(strings[1])-1]))
+
+                temp = row["grid"][1:len(row["grid"])-1]
+                temp = temp.split(", ")
+                val = {}
+                for i in range(len(temp)):
+                    val[cell_list[i].bounds] = float(temp[i])
+                test[(key[0],key[1])] = val
+        return test
+
+start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
+start = Motion_plan_state(start[0], start[1])
+
+goal = catalina.create_cartesian(catalina.GOAL, catalina.ORIGIN_BOUND)
+goal = Motion_plan_state(goal[0], goal[1])
+
+obstacles = []
+for ob in catalina.OBSTACLES:
+    pos = catalina.create_cartesian((ob.x, ob.y), catalina.ORIGIN_BOUND)
+    obstacles.append(Motion_plan_state(pos[0], pos[1], size=ob.size))
         
+boundary = []
+boundary_poly = []
+for b in catalina.BOUNDARIES:
+    pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
+    boundary.append(Motion_plan_state(pos[0], pos[1]))
+    boundary_poly.append((pos[0],pos[1]))
+boundary_poly = Polygon(boundary_poly)
+        
+boat_list = []
+for boat in catalina.BOATS:
+    pos = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
+    boat_list.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
+        
+#testing data for habitats
+habitats = []
+for habitat in catalina.HABITATS:
+    pos = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
+    habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
+    
+#testing data for shark trajectories
+shark_dict = shark_dict = {1: [Motion_plan_state(-120 + (0.3 * i), -60 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+2: [Motion_plan_state(-65 - (0.3 * i), -50 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+3: [Motion_plan_state(-110 + (0.3 * i), -40 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+4: [Motion_plan_state(-105 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+5: [Motion_plan_state(-120 + (0.3 * i), -50 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+6: [Motion_plan_state(-85 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+7: [Motion_plan_state(-270 + (0.3 * i), 50 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+8: [Motion_plan_state(-250 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+9: [Motion_plan_state(-260 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+10: [Motion_plan_state(-275 + (0.3 * i), 80 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)]}
+    
+rrt = RRT(Motion_plan_state(-200, 0), start, boundary, obstacles, habitats)
+# path = rrt.planning()
+path = rrt.exploring(shark_dict, {}, 0.5, 5, 1, traj_time_stamp=False, max_plan_time=10, max_traj_time=200.0, plan_time=True, weights=[1, -3, -3, -3])
+print(path["cost"])
 
-
-# if __name__ == '__main__':
-#     main()
+# # Draw final path
+rrt.draw_graph(path["path"])
