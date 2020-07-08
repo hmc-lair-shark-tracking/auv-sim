@@ -10,7 +10,6 @@ def create_cartesian(pos, origin):
     """
     convert a position expressed by latitude and longtitude to a position in cartesian coordinates 
     given a defined origin point 
-
     Parameter: 
         pos - a tuple of two elements (x,y): x represents latitude; y represents longtitude 
         origin - a tuple of two elements (x,y): x represents latitude; y represents longtitude 
@@ -24,8 +23,8 @@ def create_cartesian(pos, origin):
     sign_long = np.sign([longtitude-longitude_origin])
     sign_lat = np.sign([latitude-latitude_origin])
     
-    x = sign_long * geopy.distance.vincenty((latitude_origin, longtitude), (latitude_origin, longitude_origin)).m
-    y = sign_lat * geopy.distance.vincenty((latitude, longitude_origin), (latitude_origin, longitude_origin)).m
+    x = sign_long * geopy.distance.great_circle((latitude_origin, longtitude), (latitude_origin, longitude_origin)).m
+    y = sign_lat * geopy.distance.great_circle((latitude, longitude_origin), (latitude_origin, longitude_origin)).m
 
     return (x[0], y[0])
 
@@ -59,7 +58,6 @@ def create_environs(obstacles, boundaries, boats, habitats):
 ORIGIN_BOUND = (33.445142, -118.484609)
 START = (33.445170, -118.484080)
 GOAL = (33.445914, -118.489636)
-
 
 BOUNDARIES = [Motion_plan_state(33.445914, -118.489636), Motion_plan_state(33.446866, -118.488471),
             Motion_plan_state(33.445064, -118.483723), Motion_plan_state(33.443758, -118.485219),
