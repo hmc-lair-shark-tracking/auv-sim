@@ -60,6 +60,7 @@ ORIGIN_BOUND = (33.445142, -118.484609)
 START = (33.445170, -118.484080)
 GOAL = (33.445914, -118.489636)
 
+
 BOUNDARIES = [Motion_plan_state(33.445914, -118.489636), Motion_plan_state(33.446866, -118.488471),
             Motion_plan_state(33.445064, -118.483723), Motion_plan_state(33.443758, -118.485219),
             Motion_plan_state(33.444783, -118.488223)]
@@ -82,13 +83,10 @@ BOATS = [Motion_plan_state(33.445425, -118.486314, size=5),
         Motion_plan_state(33.443940, -118.485384, size=5)]  
 
 
-
 HABITATS = [Motion_plan_state(33.445733, -118.487789, size=45),
     Motion_plan_state(33.446198, -118.486652, size=32),
     Motion_plan_state(33.445400, -118.485959, size=20),
     Motion_plan_state(33.445287, -118.484928, size=55)]
-
-# HABITATS = [Motion_plan_state(33.444811, -118.485918, size=45)]
 
 GOAL_LIST = [(33.444928, -118.484448), (33.444686, -118.484716), 
 (33.444328, -118.485606), (33.444811, -118.486454), 
