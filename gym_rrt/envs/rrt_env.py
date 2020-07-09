@@ -13,6 +13,18 @@ from gym_rrt.envs.live3DGraph_rrt_env import Live3DGraph
 from gym_rrt.envs.rrt_dubins import Planner_RRT
 from gym_rrt.envs.motion_plan_state import Motion_plan_state
 
+# auv's max speed (unit: m/s)
+AUV_MAX_V = 2.0
+AUV_MIN_V = 0.1
+# auv's max angular velocity (unit: rad/s)
+#   TODO: Currently, the track_way_point function has K_P == 1, so this is the range for w. Might change in the future?
+AUV_MAX_W = np.pi/8
+
+# shark's speed (unit: m/s)
+SHARK_MIN_V = 0.5
+SHARK_MAX_V = 1
+SHARK_MAX_W = np.pi/8
+
 RRT_PLANNER_FREQ = 10
 
 # the maximum range between the auv and shark to be considered that the auv has reached the shark
@@ -201,13 +213,12 @@ class RRTEnv(gym.Env):
 
         # if the RRT planner has found a path in this step
         if path != None:
-            print("found a path / node")
             self.state["path"] = path
 
         if done and path != None:
-            reward = 100
+            reward = 200
         elif path != None:
-            reward = 1
+            reward = 0
         else:
             # TODO: For now, the reward encourages using less time to plan the path
             reward = -1

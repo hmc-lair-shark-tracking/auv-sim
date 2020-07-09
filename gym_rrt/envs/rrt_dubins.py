@@ -15,6 +15,9 @@ from shapely.geometry import Polygon, Point
 from gym_rrt.envs.motion_plan_state import Motion_plan_state
 from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
 
+# from motion_plan_state import Motion_plan_state
+# from grid_cell_rrt import Grid_cell_RRT
+
 # TODO: wrong import
 # import catalina
 # from sharkOccupancyGrid import SharkOccupancyGrid
@@ -144,7 +147,9 @@ class Planner_RRT:
 
         path = []
 
-        self.init_live_graph()
+        # self.init_live_graph()
+
+        step = 0
     
         for _ in range(max_step):
 
@@ -157,11 +162,12 @@ class Planner_RRT:
             #     self.draw_graph(path)
             # elif done:
             #     plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
+            step += 1
 
             if done:
                 break
 
-        return path
+        return path, step
 
 
     def generate_one_node(self, grid_cell, min_length=250):
@@ -551,12 +557,22 @@ def main():
         Motion_plan_state(x=37.0, y=8.0, size=5)\
     ]
 
-    boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x=50.0, y=50.0)]
+    boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = 50.0, y = 50.0)]
 
+    step_array = []
+    success_count = 0
+    for _ in range(1000):
+        rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=10, cell_side_length=5)
+        path, step = rrt.planning(max_step=150)
+        if path != [] and type(path) == list:
+            success_count += 1
+        step_array.append(step)
 
-    rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=10, cell_side_length=5)
-
-    path = rrt.planning(max_step=200)
+    print(step_array)
+    print(np.mean(step_array))
+    print("success")
+    print(success_count)
+    text = input("stop")
 
     if path != [] and type(path) == list:
         rrt.draw_graph()
@@ -569,5 +585,5 @@ def main():
         
 
 
-# if __name__ == '__main__':
-#     main()
+if __name__ == '__main__':
+    main()
