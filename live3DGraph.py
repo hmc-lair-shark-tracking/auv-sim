@@ -106,9 +106,11 @@ class Live3DGraph:
             marker = ',', linestyle = '-', color = 'red', label='auv')
         
         # use quiver plot to draw an arrow indicating the auv's direction
+        """
         self.ax.quiver(x_pos_array[-1], y_pos_array[-1], z_pos_array[-1],\
             x_orient, y_orient, z_orient,\
             color = 'red', pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
+        """
 
 
     def load_shark_labels(self):
@@ -148,7 +150,7 @@ class Live3DGraph:
                     self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ",", color = c, label = "shark #" + str(shark.id))
 
                     # plot the direction vectors for the shark
-                    self.ax.quiver3D(shark.x_pos_array[-1], shark.y_pos_array[-1], shark.z_pos_array[-1], x_orient, y_orient, z_orient, color = c, pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
+                    #self.ax.quiver3D(shark.x_pos_array[-1], shark.y_pos_array[-1], shark.z_pos_array[-1], x_orient, y_orient, z_orient, color = c, pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
 
 
     def update_shark_location(self, shark, sim_time):
@@ -164,8 +166,10 @@ class Live3DGraph:
             #   but the simulator time interval might be diffent.
             # So we need to increment the index properly so that the newest shark trajectory point is close
             #   to the simulator's current time
+            print("shark traj pts array", shark.traj_pts_array)
+            print("sim_time", sim_time)
             while shark.index < len(shark.traj_pts_array)-1 and\
-                abs(shark.traj_pts_array[shark.index].traj_time_stamp - sim_time) > (const.SIM_TIME_INTERVAL + 0.1):
+                abs(shark.traj_pts_array[shark.index].traj_time_stamp - sim_time[0]) > (const.SIM_TIME_INTERVAL + 0.1):
                 shark.index += 1
                 
             # update the shark's position arrays to help us update the graph
@@ -395,28 +399,30 @@ class Live3DGraph:
         plt.plot(auv_x_array, auv_y_array, marker = ',', color = 'r', label='auv')
         
         # calculate the orientation of direction vector for the auv
-        x_orient = auv_x_array[-1]-auv_x_array[-2]
-        y_orient = auv_y_array[-1]-auv_y_array[-2]
+        for i in range(len(auv_x_array)):
+            x_orient = auv_x_array[i][-1]-auv_x_array[i][-2]
+            y_orient = auv_y_array[i][-1]-auv_y_array[i][-2]
 
-        # plot an arrow indicating the auv direction
-        plt.quiver(auv_x_array[-1], auv_y_array[-1], x_orient, y_orient, color = 'r', pivot="tail")
+            # plot an arrow indicating the auv direction
+            plt.quiver(auv_x_array[i][-1], auv_y_array[i][-1], x_orient, y_orient, color = 'r', pivot="tail")
 
         # plot all the sharks
         if len(self.shark_array) != 0:         
             for i in range(len(self.shark_array)):
+                
                     # determine the color of this shark's trajectory
-                    c = self.colors[i % len(self.colors)]
+                c = self.colors[i % len(self.colors)]
 
-                    shark = self.shark_array[i]
+                shark = self.shark_array[i]
+                print("shark x", shark.x_pos_array)
+                plt.plot(shark.x_pos_array, shark.y_pos_array, marker = ",", color = c, label = "shark #" + str(shark.id))
 
-                    plt.plot(shark.x_pos_array, shark.y_pos_array, marker = ",", color = c, label = "shark #" + str(shark.id))
+                # calculate orientation by: current coordinate - previous coordinate
+                # these 3 variables will help us indicate the direction of the trajectory
+                x_orient = shark.x_pos_array[-1]-shark.x_pos_array[-2]
+                y_orient = shark.y_pos_array[-1]-shark.y_pos_array[-2]
 
-                    # calculate orientation by: current coordinate - previous coordinate
-                    # these 3 variables will help us indicate the direction of the trajectory
-                    x_orient = shark.x_pos_array[-1]-shark.x_pos_array[-2]
-                    y_orient = shark.y_pos_array[-1]-shark.y_pos_array[-2]
-
-                    plt.quiver(shark.x_pos_array[-1], shark.y_pos_array[-1], x_orient, y_orient, color = c, pivot="tail")
+                plt.quiver(shark.x_pos_array[-1], shark.y_pos_array[-1], x_orient, y_orient, color = c, pivot="tail")
 
         # plot all the obstacles
         for obs in obstacle_array:

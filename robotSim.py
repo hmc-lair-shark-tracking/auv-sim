@@ -332,16 +332,9 @@ class RobotSim:
             obstacle_array - (optional) an array of motion_plan_states that represent the obstacles's
                 position and size
         """
-        index = -1
-        for auv in planned_traj_array:
-            index += 1
-            if show_live_graph:
-                self.update_live_graph(auv, particle_array[index], obstacle_array[index])
-                self.live_graph.plot_auv(x_list[index], y_list[index], z_list[index])
-            else:
-                for shark in self.live_graph.shark_array:
-                    # only update the shark's position without plotting them
-                    self.live_graph.update_shark_location(shark, self.time_array)
+        for shark in self.live_graph.shark_array:
+            # only update the shark's position without plotting them
+            self.live_graph.update_shark_location(shark, self.time_array)
 
 
     def update_live_graph(self, planned_traj_array = [], particle_array = [], obstacle_array = []):
@@ -601,23 +594,19 @@ class RobotSim:
             final_auv_z_array = []
             final_obstacle_array = []
             final_particle_array = []
-            final_shark_dict = {}
-
             for auv in sorted(self.auv_dict):
                 test_auv = self.auv_dict[auv]
                 auv_sensor_data = self.auv_dict[auv].get_auv_sensor_measurements(self.curr_time)
                 print("==================")
                 print("Curr Auv Sensor Measurements [x, y, z, theta, time]: " +\
                     str(auv_sensor_data))
+
                 shark_state_dict = self.get_all_sharks_state()
-                for shark in shark_state_dict:
-                    final_shark_dict[shark].append(shark_state_dict[shark])
                 
                 # need help working on making a dictionary for the shark_states. i think the problem is rn the dictionary has no initial key values
                 print("==================")
-                print("All the Shark States [x, y, ..., time_stamp]: " + str(final_shark_dict))
-                
-
+                print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
+            
                 has_new_data = self.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
                 #boolean  (new data)and dictionary (data) of True and False and Updates Shark Dictionary--> stores range and bearing of the auv
                 '''if has_new_data == True:
@@ -684,8 +673,6 @@ class RobotSim:
                 
                 obstacle_array = []
                 final_planned_traj_array.append(planned_traj_array)
-                print("auv list", test_auv.x_list)
-                print("auv number", auv)
                 final_auv_x_array.append(test_auv.x_list)
                 final_auv_y_array.append(test_auv.y_list)
                 final_auv_z_array.append(test_auv.z_list)
@@ -694,20 +681,16 @@ class RobotSim:
                 self.time_array.append(self.curr_time)
                 # increment the current time by 0.1 second
                 self.curr_time += const.SIM_TIME_INTERVAL
-
+                self.plot(final_auv_x_array, final_auv_y_array, final_auv_z_array, show_live_graph, final_planned_traj_array, final_particle_array, final_obstacle_array)
             
-            self.plot(final_auv_x_array, final_auv_y_array, final_auv_z_array, show_live_graph, final_planned_traj_array, final_particle_array, final_obstacle_array)
-            """
             terminate_loop = self.check_terminate_cond()
-            
             if terminate_loop:
                 self.live_graph.run_sim = False
                 break
-
                 obstacle_array = [Motion_plan_state(757,243, size=10), Motion_plan_state(763,226, size=15)]
-
-            self.live_graph.plot_2d_sim_graph(test_auv.x_list, test_auv.y_list, obstacle_array)
-            """
+            
+            self.live_graph.plot_2d_sim_graph(final_auv_x_array, final_auv_y_array, obstacle_array)
+            
             # "End Simulation" button is pressed, generate summary graphs for this simulation
             # self.summary_plots()
 
