@@ -13,23 +13,7 @@ from gym_rrt.envs.live3DGraph_rrt_env import Live3DGraph
 from gym_rrt.envs.rrt_dubins import Planner_RRT
 from gym_rrt.envs.motion_plan_state import Motion_plan_state
 
-# auv's max speed (unit: m/s)
-AUV_MAX_V = 2.0
-AUV_MIN_V = 0.1
-# auv's max angular velocity (unit: rad/s)
-#   TODO: Currently, the track_way_point function has K_P == 1, so this is the range for w. Might change in the future?
-AUV_MAX_W = np.pi/8
-
-# shark's speed (unit: m/s)
-SHARK_MIN_V = 0.5
-SHARK_MAX_V = 1
-SHARK_MAX_W = np.pi/8
-
-# time step (unit: sec)
-DELTA_T = 0.1
-# in step() funciton, determine how many times should an actino gets repeated
-# so technically, the auv has moved for 0.5 sec in each loop
-REPEAT_ACTION_TIME = 5
+RRT_PLANNER_FREQ = 10
 
 # the maximum range between the auv and shark to be considered that the auv has reached the shark
 END_GAME_RADIUS = 3.0
@@ -573,7 +557,7 @@ class RRTEnv(gym.Env):
         shark_init_pos = np.array([self.shark_init_pos.x, self.shark_init_pos.y, self.shark_init_pos.z, self.shark_init_pos.theta])
 
         # initialize the RRT planner
-        self.rrt_planner = Planner_RRT(self.auv_init_pos, self.shark_init_pos, self.boundary_array, self.obstacle_array_for_rendering, self.habitats_array_for_rendering, cell_side_length = self.cell_side_length)
+        self.rrt_planner = Planner_RRT(self.auv_init_pos, self.shark_init_pos, self.boundary_array, self.obstacle_array_for_rendering, self.habitats_array_for_rendering, cell_side_length = self.cell_side_length, freq=RRT_PLANNER_FREQ)
 
         rrt_grid_1D_array = self.convert_rrt_grid_to_1D(self.rrt_planner.env_grid)
         has_node_array = self.generate_rrt_grid_has_node_array(self.rrt_planner.env_grid)

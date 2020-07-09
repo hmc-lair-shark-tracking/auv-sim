@@ -895,33 +895,12 @@ class DQN():
             # Pass batch of preprocessed states to policy network.
             # return the q value for the given state-action pair by passing throught the policy net
             current_q_values = QValues.get_current(self.policy_net, states, actions)
-
-            print("current q values")
-            print(current_q_values)
-            print("-------")
-            text = input("stop")
         
             next_q_values = QValues.get_next(self.target_net, next_states)
 
-            print("next q values")
-            print(current_q_values)
-            print("reward")
-            print(rewards)
-            print("-------")
-
             target_q_values = (next_q_values * GAMMA * (1 - dones.flatten())) + rewards
 
-            print("target q values")
-            print(target_q_values)
-            print("-------")
-            text = input("stop")
-
             loss = F.mse_loss(current_q_values, target_q_values.unsqueeze(1))
-
-            print("loss")
-            print(loss)
-            print("-------")
-            text = input("stop")
 
             self.loss_in_eps.append(loss.item())
 
