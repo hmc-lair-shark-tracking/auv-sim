@@ -5,12 +5,16 @@ import numpy as np
 import csv
 import time
 import timeit
+import random
+import numpy
 
 # import 3 data representation class
 from sharkState import SharkState
 from sharkTrajectory import SharkTrajectory
 from live3DGraph import Live3DGraph
 from motion_plan_state import Motion_plan_state
+from auv import Auv
+from particleFilter import ParticleFilter
 
 #import path planning class
 from path_planning.astar import astar
@@ -43,12 +47,13 @@ def angle_wrap(ang):
 
 
 class RobotSim:
-    def __init__(self, init_x, init_y, init_z, init_theta, replan_time=0.5, planning_time=1.0):
+    def __init__(self, init_x, init_y, init_z, init_theta, replan_time, planning_time, num_of_auv, curr_time):
         # initialize auv's data
         self.x = init_x
         self.y = init_y
         self.z = init_z
         self.theta = init_theta
+        self.num_of_auv = num_of_auv
 
         # need lists to keep track of all the points if we want to
         #   connect lines between the position points and create trajectories
@@ -60,6 +65,7 @@ class RobotSim:
 
         # keep track of the current time that we are in
         # each iteration in the while loop will be assumed as 0.1 sec
+        self.curr_time = curr_time
         self.curr_time = 0
         self.time_array = []
         
@@ -78,10 +84,18 @@ class RobotSim:
         self.live_graph = Live3DGraph()
 
         #time interval to replan trajectory
-        self.replan_time = replan_time
+        self.replan_time = 0.5
         #time limit for path planning algorithm to find the shortest path
-        self.planning_time = planning_time
+        self.planning_time = 1.0
+        self.auv_dict = {}
 
+        #initialize environments 
+        obstacle_array = [Motion_plan_state(757,243, size=2),Motion_plan_state(763,226, size=5)]
+        boundary = [Motion_plan_state(-500, -500), Motion_plan_state(500,500)]
+        BOUNDARY_RANGE = 500 
+        habitats = [Motion_plan_state(63,23, size=5), Motion_plan_state(12,45,size=7), Motion_plan_state(51,36,size=5), Motion_plan_state(45,82,size=5),\
+                Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
+        
     def get_auv_state(self):
         """
         Return a Motion_plan_state representing the orientation and the time stamp
@@ -99,19 +113,19 @@ class RobotSim:
         # using dictionary so we can access the state of a shark based on its id quickly?
         shark_state_dict = {}
 
-        print(self.live_graph.shark_array)
+        #print(self.live_graph.shark_array)
         for shark in self.live_graph.shark_array:
             shark_state_dict[shark.id] = shark.get_curr_position()
 
         return shark_state_dict
 
-
+    """
     def get_auv_sensor_measurements(self):
-        """
+        
         Return an Motion_plan_state object that represents the measurements
             of the auv's x,y,z,theta position with a time stamp
         The measurement has random gaussian noise
-        """
+        
         # 0 is the mean of the normal distribution you are choosing from
         # 1 is the standard deviation of the normal distribution
 
@@ -124,6 +138,7 @@ class RobotSim:
             theta = angle_wrap(self.theta + np.random.normal(0,1)),\
             traj_time_stamp = self.curr_time)
 
+    """
 
     def get_all_sharks_sensor_measurements(self, shark_state_dict, auv_sensor_data):
         """
@@ -221,8 +236,8 @@ class RobotSim:
 
     def send_trajectory_to_actuators(self, v, w):
         # TODO: For now this should just update AUV States?
-
-        self.calculate_new_auv_state(v, w, const.SIM_TIME_INTERVAL)
+        # 0.5 = const.SIM_TIME_INTERVAL
+        self.calculate_new_auv_state(v, w, 0.5)
 
     def replan_trajectory(self, planner, auv_pos, shark_pos, obstacle, boundary, habitats):
         '''after replan_time, calculate a new trajectory based on planner chosen
@@ -298,7 +313,7 @@ class RobotSim:
         print("AUV [x, y, z, theta]:  [", self.x, ", " , self.y, ", ", self.z, ", ", self.theta, "]")
 
 
-    def plot(self, show_live_graph = True, planned_traj_array = [], particle_array = [], obstacle_array = []):
+    def plot(self,  x_list, y_list, z_list, show_live_graph = True, planned_traj_array = [], particle_array = [], obstacle_array = []):
         """
         Wrapper function for plotting and updating shark position
 
@@ -317,12 +332,16 @@ class RobotSim:
             obstacle_array - (optional) an array of motion_plan_states that represent the obstacles's
                 position and size
         """
-        if show_live_graph:
-            self.update_live_graph(planned_traj_array, particle_array, obstacle_array)
-        else:
-            for shark in self.live_graph.shark_array:
-                # only update the shark's position without plotting them
-                self.live_graph.update_shark_location(shark, self.curr_time)
+        index = -1
+        for auv in planned_traj_array:
+            index += 1
+            if show_live_graph:
+                self.update_live_graph(auv, particle_array[index], obstacle_array[index])
+                self.live_graph.plot_auv(x_list[index], y_list[index], z_list[index])
+            else:
+                for shark in self.live_graph.shark_array:
+                    # only update the shark's position without plotting them
+                    self.live_graph.update_shark_location(shark, self.time_array)
 
 
     def update_live_graph(self, planned_traj_array = [], particle_array = [], obstacle_array = []):
@@ -343,7 +362,7 @@ class RobotSim:
         # scale the arrow for the auv and the sharks properly for graph
         self.live_graph.scale_quiver_arrow()
 
-        self.live_graph.plot_auv(self.x_list, self.y_list, self.z_list)
+        #self.live_graph.plot_auv(Auv.x_list, Auv.y_list, Auv.z_list)
 
         # plot the new positions for all the sharks that the robot is tracking
         self.live_graph.plot_sharks(self.curr_time)
@@ -355,9 +374,10 @@ class RobotSim:
                 self.live_graph.plot_planned_traj(planned_traj[0], planned_traj[1])
 
         # if there's particles to plot, plot them
+        """
         if particle_array != []:
             self.live_graph.plot_particles(particle_array)
-
+        """
         if obstacle_array != []:
             self.live_graph.plot_obstacles(obstacle_array)
 
@@ -571,120 +591,158 @@ class RobotSim:
         """
         #set start time
         t_start = self.curr_time
-
+        # somewhere here add initialize PF 
         while self.live_graph.run_sim:
-            auv_sensor_data = self.get_auv_sensor_measurements()
-            """print("==================")
-            print("Curr Auv Sensor Measurements [x, y, z, theta, time]: " +\
-                str(auv_sensor_data))"""
-  
-            shark_state_dict = self.get_all_sharks_state()
-            print("==================")
-            print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
+            print("current time")
+            print(self.curr_time)
+            final_planned_traj_array = []
+            final_auv_x_array = []
+            final_auv_y_array = []
+            final_auv_z_array = []
+            final_obstacle_array = []
+            final_particle_array = []
+            final_shark_dict = {}
 
-            has_new_data = self.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
+            for auv in sorted(self.auv_dict):
+                test_auv = self.auv_dict[auv]
+                auv_sensor_data = self.auv_dict[auv].get_auv_sensor_measurements(self.curr_time)
+                print("==================")
+                print("Curr Auv Sensor Measurements [x, y, z, theta, time]: " +\
+                    str(auv_sensor_data))
+                shark_state_dict = self.get_all_sharks_state()
+                for shark in shark_state_dict:
+                    final_shark_dict[shark].append(shark_state_dict[shark])
+                
+                # need help working on making a dictionary for the shark_states. i think the problem is rn the dictionary has no initial key values
+                print("==================")
+                print("All the Shark States [x, y, ..., time_stamp]: " + str(final_shark_dict))
+                
 
-            '''if has_new_data == True:
+                has_new_data = self.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
+                #boolean  (new data)and dictionary (data) of True and False and Updates Shark Dictionary--> stores range and bearing of the auv
+                '''if has_new_data == True:
                 print("======NEW DATA=======")
                 print("All The Shark Sensor Measurements [range, bearing]: " +\
                     str(self.shark_sensor_data_dict))'''
+                
+                # example of how to indicate the obstacles and plot them
+                obstacle_array = [Motion_plan_state(757,243, size=2),Motion_plan_state(763,226, size=5)]
+                # testing data for plotting RRT_traj
+                boundary = [Motion_plan_state(-500, -500), Motion_plan_state(500,500)]
+
+                #testing data for habitats
+                habitats = [Motion_plan_state(63,23, size=5), Motion_plan_state(12,45,size=7), Motion_plan_state(51,36,size=5), Motion_plan_state(45,82,size=5),\
+                    Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
+
+                #condition to replan trajectory
+                """
+                if self.curr_time == 0 or self.curr_time - t_start >= self.replan_time:
+                    RRT_traj = self.replan_trajectory("RRT", auv_sensor_data, shark_state_dict[1], obstacle_array, boundary, habitats)
+                    new_trajectory = True
+                    t_start = self.curr_time
+                else:
+                    new_trajectory = False
+                """
+                RRT_traj = [Motion_plan_state(0.0, 0.0)]
+                RRT_traj += [Motion_plan_state(i, i) for i in range(50)]
+                new_trajectory = False
+                # test trackTrajectory
+                tracking_pt = self.auv_dict[auv].track_trajectory(RRT_traj, new_trajectory , self.curr_time)
+                print("==================")
+                print ("Currently tracking point: " + str(tracking_pt))
+                
+                #v & w to the next point along the trajectory
+                (v, w) = self.auv_dict[auv].track_way_point(tracking_pt)
+                '''print("==================")
+                print ("v and w: ", v, ", ", w)
+                print("====================================")
+                print("====================================")'''
+                test_auv.send_trajectory_to_actuators()
+                # update the auv position    
+                # self.log_data()
+
+                # testing data for plotting A_star_traj
+                A_star_traj = [Motion_plan_state(0.0, 0.0)]
+                A_star_traj += [Motion_plan_state(i, i) for i in range(50)]
+
+                # example of first parameter to update_live_graph function
+                #planned_traj_array = [["A *", A_star_traj], ["RRT", RRT_traj]]
+                planned_traj_array = []
+
+                # testing data for displaying particle array
+                particle_array = [[0.0, 0.0, 0, 0, 0]]
+                
+                particle_array += [[np.random.randint(-20, 20, dtype='int'), np.random.randint(-20, 20, dtype='int'), 0, 0, 0] for i in range(50)]
+
+                # example of first parameter to update_live_graph function
+                planned_traj_array = [["A *", A_star_traj], ["RRT", RRT_traj]]
+
+                # In order to plot your planned trajectory, you have to wrap your trajectory in another array, where
+                #   1st element: the planner's name (either "A *" or "RRT")
+                #   2nd element: the list of Motion_plan_state returned by your planner
+                # Use the "planned_traj_array" as an example
+                
+                obstacle_array = []
+                final_planned_traj_array.append(planned_traj_array)
+                print("auv list", test_auv.x_list)
+                print("auv number", auv)
+                final_auv_x_array.append(test_auv.x_list)
+                final_auv_y_array.append(test_auv.y_list)
+                final_auv_z_array.append(test_auv.z_list)
+                final_particle_array.append(particle_array)
+                final_obstacle_array.append(obstacle_array)
+                self.time_array.append(self.curr_time)
+                # increment the current time by 0.1 second
+                self.curr_time += const.SIM_TIME_INTERVAL
+
             
-            # example of how to indicate the obstacles and plot them
-            obstacle_array = [Motion_plan_state(757,243, size=2),Motion_plan_state(763,226, size=5)]
-
-            # testing data for plotting RRT_traj
-            boundary = [Motion_plan_state(-500, -500), Motion_plan_state(500,500)]
-
-            #testing data for habitats
-            habitats = [Motion_plan_state(63,23, size=5), Motion_plan_state(12,45,size=7), Motion_plan_state(51,36,size=5), Motion_plan_state(45,82,size=5),\
-                Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
-
-            #condition to replan trajectory
-            '''if self.curr_time == 0 or self.curr_time - t_start >= self.replan_time:
-                RRT_traj = self.replan_trajectory("RRT", auv_sensor_data, shark_state_dict[1], obstacle_array, boundary, habitats)
-                new_trajectory = True
-                t_start = self.curr_time
-            else:
-                new_trajectory = False'''
-            RRT_traj = [Motion_plan_state(0.0, 0.0)]
-            RRT_traj += [Motion_plan_state(i, i) for i in range(50)]
-            
-            # test trackTrajectory
-            tracking_pt = self.track_trajectory(RRT_traj, new_trajectory=False)
-            '''print("==================")
-            print ("Currently tracking point: " + str(tracking_pt))'''
-            
-            #v & w to the next point along the trajectory
-            (v, w) = self.track_way_point(tracking_pt)
-            '''print("==================")
-            print ("v and w: ", v, ", ", w)
-            print("====================================")
-            print("====================================")'''
-
-            # update the auv position
-            self.send_trajectory_to_actuators(v, w)
-            
-            # self.log_data()
-
-            # testing data for plotting A_star_traj
-            A_star_traj = [Motion_plan_state(0.0, 0.0)]
-            A_star_traj += [Motion_plan_state(i, i) for i in range(50)]
-
-            # example of first parameter to update_live_graph function
-            #planned_traj_array = [["A *", A_star_traj], ["RRT", RRT_traj]]
-            planned_traj_array = []
-
-            # testing data for displaying particle array
-            particle_array = [[0.0, 0.0, 0, 0, 0]]
-            
-            particle_array += [[np.random.randint(-20, 20, dtype='int'), np.random.randint(-20, 20, dtype='int'), 0, 0, 0] for i in range(50)]
-
-            # example of first parameter to update_live_graph function
-            planned_traj_array = [["A *", A_star_traj], ["RRT", RRT_traj]]
-
-
-            # In order to plot your planned trajectory, you have to wrap your trajectory in another array, where
-            #   1st element: the planner's name (either "A *" or "RRT")
-            #   2nd element: the list of Motion_plan_state returned by your planner
-            # Use the "planned_traj_array" as an example
-            
-            obstacle_array = []
-
-            self.plot(show_live_graph, planned_traj_array, particle_array, obstacle_array)
-            
-            self.time_array.append(self.curr_time)
-            # increment the current time by 0.1 second
-            self.curr_time += const.SIM_TIME_INTERVAL
-
+            self.plot(final_auv_x_array, final_auv_y_array, final_auv_z_array, show_live_graph, final_planned_traj_array, final_particle_array, final_obstacle_array)
+            """
             terminate_loop = self.check_terminate_cond()
-
+            
             if terminate_loop:
                 self.live_graph.run_sim = False
                 break
 
+                obstacle_array = [Motion_plan_state(757,243, size=10), Motion_plan_state(763,226, size=15)]
 
-        obstacle_array = [Motion_plan_state(757,243, size=10), Motion_plan_state(763,226, size=15)]
-
-        self.live_graph.plot_2d_sim_graph(self.x_list, self.y_list, obstacle_array)
-
-        # "End Simulation" button is pressed, generate summary graphs for this simulation
-        # self.summary_plots()
+            self.live_graph.plot_2d_sim_graph(test_auv.x_list, test_auv.y_list, obstacle_array)
+            """
+            # "End Simulation" button is pressed, generate summary graphs for this simulation
+            # self.summary_plots()
 
 
 def main():
     pos = create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
-    test_robot = RobotSim(5.0, 5.0, 0, 0.1)
+    test_robot = RobotSim(5.0, 5.0, 0, 0.1, 0.5, 1, 3, 0)
+    BOUNDARY_RANGE = 500
+    for i in range(test_robot.num_of_auv - 1):
+        x = random.uniform(- BOUNDARY_RANGE, BOUNDARY_RANGE)
+        y = random.uniform(- BOUNDARY_RANGE, BOUNDARY_RANGE)
+        z = random.uniform(- BOUNDARY_RANGE, BOUNDARY_RANGE)
+        theta = 0
+        velocity = random.uniform(0,4)
+        curr_traj_pt_index = 0
+        w_1 = random.uniform(-math.pi/2, math.pi/2)
+        test_robot.auv_dict[i] = Auv(x,y,z, theta, velocity, w_1, curr_traj_pt_index, i)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
     test_robot.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1,2])
+    shark_state_dict = test_robot.get_all_sharks_state()
+    AUV_NUM = 0
+    for key in sorted(test_robot.auv_dict):
+        shark_state = shark_state_dict[1]
+        auv_state = test_robot.auv_dict[key]
+        ParticleFilter(shark_state.x, shark_state.y, 0,  auv_state.state.x, auv_state.state.y, 0, 0, 0)
+    
     test_robot.main_navigation_loop()
     #test_robot.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1,2])
 
     # test_robot.display_auv_trajectory()
-
+    
     # to not show that live_graph, you can pass in "False"
 
-    test_robot.main_navigation_loop(True)
+    #test_robot.main_navigation_loop(True)
 
 
 if __name__ == "__main__":
