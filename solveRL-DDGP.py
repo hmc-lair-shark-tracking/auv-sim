@@ -27,7 +27,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 """
 
 # Define the distance between the auv and the goal
-DIST = 5.0
+DIST = 20.0
 MIN_X = DIST
 MAX_X= DIST * 2
 MIN_Y = 0.0
@@ -35,11 +35,14 @@ MAX_Y = DIST * 3
 
 NUM_OF_OBSTACLES = 0
 
+NUM_OF_EPISODES = 250
+MAX_STEP = 20
+
 STATE_SIZE = 8 + 4 * NUM_OF_OBSTACLES
 ACTION_SIZE = 1
 
-NUM_OF_EPISODES = 250
-MAX_STEP = 20
+STATE_SIZE = 8 + 4 * NUM_OF_OBSTACLES
+ACTION_SIZE = 1
 
 EPSILON_MAX = 1.0
 EPSILON_MIN = 0.1
@@ -164,20 +167,23 @@ def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_p
 
 
 
-def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles):
+def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shark_min_x, shark_max_x,  shark_min_y, shark_max_y):
     """
     """
     obstacle_array = []
-    for i in range(num_of_obstacles):
-        obs_x = np.random.uniform(MIN_X, MAX_X)
-        obs_y = np.random.uniform(MIN_Y, MAX_Y)
+    for _ in range(num_of_obstacles):
+        obs_x = np.random.uniform(shark_min_x, shark_max_x)
+        obs_y = np.random.uniform(shark_min_y, shark_max_y)
         obs_size = np.random.randint(1,5)
-        while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array):
-            obs_x = np.random.uniform(MIN_X, MAX_X)
-            obs_y = np.random.uniform(MIN_Y, MAX_Y)
+        # to prevent this from going into an infinite loop
+        counter = 0
+        while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array) and counter < 100:
+            obs_x = np.random.uniform(shark_min_x, shark_max_x)
+            obs_y = np.random.uniform(shark_min_y, shark_max_y)
+            counter += 1
         obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, z=-5, size = obs_size))
 
-    return obstacle_array
+    return obstacle_array   
 
 
 # def clip_value_to_range(value, target_min, target_max):
@@ -210,56 +216,6 @@ def angle_wrap(ang):
         ang += (2 * np.pi)
         return angle_wrap(ang)
 
-
-def generate_rand_init_position(distance, quadrant):
-    if quadrant == "1":
-        min_auv_x = 0.0
-        max_auv_x = distance
-        min_auv_y = 0.0
-        max_auv_y = distance
-
-        min_goal_x = distance
-        max_goal_x = distance * 2.0
-        min_goal_y = distance
-        max_goal_y = distance * 2.0
-
-    elif quadrant == "2":
-        min_auv_x = - distance
-        max_auv_x = 0.0
-        min_auv_y = 0.0
-        max_auv_y = distance
-
-        min_goal_x = - distance * 2.0
-        max_goal_x = - distance
-        min_goal_y = distance
-        max_goal_y = distance * 2.0
-
-    elif quadrant == "3":
-        min_auv_x = - distance
-        max_auv_x = 0.0
-        min_auv_y = - distance
-        max_auv_y = 0.0
-
-        min_goal_x = - distance * 2.0
-        max_goal_x = - distance
-        min_goal_y = - distance * 2.0
-        max_goal_y = - distance
-
-    else:
-        min_auv_x = 0.0
-        max_auv_x = distance
-        min_auv_y = - distance
-        max_auv_y = 0.0
-
-        min_goal_x = distance
-        max_goal_x = distance * 2.0
-        min_goal_y = - distance * 2.0
-        max_goal_y = - distance
-
-    auv_init_pos = Motion_plan_state(x = np.random.uniform(min_auv_x, max_auv_x), y = np.random.uniform(min_auv_y,max_auv_y), z = -5.0, theta = 0)
-    shark_init_pos = Motion_plan_state(x = np.random.uniform(min_goal_x, max_goal_x), y = np.random.uniform(min_goal_y, max_goal_y), z = -5.0, theta = 0)
-
-    return auv_init_pos, shark_init_pos
 
 """
 ============================================================================
@@ -534,16 +490,22 @@ class AuvEnvManager():
         self.max_theta = self.env.action_space.high
 
 
-    def init_env_randomly(self):
-        # auv_init_pos = Motion_plan_state(x = np.random.uniform(MIN_X, MAX_X), y = np.random.uniform(MIN_X, MAX_X), z = -5.0, theta = 0)
-        # shark_init_pos = Motion_plan_state(x = np.random.uniform(MIN_Y, MAX_Y), y = np.random.uniform(MIN_Y, MAX_Y), z = -5.0, theta = 0)
-        print("random choice: ", np.random.randint(1, 5))
-        # quadrant = input("pick a quadrant: ")
-        quadrant = "1"
+    def init_env_randomly(self, dist = DIST):
+        auv_min_x = dist * 1
+        auv_max_x = dist * 3
+        auv_min_y = dist * 1
+        auv_max_y = dist * 3
+
+        shark_min_x = dist * 0
+        shark_max_x = dist * 4
+        shark_min_y = dist * 0
+        shark_max_y = dist * 4
+
+        auv_init_pos = Motion_plan_state(x = auv_min_x, y = auv_min_y, z = -5.0, theta = 0)
         
-        auv_init_pos, shark_init_pos = generate_rand_init_position(DIST, quadrant)
+        shark_init_pos = Motion_plan_state(x = shark_max_x, y = shark_max_y, z = -5.0, theta = 0)
         
-        obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES)
+        obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
 
         if DEBUG:
             print("===============================")
@@ -631,10 +593,6 @@ class AuvEnvManager():
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
-
-    
-    def get_done(self):
-        return torch.tensor([self.done], device=self.device)
 
 
     def get_state(self):
@@ -750,6 +708,17 @@ class DDPG():
         # cast the action to float to make pytorch happy
         return action.float()
 
+
+    def save_real_experience(self, state, next_state, action, done):
+        reward = self.em.get_binary_reward(next_state[0], next_state[1])
+
+        self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
+
+        print("----------------------------")
+        print("actual experience stored")
+        print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
+        print("----------------------------")
+
     
     def possible_extra_goals(self, time_step, next_state_array):
         # currently, we use the "future" strategy mentioned in the HER paper
@@ -784,12 +753,15 @@ class DDPG():
 
             reward = self.em.get_binary_reward(new_next_state[0], new_next_state[1])
 
-            done = torch.tensor([False], device=DEVICE)
-            if reward.item() == 1:
-                done = torch.tensor([True], device=DEVICE)
+            done = torch.tensor([0], device=DEVICE).int()
+            is_done = self.em.env.check_reached_target(new_next_state[0], new_next_state[1]) or self.em.env.check_collision(new_next_state[0])
+            if is_done:
+                done = torch.tensor([1], device=DEVICE).int()
 
             self.memory.push(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward, done))
+            
             print(Experience(process_state_for_nn(new_curr_state), action, process_state_for_nn(new_next_state), reward, done))
+            print("----")
 
 
     def update_neural_nets(self):
@@ -841,7 +813,7 @@ class DDPG():
             
             # compute the current Q values using the Bellman equation
             target_q_val_batch = (rewards_batch + GAMMA * next_target_q_val_batch)
-            target_q_val_batch_done = rewards_batch + (1.0 - done_batch) * GAMMA * next_target_q_val_batch
+            target_q_val_batch_done = rewards_batch + (1 - done_batch) * GAMMA * next_target_q_val_batch
 
             
             print("****************************")
@@ -942,8 +914,8 @@ class DDPG():
             self.soft_update(self.critic, self.critic_target, TAU)
             self.soft_update(self.actor, self.actor_target, TAU)
        
-            self.actor_loss_in_ep.append(actor_loss.item())
-            self.critic_loss_in_ep.append(critic_loss.item())
+            actor_loss_in_ep.append(actor_loss.item())
+            critic_loss_in_ep.append(critic_loss.item())
 
             # if self.epsilon - EPSILON_DECAY > EPSILON_MIN:
             #     self.epsilon -= EPSILON_DECAY
@@ -955,15 +927,15 @@ class DDPG():
 
     def train(self, num_episodes, max_step, load_prev_training=False, use_HER =True):
         # keep track of how many steps the auv takes in each episode
-        self.episode_durations = []
-        self.actor_loss_in_training = []
-        self.critic_loss_in_training = []
+        episode_durations = []
+        actor_loss_in_training = []
+        critic_loss_in_training = []
 
         if load_prev_training:
             # if we want to continue training an already trained network
             self.load_trained_network()
         
-        for eps in range(num_episodes):
+        for eps in range(1, num_episodes+1):
             # initialize a random noise process N for action exploration 
             self.noise.reset()
 
@@ -971,21 +943,20 @@ class DDPG():
             # receive initial observation state s1 
             state = self.em.init_env_randomly()
 
-            score = 0
+            eps_reward = 0
 
             action_array = []
             next_state_array = []
             done_array = []
             useful_next_states = []
 
-            self.actor_loss_in_ep = []
-            self.critic_loss_in_ep = []
+            actor_loss_in_ep = []
+            critic_loss_in_ep = []
 
             # determine how many steps we should run HER
             # by default, it will be "max_step" - 1 because in the first loop, we start at t=1
             iteration = max_step - 1
 
-            prev_range = calculate_range(state[0], state[1])
 
             for t in range(1, max_step):
                 # Select action according to the current policy and exploration noise
@@ -995,22 +966,14 @@ class DDPG():
                 action_array.append(action)
 
                 # Execute action and observe reward + new state
-                self.em.take_action(action)
+                reward = self.em.take_action(action)
+                eps_reward += reward
                 
                 next_state = self.em.get_state()
                 next_state_array.append(next_state)
 
-                done_array.append(self.em.get_done())
+                done_array.append(torch.tensor([0], device=DEVICE).int())
                 
-                curr_range = calculate_range(next_state[0], next_state[1])
-                if curr_range < prev_range:
-                    useful_next_states.append([t, next_state])
-                    prev_range = curr_range
-                    print("curr range")
-                    print(curr_range)
-                    print("update useful next states")
-                    print(useful_next_states)
-
                 self.em.render(print_state = False, live_graph=True)
 
                 state = next_state
@@ -1019,47 +982,24 @@ class DDPG():
                     # if the auv has reached the goal
                     # modify how many steps we should run HER
                     iteration = t
+                    done_array[t-1] = torch.tensor([1], device=DEVICE).int()
                     break
 
             # restart the starting state to prepare for HER algorithm
             state = self.em.reset()
 
-            self.episode_durations.append(iteration)
-
-            # if DEBUG:
-            #     step = input("stop")
-            
-            index = 0
+            episode_durations.append(iteration)
 
             for t in range(iteration):
                 action = action_array[t]
                 next_state = next_state_array[t]
                 done = done_array[t]
 
-                # next_state[0] - the auv position after it has taken an action
-                # next_state[1] - the actual goal
-                reward = self.em.get_binary_reward(next_state[0], next_state[1])
-
-                # store the actual experience in the memory
-                self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
-
-                print("----------------------------")
-                print("timestep: ", t)
-                print("actual experience stored")
-                print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
-                print("----------------------------")
-
-                
+                self.save_real_experience(state, next_state, action, done)
+         
                 if use_HER:
-                    # if useful_next_states != []:
-                    #     while index < len(useful_next_states) and t >= useful_next_states[index][0]:
-                    #         index += 1
-
-                    #     additional_goals = [x[1] for x in useful_next_states[index: ]]
-
                     additional_goals = self.possible_extra_goals(t, next_state_array)
                     self.store_extra_goals_HER(action, state, next_state, additional_goals)
-                text = input("stop")
 
                 state = next_state
 
@@ -1069,21 +1009,21 @@ class DDPG():
                 save_model(self.actor, self.actor_target, self.critic, self.critic_target)
 
             print("+++++++++++++++++++++++++++++++++++++++++")
-            print("Episode # ", eps, " used time: ", self.episode_durations[-1])
+            print("Episode # ", eps, " used time: ", episode_durations[-1])
 
-            if self.actor_loss_in_ep != []:
-                avg_actor_loss = np.mean(self.actor_loss_in_ep)
-                self.actor_loss_in_training.append(avg_actor_loss)
+            if actor_loss_in_ep != []:
+                avg_actor_loss = np.mean(actor_loss_in_ep)
+                actor_loss_in_training.append(avg_actor_loss)
                 print("average actor loss: ", avg_actor_loss)
             else:
-                self.actor_loss_in_training.append(1000)
+                actor_loss_in_training.append(1000)
             
-            if self.critic_loss_in_ep != []:
-                avg_critic_loss =  np.mean(self.critic_loss_in_ep)
-                self.critic_loss_in_training.append(avg_critic_loss)
+            if critic_loss_in_ep != []:
+                avg_critic_loss =  np.mean(critic_loss_in_ep)
+                critic_loss_in_training.append(avg_critic_loss)
                 print("average critic loss: ", avg_critic_loss)
             else:
-                self.critic_loss_in_training.append(1000)
+                critic_loss_in_training.append(1000)
 
             print("+++++++++++++++++++++++++++++++++++++++++")
 
@@ -1091,18 +1031,18 @@ class DDPG():
                 text = input("stop")
 
         print("steps in each episode")
-        print(self.episode_durations)
+        print(episode_durations)
         print("actor loss")
-        print(self.actor_loss_in_training)
+        print(actor_loss_in_training)
         print("critic loss")
-        print(self.critic_loss_in_training)
+        print(critic_loss_in_training)
     
 
     def train_no_HER(self, num_episodes, max_step, load_prev_training=False):
         # keep track of how many steps the auv takes in each episode
-        self.episode_durations = []
-        self.actor_loss_in_training = []
-        self.critic_loss_in_training = []
+        episode_durations = []
+        actor_loss_in_training = []
+        critic_loss_in_training = []
 
         if load_prev_training:
             # if we want to continue training an already trained network
@@ -1118,8 +1058,8 @@ class DDPG():
 
             score = 0
 
-            self.actor_loss_in_ep = []
-            self.critic_loss_in_ep = []
+            actor_loss_in_ep = []
+            critic_loss_in_ep = []
 
             # determine how many steps we should run HER
             # by default, it will be "max_step" - 1 because in the first loop, we start at t=1
@@ -1137,6 +1077,8 @@ class DDPG():
 
                 self.em.render(print_state = False, live_graph=True)
 
+                self.save_real_experience(state, next_state, action)
+
                 self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, torch.tensor([True], device=DEVICE)))
 
                 print("@@@@@@@@@@@@@@@@@@")
@@ -1153,28 +1095,28 @@ class DDPG():
                     iteration = t
                     break
 
-            self.episode_durations.append(iteration)
+            episode_durations.append(iteration)
               
 
             if eps % SAVE_EVERY == 0 or self.em.done:
                 save_model(self.actor, self.actor_target, self.critic, self.critic_target)
 
             print("+++++++++++++++++++++++++++++++++++++++++")
-            print("Episode # ", eps, " used time: ", self.episode_durations[-1], " reward: ", score)
+            print("Episode # ", eps, " used time: ", episode_durations[-1], " reward: ", score)
 
-            if self.actor_loss_in_ep != []:
-                avg_actor_loss = np.mean(self.actor_loss_in_ep)
-                self.actor_loss_in_training.append(avg_actor_loss)
+            if actor_loss_in_ep != []:
+                avg_actor_loss = np.mean(actor_loss_in_ep)
+                actor_loss_in_training.append(avg_actor_loss)
                 print("average actor loss: ", avg_actor_loss)
             else:
-                self.actor_loss_in_training.append(1000)
+                actor_loss_in_training.append(1000)
             
-            if self.critic_loss_in_ep != []:
-                avg_critic_loss =  np.mean(self.critic_loss_in_ep)
-                self.critic_loss_in_training.append(avg_critic_loss)
+            if critic_loss_in_ep != []:
+                avg_critic_loss =  np.mean(critic_loss_in_ep)
+                critic_loss_in_training.append(avg_critic_loss)
                 print("average critic loss: ", avg_critic_loss)
             else:
-                self.critic_loss_in_training.append(1000)
+                critic_loss_in_training.append(1000)
 
             print("+++++++++++++++++++++++++++++++++++++++++")
 
@@ -1182,11 +1124,11 @@ class DDPG():
                 text = input("stop")
 
         print("steps in each episode")
-        print(self.episode_durations)
+        print(episode_durations)
         print("actor loss")
-        print(self.actor_loss_in_training)
+        print(actor_loss_in_training)
         print("critic loss")
-        print(self.critic_loss_in_training)
+        print(critic_loss_in_training)
 
 
 
