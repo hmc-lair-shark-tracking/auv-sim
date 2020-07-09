@@ -36,7 +36,7 @@ END_GAME_RADIUS = 3.0
 FOLLOWING_RADIUS = 50.0
 
 # the auv will receive an immediate negative reward if it is close to the obstacles
-OBSTACLE_ZONE = 3.0
+OBSTACLE_ZONE = 0.0
 WALL_ZONE = 10.0
 
 # constants for reward (old)
@@ -139,7 +139,7 @@ class RRTEnv(gym.Env):
         self.visited_unique_habitat_count = 0
 
 
-    def init_env(self, auv_init_pos, shark_init_pos, boundary_array, obstacle_array = [], habitat_grid = None):
+    def init_env(self, auv_init_pos, shark_init_pos, boundary_array, grid_cell_side_length, obstacle_array = [], habitat_grid = None):
         """
         Initialize the environment based on the auv and shark's initial position
 
@@ -173,8 +173,7 @@ class RRTEnv(gym.Env):
 
         self.boundary_array = boundary_array
 
-        # initialize the RRT planner
-        self.rrt_planner = Planner_RRT(self.auv_init_pos, self.shark_init_pos, boundary_array, obstacle_array, self.habitats_array_for_rendering)
+        self.cell_side_length = grid_cell_side_length
 
         # declare the observation space (required by OpenAI)
         self.observation_space = spaces.Dict({
@@ -189,7 +188,7 @@ class RRTEnv(gym.Env):
         
         return self.reset()
 
-    def step(self, chosen_grid):
+    def step(self, chosen_grid_cell_idx):
         """
         In each step, we will generate an additional node in the RRT tree.
 
@@ -203,44 +202,66 @@ class RRTEnv(gym.Env):
             done - float, whether the episode has ended
             info - dictionary, can provide debugging info (TODO: right now, it's just an empty one)
         """
+        # convert the index for grid cells in the 1D array back to 2D array
+        chosen_grid_cell_row_idx = chosen_grid_cell_idx // len(self.rrt_planner.env_grid[0])
+        chosen_grid_cell_col_idx = chosen_grid_cell_idx % len(self.rrt_planner.env_grid[0])
 
-        updated_grid, done = self.rrt_planner.generate_one_node(self, chosen_grid)
+        chosen_grid_cell = self.rrt_planner.env_grid[chosen_grid_cell_row_idx][chosen_grid_cell_col_idx]
 
-        # TODO: For now, the reward encourages using less time to plan the path
-        reward = -1
+        done, path = self.rrt_planner.generate_one_node(chosen_grid_cell)
+
+        # TODO: how we are updating the grid's info and the has node array is very inefficient
+        self.state["rrt_grid"] = self.convert_rrt_grid_to_1D(self.rrt_planner.env_grid)
+
+        self.state["has_node"] = self.generate_rrt_grid_has_node_array(self.rrt_planner.env_grid)
+
+        # if the RRT planner has found a path in this step
+        if path != None:
+            print("found a path / node")
+            self.state["path"] = path
+
+        if done and path != None:
+            reward = 100
+        elif path != None:
+            reward = 1
+        else:
+            # TODO: For now, the reward encourages using less time to plan the path
+            reward = -1
 
         return self.state, reward, done, {}
 
 
-    def adjust_action(self, v_init_index, w_init_index, starting_auv_pos, num_of_options_v, num_of_options_w):
-        x, y, z, theta = starting_auv_pos
+    def convert_rrt_grid_to_1D (self, rrt_grid):
+        """
+        Parameter:
+            rrt_grid - a 2D array, represent all the grid cells
+        """
+        rrt_grid_1D_array = []
 
-        v_action_index = v_init_index
-        w_action_index = w_init_index
+        for row in rrt_grid:
+            for grid_cell in row:
+                rrt_grid_1D_array.append([grid_cell.x, grid_cell.y, len(grid_cell.node_list)])
+
+        return np.array(rrt_grid_1D_array)
 
 
-        v = self.v_options[v_action_index]
-        w = self.w_options[w_action_index]
+    def generate_rrt_grid_has_node_array (self, rrt_grid):
+        """
+        Parameter:
+            rrt_grid - a 2D array, represent all the grid cells
+        """
 
-        # calculate the new position and orientation of the auv
-        for _ in range(REPEAT_ACTION_TIME):
-            theta = angle_wrap(theta + w * DELTA_T)
-            dist_x = v * np.cos(theta) * DELTA_T
-            x = x + dist_x
-            dist_y = v * np.sin(theta) * DELTA_T
-            y = y + dist_y
-        
-        auv_pos = [x, y, z, theta]
+        has_node_array = []
 
-        distance_from_walls = self.habitat_grid.distance_from_grid_boundary(auv_pos)
+        for row in rrt_grid:
+            for grid_cell in row:
+                if len(grid_cell.node_list) == 0:
+                    has_node_array.append(0)
+                else:
+                    has_node_array.append(1)
 
-        if self.check_close_to_walls(auv_pos, distance_from_walls) or self.check_close_to_obstacles(auv_pos):
-            # reselect the actions
-            v_action_index = num_of_options_v-1
-            w_action_index = num_of_options_w-1
+        return has_node_array
 
-        return v_action_index, w_action_index
-        
     
     def calculate_range(self, a_pos, b_pos):
         """
@@ -551,12 +572,19 @@ class RRTEnv(gym.Env):
 
         shark_init_pos = np.array([self.shark_init_pos.x, self.shark_init_pos.y, self.shark_init_pos.z, self.shark_init_pos.theta])
 
+        # initialize the RRT planner
+        self.rrt_planner = Planner_RRT(self.auv_init_pos, self.shark_init_pos, self.boundary_array, self.obstacle_array_for_rendering, self.habitats_array_for_rendering, cell_side_length = self.cell_side_length)
+
+        rrt_grid_1D_array = self.convert_rrt_grid_to_1D(self.rrt_planner.env_grid)
+        has_node_array = self.generate_rrt_grid_has_node_array(self.rrt_planner.env_grid)
+
         self.state = {
             'auv_pos': auv_init_pos,\
             'shark_pos': shark_init_pos,\
             'obstacles_pos': self.obstacle_array,\
-            'rrt_grid': [],\
-            'rrt_grid_info': []
+            'rrt_grid': rrt_grid_1D_array,\
+            'has_node': has_node_array,\
+            'path': None,
         }
 
         return self.state
@@ -586,58 +614,7 @@ class RRTEnv(gym.Env):
         return self.state
 
 
-    def render_3D_plot(self, auv_pos, shark_pos):
-        """
-        Render the environment in a 3D environment
-
-        Parameters:
-            auv_pos - an array / a numpy array, with format [x_pos, y_pos, z_pos, theta]
-            shark_pos - an array / a numpy array, with format [x_pos, y_pos, z_pos, theta]
-
-        Warning: 
-            - plotting in 3D is very slow
-        """
-        # add the current position so that we can plot the trajectory line later
-        self.auv_x_array_plot.append(auv_pos[0])
-        self.auv_y_array_plot.append(auv_pos[1])
-        self.auv_z_array_plot.append(auv_pos[2])
-
-        self.shark_x_array_plot.append(shark_pos[0])
-        self.shark_y_array_plot.append(shark_pos[1])
-        self.shark_z_array_plot.append(shark_pos[2])
-
-        self.live_graph.plot_entity(self.auv_x_array_plot, self.auv_y_array_plot, self.auv_z_array_plot, label = 'auv', color = 'r', marker = ',')
-
-        self.live_graph.plot_entity(self.shark_x_array_plot, self.shark_y_array_plot, self.shark_z_array_plot, label = 'shark', color = 'b', marker = ',')
-
-        # plot the circular region where the auv will be considered following the shark
-        goal_region = Circle((shark_pos[0],shark_pos[1]), radius=FOLLOWING_RADIUS, color='b', fill=False)
-        self.live_graph.ax.add_patch(goal_region)
-        Art3d.pathpatch_2d_to_3d(goal_region, z = shark_pos[2], zdir='z')
-
-        if self.obstacle_array_for_rendering != []:
-            self.live_graph.plot_obstacles(self.obstacle_array_for_rendering, OBSTACLE_ZONE)
-
-        for hab in self.habitats_array_for_rendering:
-            hab_region = Rectangle((hab.x, hab.y), width=hab.side_length, height=hab.side_length, color='#2a753e', fill=False)
-            self.live_graph.ax.add_patch(hab_region)
-            Art3d.pathpatch_2d_to_3d(hab_region, z=-10, zdir='z')
-        
-        self.live_graph.ax.set_xlabel('X')
-        self.live_graph.ax.set_ylabel('Y')
-        self.live_graph.ax.set_zlabel('Z')
-
-        self.live_graph.ax.legend()
-        
-        plt.draw()
-
-        # pause so the plot can be updated
-        plt.pause(0.0001)
-
-        self.live_graph.ax.clear()
-
-
-    def render_2D_plot(self, auv_pos, shark_pos=[]):
+    def render_2D_plot(self, new_state):
         """
         Render the environment in a 2D environment
 
@@ -645,49 +622,35 @@ class RRTEnv(gym.Env):
             auv_pos - an array / a numpy array, with format [x_pos, y_pos, z_pos, theta]
             shark_pos - an array / a numpy array, with format [x_pos, y_pos, z_pos, theta]
         """
-        
-        self.auv_x_array_plot.append(auv_pos[0])
-        self.auv_y_array_plot.append(auv_pos[1])
-        self.auv_z_array_plot.append(auv_pos[2])
-
-        """self.shark_x_array_plot.append(shark_pos[0])
-        self.shark_y_array_plot.append(shark_pos[1])
-        self.shark_z_array_plot.append(shark_pos[2])"""
-
-        auv_ln, = self.live_graph.plot_entity_2D(self.auv_x_array_plot, self.auv_y_array_plot, label = 'auv', color = 'r', marker = ',')
-
-        """shark_ln, = self.live_graph.plot_entity_2D(self.shark_x_array_plot, self.shark_y_array_plot, label = 'shark', color = 'b', marker = ',')"""
-
-        """goal_region = Circle((shark_pos[0],shark_pos[1]), radius=FOLLOWING_RADIUS, color='b', fill=False)
-        self.live_graph.ax_2D.add_patch(goal_region)"""
-
-        self.live_graph.ax_2D.legend(["auv"])
-        
-        plt.draw()
+        if new_state != None and type(new_state) != list:
+            # draw the new edge, which is not a successful path
+            self.live_graph.ax_2D.plot([point.x for point in new_state.path], [point.y for point in new_state.path], '-', color="#000000")
+        elif new_state != None and type(new_state) == list:
+            # if we are supposed to draw the final path  
+            # new_state is now a list of nodes
+            self.live_graph.ax_2D.plot([node.x for node in new_state], [node.y for node in new_state], '-r')
+            # self.ax.plot(rnd.x, rnd.y, ",", color="#000000")
 
         # pause so the plot can be updated
         plt.pause(0.0001)
 
-        """goal_region.remove()"""
-        auv_ln.remove()
-        """shark_ln.remove()"""
-        
-        # self.live_graph.ax_2D.clear()
-
 
     def init_live_graph(self, live_graph_2D):
         if live_graph_2D:
+            self.live_graph.ax_2D.plot(self.auv_init_pos.x, self.auv_init_pos.y, "xr")
+            self.live_graph.ax_2D.plot(self.shark_init_pos.x, self.shark_init_pos.y, "xr")
+
             if self.obstacle_array_for_rendering != []:
                 self.live_graph.plot_obstacles_2D(self.obstacle_array_for_rendering, OBSTACLE_ZONE)
 
-            for hab in self.habitats_array_for_rendering:
-                hab_region = Rectangle((hab.x, hab.y), width = hab.side_length, height = hab.side_length, color='#2a753e', fill=False)
-                self.live_graph.ax_2D.add_patch(hab_region)
+            for row in self.rrt_planner.env_grid:
+                for grid_cell in row:
+                    cell = Rectangle((grid_cell.x, grid_cell.y), width=grid_cell.side_length, height=grid_cell.side_length, color='#2a753e', fill=False)
+                    self.live_graph.ax_2D.add_patch(cell)
             
             self.live_graph.ax_2D.set_xlabel('X')
             self.live_graph.ax_2D.set_ylabel('Y')
 
-        
 
     def init_data_for_plot(self, auv_init_pos, shark_init_pos):
         """

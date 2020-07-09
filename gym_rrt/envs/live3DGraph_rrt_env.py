@@ -119,8 +119,8 @@ class Live3DGraph:
             z_pos_array - an array of floats indicating the auv's past z-position
         """
         # calculate the orientation of directino vector
-        x_orient = x_pos_array[-1]-x_pos_array[-2]
-        y_orient = y_pos_array[-1]-y_pos_array[-2]
+        # x_orient = x_pos_array[-1]-x_pos_array[-2]
+        # y_orient = y_pos_array[-1]-y_pos_array[-2]
 
         # plot the trajectory line
         return self.ax_2D.plot(x_pos_array, y_pos_array,
@@ -327,8 +327,9 @@ class Live3DGraph:
             obstacle = Circle((obs.x,obs.y), radius = obs.size, color = '#000000', fill=False)
             self.ax_2D.add_patch(obstacle)
 
-            dangerous_zone = Circle((obs.x,obs.y), radius = obs.size + dangerous_zone_radius, color='#c42525', fill=False)
-            self.ax_2D.add_patch(dangerous_zone)
+            if dangerous_zone_radius != 0.0:
+                dangerous_zone = Circle((obs.x,obs.y), radius = obs.size + dangerous_zone_radius, color='#c42525', fill=False)
+                self.ax_2D.add_patch(dangerous_zone)
 
     
     def end_simulation(self, events):

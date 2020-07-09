@@ -7,12 +7,13 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import matplotlib.path as mpath
 import matplotlib.patches as mpatches
+from matplotlib.patches import Rectangle
 import numpy as np
 from shapely.wkt import loads as load_wkt 
 from shapely.geometry import Polygon, Point
 
-from motion_plan_state import Motion_plan_state
-from grid_cell_rrt import Grid_cell_RRT
+from gym_rrt.envs.motion_plan_state import Motion_plan_state
+from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
 
 # TODO: wrong import
 # import catalina
@@ -38,6 +39,7 @@ class Planner_RRT:
         # initialize start, goal, obstacle, boundaryfor path planning
         self.start = start
         self.goal = goal
+
         self.boundary_point = boundary
         self.cell_side_length = cell_side_length
 
@@ -46,11 +48,8 @@ class Planner_RRT:
         
         self.occupied_grid_cells_array = []
 
-        # add the start and the goal to the grid
+        # add the start node to the grid
         self.add_node_to_grid(self.start)
-
-        print("environment grid: ")
-        self.print_env_grid()
         
         self.obstacle_list = obstacles
         # testing data for habitats
@@ -92,9 +91,16 @@ class Planner_RRT:
 
 
     def print_env_grid(self):
+        """
+        Print the environment grid
+            - Each grid cell will take up a line
+            - Rows will be separated by ----
+        """
         for row in self.env_grid:
             for grid_cell in row:
                 print(grid_cell)
+            print("----")
+
     
     def add_node_to_grid(self, mps):
         """
@@ -120,116 +126,7 @@ class Planner_RRT:
             self.occupied_grid_cells_array.append((hab_index_row, hab_index_col))
 
 
-    def exploring(self, shark_dict, sharkGrid, plot_interval, bin_interval, v, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1,-1], sonar_range=50):
-        """
-        rrt path planning without setting a specific goal, rather try to explore the configuration space as much as possible
-        calculate cost while expand and keep track of the current optimal cost path
-        max_iter: maximum iteration for the tree to expand
-        plan_time: expand by randomly picking a time stamp and find the motion_plan_state along the path with smallest time difference
-        """
-
-        #keep track of the motion_plan_state whose path is optimal
-        opt_cost = [float("inf")]
-        opt_path = None
-        opt_cost_list = []
-        
-        #keep track of longest traj_time_stamp
-        longest_traj_time = 0
-
-        #keep track of the longest single path in the tree to normalize every path length
-        peri_boundary = self.cal_boundary_peri()
-
-        #initialize cost function
-        cal_cost = Cost()
-
-        #initialize shark occupancy grid
-        self.sharkGrid = sharkGrid
-        self.sharkDict = shark_dict
-
-        self.mps_list = [self.start]
-
-        self.t_start = time.time()
-        n_expand = math.ceil(max_plan_time / plot_interval)
-
-        if traj_time_stamp:
-            time_expand = math.ceil(max_traj_time / bin_interval)
-            for i in range(1, time_expand + 1):
-                self.time_bin[bin_interval * i] = []
-            self.time_bin[bin_interval].append(self.start)
-
-        for i in range(1, n_expand + 1):
-            t_end = self.t_start + i * plot_interval
-            while time.time() < t_end:
-                #find the closest motion_plan_state by generating a random time stamp and 
-                #find the motion_plan_state whose time stamp is closest to it
-                if plan_time:
-                    if traj_time_stamp:
-                        ran_bin = int(random.uniform(1, time_expand + 1))
-                        while self.time_bin[bin_interval * ran_bin] == []:
-                            ran_bin = int(random.uniform(1, time_expand + 1))
-                        ran_index = int(random.uniform(0, len(self.time_bin[bin_interval * ran_bin])))
-                        closest_mps = self.time_bin[bin_interval * ran_bin][ran_index]
-                    else:
-                        ran_time = random.uniform(0, max_plan_time * self.freq)
-                        closest_mps = self.get_closest_mps_time(ran_time, self.mps_list)
-                        if closest_mps.traj_time_stamp > max_traj_time:
-                            continue
-                #find the closest motion_plan_state by generating a random motion_plan_state
-                #and find the motion_plan_state with smallest distance
-                else:
-                    ran_mps = self.get_random_mps()
-                    closest_mps = self.get_closest_mps(ran_mps, self.mps_list)
-                    if closest_mps.traj_time_stamp > max_traj_time:
-                        continue
-                new_mps = self.steer(closest_mps, self.dist_to_end, self.diff_max, self.freq, v, traj_time_stamp)  
-                
-                if self.check_collision_free(new_mps, self.obstacle_list):
-                    new_mps.parent = closest_mps
-                    path = self.generate_final_course(new_mps)
-                    new_mps.length = self.cal_length(path)
-                    self.mps_list.append(new_mps)
-                    #add to time stamp bin
-                    if traj_time_stamp:
-                        curr_bin = (new_mps.traj_time_stamp // bin_interval + 1) * bin_interval
-                        if curr_bin > max_traj_time:
-                            #continue
-                            self.time_bin[curr_bin] = []
-                        self.time_bin[curr_bin].append(new_mps)
-                    if new_mps.traj_time_stamp > longest_traj_time:
-                        longest_traj_time = new_mps.traj_time_stamp
-                    #else:
-                    #    if new_mps.traj_time_stamp > max_traj_time:
-                    #        continue    
-                    #Question: how to normalize the path length?
-                    if new_mps.length != 0:
-                        #find the corresponding shark occupancy grid
-                        sharkOccupancyDict = {}
-                        start = closest_mps.traj_time_stamp
-                        end = new_mps.traj_time_stamp
-                        for time_bin in self.sharkGrid:
-                            if (start >= time_bin[0] and start <= time_bin[1]) or (time_bin[0] >= start and time_bin[1] <= end) or(end >= time_bin[0] and end <= time_bin[1]):
-                                sharkOccupancyDict[time_bin] = self.sharkGrid[time_bin]
-                        
-                        temp_length = new_mps.length - closest_mps.length
-                        traj_time = new_mps.traj_time_stamp - closest_mps.traj_time_stamp
-                        if traj_time != 0:    
-                            new_cost = cal_cost.habitat_shark_cost_func(new_mps.path, temp_length, peri_boundary, traj_time, self.habitats, sharkOccupancyDict, weights, sonar_range=sonar_range)
-                            if closest_mps.cost == []:
-                                new_mps.cost = new_cost
-                            else:
-                                temp_cost = []
-                                for i in range(len(new_cost[1])):
-                                    temp_cost.append(closest_mps.cost[1][i]+new_cost[1][i])
-                                new_mps.cost = [closest_mps.cost[0]+new_cost[0], temp_cost]
-                            if new_mps.cost[0] < opt_cost[0]:
-                                opt_cost = new_mps.cost
-                                opt_path = [new_mps.length, path]
-                
-            opt_cost_list.append(opt_cost[0])
-        return {"path length": opt_path[0], "path": opt_path[1], "cost": opt_cost, "cost list": opt_cost_list}
-        
-
-    def planning(self, max_traj_time = 10.0, max_time_step = 100, animation=False, min_length = 250, plan_time=True):
+    def planning(self, max_traj_time = 10.0, max_step = 200, min_length = 250, plan_time=True):
         """
         RRT path planning with a specific goal
 
@@ -247,12 +144,19 @@ class Planner_RRT:
 
         path = []
 
-        for _ in range(max_time_step):
+        self.init_live_graph()
+    
+        for _ in range(max_step):
 
             # pick the row index and col index for the grid cell where the tree will get expanded
             grid_cell_row, grid_cell_col = random.choice(self.occupied_grid_cells_array)
 
-            done, path = self.generate_one_node(self.env_grid[grid_cell_row][grid_cell_col], animation = animation)
+            done, path = self.generate_one_node(self.env_grid[grid_cell_row][grid_cell_col])
+
+            # if (not done) and path != None:
+            #     self.draw_graph(path)
+            # elif done:
+            #     plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
 
             if done:
                 break
@@ -260,26 +164,22 @@ class Planner_RRT:
         return path
 
 
-    def generate_one_node(self, grid_cell, animation=False, min_length=250):
+    def generate_one_node(self, grid_cell, min_length=250):
         """
         Based on the grid cell, randomly pick a node to expand the tree from from
 
         Return:
             done - True if we have found a collision-free path from the start to the goal
             path - the collision-free path if there is one, otherwise it's null
+            new_node
         """
-        print("+++++++")
-        print(grid_cell)
-        print("+++++++")
 
         # randomly pick a node from the grid cell
         rand_node = random.choice(grid_cell.node_list)
 
         new_node = self.steer(rand_node, self.dist_to_end, self.diff_max, self.freq)
-       
-        if animation:
-            self.draw_graph(new_node)
 
+        valid_new_node = False
         
         # only add the new node if it's collision free
         if self.check_collision_free(new_node, self.obstacle_list):
@@ -287,20 +187,7 @@ class Planner_RRT:
             new_node.length += rand_node.length
             self.mps_list.append(new_node)
             self.add_node_to_grid(new_node)
-
-            print("=========")
-            print("new node")
-            print(new_node)
-            print("-")
-            self.print_env_grid()
-            print("-")
-            print(self.occupied_grid_cells_array)
-            # text = input("stop")
-
-            # if animation:
-            #     plt.clf()
-            #     self.draw_graph(new_node)
-
+            valid_new_node = True
 
         final_node = self.connect_to_goal_curve_alt(self.mps_list[-1], self.exp_rate)
 
@@ -308,12 +195,12 @@ class Planner_RRT:
         if self.check_collision_free(final_node, self.obstacle_list):
             final_node.parent = self.mps_list[-1]
             path = self.generate_final_course(final_node)   
-            if animation:
-                self.draw_graph(final_node)
-
             return True, path
         
-        return False, None
+        if valid_new_node:
+            return False, new_node
+        else:
+            return False, None
 
 
     def steer(self, mps, dist_to_end, diff_max, freq, velocity=1, traj_time_stamp=False):
@@ -411,29 +298,38 @@ class Planner_RRT:
 
         return Motion_plan_state(ran_x, ran_y, theta=ran_theta, size=ran_size)
 
+    
+    def init_live_graph(self):
+        _, self.ax = plt.subplots()
 
+        for row in self.env_grid:
+            for grid_cell in row:
+                cell = Rectangle((grid_cell.x, grid_cell.y), width=grid_cell.side_length, height=grid_cell.side_length, color='#2a753e', fill=False)
+                self.ax.add_patch(cell)
+        
+        for obstacle in self.obstacle_list:
+            self.plot_circle(obstacle.x, obstacle.y, obstacle.size)
+
+        self.ax.plot(self.start.x, self.start.y, "xr")
+        self.ax.plot(self.goal.x, self.goal.y, "xr")
+
+    
     def draw_graph(self, rnd=None):
         # plt.clf()  # if we want to clear the plot
         # for stopping simulation with the esc key.
         plt.gcf().canvas.mpl_connect('key_release_event',
                                      lambda event: [exit(0) if event.key == 'escape' else None])
-        if rnd is not None:
-            plt.plot(rnd.x, rnd.y, "^k")
+        if rnd != None:
+            # self.ax.plot(rnd.x, rnd.y, ",", color="#000000")
 
-            plt.plot([point.x for point in rnd.path], [point.y for point in rnd.path], '-')
-        
-        for mps in self.mps_list:
-            if mps.parent:
-                plt.plot([point.x for point in mps.path], [point.y for point in mps.path], '-g')
+            self.ax.plot([point.x for point in rnd.path], [point.y for point in rnd.path], '-', color="#000000")
+        else:
+            for mps in self.mps_list:
+                if mps.parent:
+                    plt.plot([point.x for point in mps.path], [point.y for point in mps.path], '-g')
 
-        for obstacle in self.obstacle_list:
-            self.plot_circle(obstacle.x, obstacle.y, obstacle.size)
-
-        plt.plot(self.start.x, self.start.y, "xr")
-        plt.plot(self.goal.x, self.goal.y, "xr")
         plt.axis("equal")
 
-        plt.grid(True)
         plt.pause(1)
 
 
@@ -644,36 +540,34 @@ class Planner_RRT:
 
 def main():
     auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
-    shark_init_pos = Motion_plan_state(x = 40.0, y = 40.0, z = -5.0, theta = 0.0)
+    shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
     # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
     obstacle_array = [\
-        Motion_plan_state(x=15.0, y=38.0, size=4),\
-        Motion_plan_state(x=20.0, y=34.0, size=4),\
-        Motion_plan_state(x=25.0, y=25.0, size=4),\
-        Motion_plan_state(x=34.0, y=19.0, size=4),\
-        Motion_plan_state(x=43.0, y=5.0, size=4)\
+        Motion_plan_state(x=12.0, y=38.0, size=4),\
+        Motion_plan_state(x=17.0, y=34.0, size=5),\
+        Motion_plan_state(x=25.0, y=25.0, size=3),\
+        Motion_plan_state(x=29.0, y=20.0, size=4),\
+        Motion_plan_state(x=34.0, y=17.0, size=3),\
+        Motion_plan_state(x=37.0, y=8.0, size=5)\
     ]
 
     boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x=50.0, y=50.0)]
 
 
-    rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=5, cell_side_length=5)
+    rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=10, cell_side_length=5)
 
-    path = rrt.planning(animation = True)
-    print("completed path???")
-    print(path)
-    text = input("stop")
+    path = rrt.planning(max_step=200)
 
-    # Draw final path
-    if path is not None:
-        if show_animation:
-            rrt.draw_graph()
-            plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
-            plt.grid(True)
-            plt.pause(0.01)
-            plt.show()
+    if path != [] and type(path) == list:
+        rrt.draw_graph()
+        plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
+    else:
+        print("Failed to find path")
+        rrt.draw_graph()
+
+    plt.show()
         
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

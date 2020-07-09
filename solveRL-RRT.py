@@ -32,8 +32,8 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 20.0
 
-NUM_OF_EPISODES = 500
-MAX_STEP = 1000
+NUM_OF_EPISODES = 10
+MAX_STEP = 30
 
 NUM_OF_EPISODES_TEST =  1000
 MAX_STEP_TEST = 1000
@@ -50,33 +50,33 @@ EPS_DECAY = 0.001
 LEARNING_RATE = 0.001
 
 MEMORY_SIZE = 100000
-BATCH_SIZE = 64
+BATCH_SIZE = 10
 
 # number of additional goals to be added to the replay memory
 NUM_GOALS_SAMPLED_HER = 4
 
 TARGET_UPDATE = 10000
 
-NUM_OF_OBSTACLES = 4
+NUM_OF_OBSTACLES = 6
 
-HABITAT_SIDE_LENGTH = 20
-HABITAT_CELL_SIDE_LENGTH = 20
-NUM_OF_HABITATS = int((DIST * 20 / HABITAT_SIDE_LENGTH) ** 2)
+ENV_SIZE = 50.0
+ENV_GRID_CELL_SIDE_LENGTH = 25.0
+# the output size for the neural network
+NUM_OF_GRID_CELLS = int((int(ENV_SIZE) / int(ENV_GRID_CELL_SIDE_LENGTH)) ** 2)
 
-INFO_ABT_DIST_FROM_WALLS = 1
-
-STATE_SIZE = 4 + NUM_OF_OBSTACLES * 4 + NUM_OF_HABITATS * 4 + INFO_ABT_DIST_FROM_WALLS * 4
+# the input size for the neural network
+STATE_SIZE = int(8 + NUM_OF_OBSTACLES * 4 + NUM_OF_GRID_CELLS * 3)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 250
+RENDER_EVERY = 1
 # how many episode should we run a test on the model
 TEST_EVERY = 100
 
-DEBUG = False
+DEBUG = True
 
 """
 ============================================================================
@@ -93,18 +93,19 @@ def process_state_for_nn(state):
         state - a direction of two np arrays
     """
     auv_tensor = torch.from_numpy(state['auv_pos'])
-    """shark_tensor = torch.from_numpy(state['shark_pos'])"""
+    shark_tensor = torch.from_numpy(state['shark_pos'])
 
     obstacle_tensor = torch.from_numpy(state['obstacles_pos'])
     obstacle_tensor = torch.flatten(obstacle_tensor)
 
-    habitat_tensor = torch.from_numpy(state['habitats_pos'])
-    habitat_tensor = torch.flatten(habitat_tensor)
+    rrt_grid_tensor = torch.from_numpy(state['rrt_grid'])
+    rrt_grid_tensor = torch.flatten(rrt_grid_tensor)
 
-    dist_from_walls_tensor = torch.from_numpy(state['auv_dist_from_walls'])
+    """habitat_tensor = torch.from_numpy(state['habitats_pos'])
+    habitat_tensor = torch.flatten(habitat_tensor)"""
     
     # join tensors together
-    return torch.cat((auv_tensor, obstacle_tensor, habitat_tensor, dist_from_walls_tensor)).float()
+    return torch.cat((auv_tensor, shark_tensor, obstacle_tensor, rrt_grid_tensor)).float()
 
 
 def extract_tensors(experiences):
@@ -340,7 +341,7 @@ class EpsilonGreedyStrategy():
 Class to represent the agent and decide its action in the environment
 """
 class Agent():
-    def __init__(self, actions_range_v, actions_range_w, device):
+    def __init__(self, device):
         """
         Parameter: 
             strategy - Epsilon Greedy Strategy class (decide whether we should explore the environment or if we should use the DQN)
@@ -352,13 +353,24 @@ class Agent():
         self.current_step = 0
         
         self.strategy = EpsilonGreedyStrategy(EPS_START, EPS_END, EPS_DECAY)
-        
-        self.actions_range_v = actions_range_v
-        self.actions_range_w = actions_range_w
        
         self.device = device
 
         self.rate = None
+
+    
+    def generate_index_to_pick (self, has_node_array):
+        """
+        Parameter:
+            has_node_array - an array of 0s and 1s, where
+                1 indicates that the grid cell is pickable (has at least 1 node in it)
+        """
+        index_to_pick = []
+        for i in range(len(has_node_array)):
+            if has_node_array[i] == 1:
+                index_to_pick.append(i)
+
+        return index_to_pick
 
 
     def select_action(self, state, policy_net):
@@ -377,15 +389,17 @@ class Agent():
         # as the number of steps increases, the exploration rate will decrease
         self.current_step += 1
 
+        index_to_pick = self.generate_index_to_pick(state["has_node"])
+
         if self.rate > random.random():
             # exploring the environment by randomly chosing an action
             if DEBUG:
                 print("-----")
                 print("randomly picking")
-            v_action_index = random.choice(range(self.actions_range_v))
-            w_action_index = random.choice(range(self.actions_range_w))
+            
+            grid_cell_index = random.choice(index_to_pick)
 
-            return torch.tensor([v_action_index, w_action_index]).to(self.device) # explore
+            return torch.tensor([grid_cell_index]).to(self.device) # explore
 
         else:
             # turn off gradient tracking bc we are using the model for inference instead of training
@@ -393,25 +407,25 @@ class Agent():
             # of each node yet
             with torch.no_grad():
                 # convert the state to a flat tensor to prepare for passing into the neural network
-                state = process_state_for_nn(state)
+                input_state = process_state_for_nn(state)
 
                 # for the given "state"，the output will be Q values for each possible action (index for v and w)
                 #   from the policy net
-                output_weight = policy_net(state).to(self.device)
+                output_weight = policy_net(input_state).to(self.device)
+                
                 if DEBUG:
                     print("-----")
                     print("exploiting")
-                    print("Q values check - v")
-                    print(output_weight[0])
-                    print("Q values check - w")
-                    print(output_weight[1])
 
-                # output_weight[0] is for the v_index, output_weight[1] is for w_index
-                # this is finding the index with the highest Q value
-                v_action_index = torch.argmax(output_weight[0]).item()
-                w_action_index = torch.argmax(output_weight[1]).item()
+                grid_cell_index = torch.argmax(output_weight).item()
 
-                return torch.tensor([v_action_index, w_action_index]).to(self.device) # explore  
+                if state["has_node"][grid_cell_index] == 0:
+                    if DEBUG:
+                        print("has to randomly pick")
+
+                    grid_cell_index = random.choice(index_to_pick)
+
+                return torch.tensor([grid_cell_index]).to(self.device) # explore  
 
 
 
@@ -419,7 +433,7 @@ class Agent():
 Class Wrapper for the auv RL environment
 """
 class AuvEnvManager():
-    def __init__(self, N_v, N_w, device):
+    def __init__(self, device):
         """
         Parameters: 
             device - what we want to PyTorch to use for tensor calculation
@@ -440,17 +454,18 @@ class AuvEnvManager():
     def init_env_randomly(self, dist = DIST):
 
         auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
-        shark_init_pos = Motion_plan_state(x = 40.0, y = 40.0, z = -5.0, theta = 0.0)
+        shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
         # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
         obstacle_array = [\
-            Motion_plan_state(x=21.0, y=29.0, size=4),\
-            Motion_plan_state(x=23.0, y=27.0, size=4),\
-            Motion_plan_state(x=25.0, y=25.0, size=4),\
-            Motion_plan_state(x=27.0, y=23.0, size=4),\
-            Motion_plan_state(x=29.0, y=21.0, size=4)\
+            Motion_plan_state(x=12.0, y=38.0, size=4),\
+            Motion_plan_state(x=17.0, y=34.0, size=5),\
+            Motion_plan_state(x=25.0, y=25.0, size=3),\
+            Motion_plan_state(x=29.0, y=20.0, size=4),\
+            Motion_plan_state(x=34.0, y=17.0, size=3),\
+            Motion_plan_state(x=37.0, y=8.0, size=5)\
         ]
 
-        boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x=50.0, y=50.0)]
+        boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = ENV_SIZE, y = ENV_SIZE)]
 
         # self.habitat_grid = HabitatGrid(habitat_bound_x, habitat_bound_y, habitat_bound_size_x, habitat_bound_size_y, HABITAT_SIDE_LENGTH, HABITAT_CELL_SIDE_LENGTH)
 
@@ -460,12 +475,15 @@ class AuvEnvManager():
         print(shark_init_pos)
         print("-")
         print(obstacle_array)
+        print("-")
+        print("Number of Environment Grid")
+        print(ENV_GRID_CELL_SIDE_LENGTH)
         print("===============================")
 
         if DEBUG:
             text = input("stop")
 
-        return self.env.init_env(auv_init_pos, shark_init_pos, boundary_array = boundary_array, obstacle_array = obstacle_array)
+        return self.env.init_env(auv_init_pos, shark_init_pos, boundary_array = boundary_array, grid_cell_side_length = ENV_GRID_CELL_SIDE_LENGTH, obstacle_array = obstacle_array)
 
 
     def reset(self):
@@ -479,7 +497,7 @@ class AuvEnvManager():
         self.env.close()
 
 
-    def render(self, mode='human', print_state = True, live_graph_3D = False, live_graph_2D = False):
+    def render(self, mode='human', print_state = True, live_graph_2D = False):
         """
         Render the environment both as text in terminal and as a 3D graph if necessary
 
@@ -487,62 +505,42 @@ class AuvEnvManager():
             mode - string, modes for rendering, currently only supporting "human"
             live_graph - boolean, will display the 3D live_graph if True
         """
-        state = self.env.render(mode, print_state)
-        if live_graph_3D: 
-            self.env.render_3D_plot(state['auv_pos'], state['shark_pos'])
-
         if live_graph_2D:
-            """self.env.render_2D_plot(state['auv_pos'], state['shark_pos'])"""
-            self.env.render_2D_plot(state['auv_pos'])
+            self.env.render_2D_plot(self.current_state["path"])
             
-        return state
 
-    def reset_render_graph(self, mode='human', live_graph_3D = False, live_graph_2D = False):
-        if live_graph_3D:
-            self.env.live_graph.ax.clear()
-        elif live_graph_2D:
+    def reset_render_graph(self, live_graph_2D = False):
+        if live_graph_2D:
             self.env.live_graph.ax_2D.clear()
 
 
-    def take_action(self, action):
+    def take_action(self, chosen_grid_cell_index):
         """
         Parameter: 
             action - tensor of the format: tensor([v_index, w_index])
                 use the index from the action and take a step in environment
                 based on the chosen values for v and w
         """
-        v_action_index = action[0].item()
-        w_action_index = action[1].item()
-        v_action = self.possible_actions[0][v_action_index]
-        w_action = self.possible_actions[1][w_action_index]
-
+        chosen_grid_cell_index = chosen_grid_cell_index.item()
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
-        self.current_state, reward, self.done, _ = self.env.step((v_action, w_action))
+        self.current_state, reward, self.done, _ = self.env.step(chosen_grid_cell_index)
 
         if DEBUG:
             print("=========================")
-            print("action v: ", v_action_index, " | ", v_action)  
-            print("action w: ", w_action_index, " | ", w_action)  
+            print("chosen grid cell index: ")
+            print(chosen_grid_cell_index)
+            print("chosen grid: ")
+            print(self.current_state["rrt_grid"][chosen_grid_cell_index])
+            print("------")
             print("new state: ")
             print(self.current_state)
             print("reward: ")
             print(reward)
             print("=========================")
-            # text = input("stop")
 
         # wrap reward into a tensor, so we have input and output to both be tensor
         return torch.tensor([reward], device=self.device).float()
-
-    
-    def adjust_action(self, action, state, num_of_options_v, num_of_options_w):
-        v_action_index = action[0].item()
-        w_action_index = action[1].item()
-        
-        new_v_action_index, new_w_action_index = self.env.adjust_action(v_action_index, w_action_index, state["auv_pos"], num_of_options_v, num_of_options_w)
-
-        return torch.tensor([new_v_action_index, new_w_action_index]).to(self.device) # explore  
-
 
     def get_state(self):
         """
@@ -596,9 +594,7 @@ class AuvEnvManager():
 
         return torch.tensor([reward], device=self.device).float()
 
-"""
-Use QValues class's 
-"""
+
 class QValues():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -611,10 +607,9 @@ class QValues():
         # policy_net(states).gather(dim=1, index=actions[:,:1]) gives us
         #   a tensor of the q-value corresponds to the state and action(specified by index=actions[:,:1]) pair 
         
-        q_values_for_v = policy_net(states)[0].gather(dim=1, index=actions[:,:1])
-        q_values_for_w = policy_net(states)[1].gather(dim=1, index=actions[:,1:2])
-       
-        return torch.stack((q_values_for_v, q_values_for_w), dim = 0)
+        q_values = policy_net(states).gather(dim=1, index=actions[:,:1])
+
+        return q_values
 
     
     @staticmethod        
@@ -622,18 +617,17 @@ class QValues():
         # for each next state, we want to obtain the max q-value predicted by the target_net among all the possible next actions              
         # we want to know where the final states are bc we shouldn't pass them into the target net
        
-        v_max_q_values = target_net(next_states)[0].max(dim=1)[0].detach()
-        w_max_q_values = target_net(next_states)[1].max(dim=1)[0].detach()
-       
-        return torch.stack((v_max_q_values, w_max_q_values), dim = 0)
+        max_q_values = target_net(next_states).max(dim=1)[0].detach()
+        
+        return max_q_values
 
 
 
 class DQN():
-    def __init__(self, N_v, N_w):
+    def __init__(self):
         # initialize the policy network and the target network
-        self.policy_net = Neural_network(STATE_SIZE, N_v, N_w).to(DEVICE)
-        self.target_net = Neural_network(STATE_SIZE, N_v, N_w).to(DEVICE)
+        self.policy_net = Neural_network(STATE_SIZE, NUM_OF_GRID_CELLS).to(DEVICE)
+        self.target_net = Neural_network(STATE_SIZE, NUM_OF_GRID_CELLS).to(DEVICE)
 
         self.hard_update(self.target_net, self.policy_net)
         self.target_net.eval()
@@ -643,9 +637,9 @@ class DQN():
         self.memory = ReplayMemory(MEMORY_SIZE)
 
         # set up the environment
-        self.em = AuvEnvManager(N_v, N_w, DEVICE)
+        self.em = AuvEnvManager(DEVICE)
 
-        self.agent = Agent(N_v, N_w, DEVICE)
+        self.agent = Agent(DEVICE)
 
 
     def hard_update(self, target, source):
@@ -820,22 +814,22 @@ class DQN():
         text = input("stop")
 
 
-    def save_real_experiece(self, state, next_state, action, done, timestep):
+    def save_real_experiece(self, state, next_state, action, reward, done):
         """old_range = calculate_range(state['auv_pos'], state['shark_pos'])"""
 
-        visited_habitat_cell = self.em.habitat_grid.inside_habitat(next_state['auv_pos'])
+        """visited_habitat_cell = self.em.habitat_grid.inside_habitat(next_state['auv_pos'])"""
 
         """reward = self.em.get_reward_with_habitats_no_decay(next_state['auv_pos'], next_state['shark_pos'], old_range,\
             next_state['habitats_pos'], visited_habitat_cell)"""
-        reward = self.em.get_reward_with_habitats_no_shark(next_state['auv_pos'], next_state['habitats_pos'], visited_habitat_cell, next_state['auv_dist_from_walls'])
+        
+        """reward = self.em.get_reward_with_habitats_no_shark(next_state['auv_pos'], next_state['habitats_pos'], visited_habitat_cell, next_state['auv_dist_from_walls'])"""
 
         self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
 
-        # print("**********************")
-        # # print(next_state['habitats_pos'])
-        # print("real experience")
-        # print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
-        # text = input("stop")
+        print("**********************")
+        print("real experience")
+        print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
+        text = input("stop")
 
     
     def generate_extra_goals(self, time_step, next_state_array):
@@ -901,27 +895,46 @@ class DQN():
             # Pass batch of preprocessed states to policy network.
             # return the q value for the given state-action pair by passing throught the policy net
             current_q_values = QValues.get_current(self.policy_net, states, actions)
+
+            print("current q values")
+            print(current_q_values)
+            print("-------")
+            text = input("stop")
         
             next_q_values = QValues.get_next(self.target_net, next_states)
 
-            target_q_values_v = (next_q_values[0] * GAMMA * (1 - dones.flatten())) + rewards
+            print("next q values")
+            print(current_q_values)
+            print("reward")
+            print(rewards)
+            print("-------")
 
-            target_q_values_w = (next_q_values[1] * GAMMA * (1 - dones.flatten())) + rewards
+            target_q_values = (next_q_values * GAMMA * (1 - dones.flatten())) + rewards
 
-            loss_v = F.mse_loss(current_q_values[0], target_q_values_v.unsqueeze(1))
-            loss_w = F.mse_loss(current_q_values[1], target_q_values_w.unsqueeze(1))
+            print("target q values")
+            print(target_q_values)
+            print("-------")
+            text = input("stop")
 
-            loss_total = loss_v + loss_w
-            self.loss_in_eps.append(loss_total.item())
+            loss = F.mse_loss(current_q_values, target_q_values.unsqueeze(1))
+
+            print("loss")
+            print(loss)
+            print("-------")
+            text = input("stop")
+
+            self.loss_in_eps.append(loss.item())
 
             self.policy_net_optim.zero_grad()
-            loss_total.backward()
+            
+            loss.backward()
             for param in self.policy_net.parameters():
                 param.grad.data.clamp_(-1, 1)
+
             self.policy_net_optim.step()
 
 
-    def train(self, num_episodes, max_step, load_prev_training = False, use_HER = True, live_graph_3D = False, live_graph_2D = False):
+    def train(self, num_episodes, max_step, load_prev_training = False, use_HER = True, live_graph_2D = False):
         episode_durations = []
         avg_loss_in_training = []
         total_reward_in_training = []
@@ -945,6 +958,7 @@ class DQN():
 
             action_array = []
             next_state_array = []
+            reward_array = []
             done_array = []
 
             # determine how many steps we should run HER
@@ -953,27 +967,28 @@ class DQN():
 
             self.loss_in_eps = []
 
-            if (eps % RENDER_EVERY == 0) and (live_graph_2D or live_graph_3D):
+            if (eps % RENDER_EVERY == 0) and live_graph_2D:
                 self.em.env.init_live_graph(live_graph_2D = live_graph_2D)
 
             for t in range(1, max_step):
-                action = self.agent.select_action(state, self.policy_net)
+                chosen_grid_cell_index = self.agent.select_action(state, self.policy_net)
 
-                # adjust the auv's action to hardcode it and prevent it from hitting the wall
-                action = self.em.adjust_action(action, state, self.agent.actions_range_v, self.agent.actions_range_w)
+                action_array.append(chosen_grid_cell_index)
 
-                action_array.append(action)
-
-                score = self.em.take_action(action)
+                score = self.em.take_action(chosen_grid_cell_index)
                 eps_reward += score.item()
+                reward_array.append(score)
 
                 next_state = copy.deepcopy(self.em.get_state())
                 next_state_array.append(next_state)
 
                 done_array.append(torch.tensor([0], device=DEVICE).int())
 
-                if (eps % RENDER_EVERY == 0) and (live_graph_2D or live_graph_3D):
-                    self.em.render(print_state = False, live_graph_3D = live_graph_3D, live_graph_2D = live_graph_2D)
+                if (eps % RENDER_EVERY == 0) and live_graph_2D:
+                    self.em.render(print_state = False, live_graph_2D = live_graph_2D)
+                    
+                    if DEBUG:
+                        text = input("stop")
 
                 state = next_state
 
@@ -990,16 +1005,17 @@ class DQN():
             state = self.em.reset()
 
             # reset the rendering
-            if (eps % RENDER_EVERY == 0) and (live_graph_2D or live_graph_3D):
-                self.em.reset_render_graph(live_graph_3D = live_graph_3D, live_graph_2D = live_graph_2D)
+            if (eps % RENDER_EVERY == 0) and live_graph_2D:
+                self.em.reset_render_graph(live_graph_2D = live_graph_2D)
 
             for t in range(iteration):
                 action = action_array[t]
                 next_state = next_state_array[t]
                 done = done_array[t]
+                reward = reward_array[t]
                 
                 # store the actual experience that the auv has in the first loop into the memory
-                self.save_real_experiece(state, next_state, action, done, t)
+                self.save_real_experiece(state, next_state, action, reward, done)
 
                 if use_HER:
                     additional_goals = self.generate_extra_goals(t, next_state_array)
@@ -1367,9 +1383,9 @@ class DQN():
     
 
 def main():
-    dqn = DQN(N_V, N_W)
-    dqn.em.init_env_randomly()
-    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_3D = False, live_graph_2D = True, use_HER = False)
+    dqn = DQN()
+   
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
     # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
