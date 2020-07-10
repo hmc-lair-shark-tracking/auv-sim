@@ -180,6 +180,9 @@ class Planner_RRT:
             new_node
         """
 
+        # print("chosen grid cell")
+        # print(grid_cell)
+        # text = input("stop")
         # randomly pick a node from the grid cell
         rand_node = random.choice(grid_cell.node_list)
 

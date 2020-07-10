@@ -255,7 +255,7 @@ class RRTEnv(gym.Env):
                 else:
                     has_node_array.append(1)
 
-        return has_node_array
+        return np.array(has_node_array)
 
     
     def calculate_range(self, a_pos, b_pos):

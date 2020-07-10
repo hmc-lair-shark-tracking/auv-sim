@@ -32,7 +32,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 20.0
 
-NUM_OF_EPISODES = 250
+NUM_OF_EPISODES = 1000
 MAX_STEP = 150
 
 NUM_OF_EPISODES_TEST =  1000
@@ -49,8 +49,10 @@ EPS_DECAY = 0.001
 
 LEARNING_RATE = 0.001
 
+NEGATIVE_OFFSET = -10000
+
 MEMORY_SIZE = 100000
-BATCH_SIZE = 10
+BATCH_SIZE = 64
 
 # number of additional goals to be added to the replay memory
 NUM_GOALS_SAMPLED_HER = 4
@@ -72,7 +74,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 50
+RENDER_EVERY = 100
 # how many episode should we run a test on the model
 TEST_EVERY = 50
 
@@ -413,21 +415,38 @@ class Agent():
                 # convert the state to a flat tensor to prepare for passing into the neural network
                 input_state = process_state_for_nn(state)
 
-                # for the given "state"，the output will be Q values for each possible action (index for v and w)
+                # for the given "state"，the output will be Q values for each possible action (index for a grid cell)
                 #   from the policy net
-                output_weight = policy_net(input_state).to(self.device)
+                q_values_all_grid_cells = policy_net(input_state).to(self.device)
+
+                # tensor of 0s and 1s, 1 indicating that a grid cell is valid (has nodes in it)
+                has_node_tensor = torch.from_numpy(state["has_node"])
+
+                # filter out the grid cell without any node
+                processed_q_values_all_grid_cells = q_values_all_grid_cells+ (1 - has_node_tensor) * NEGATIVE_OFFSET
                 
-                if DEBUG:
-                    print("-----")
-                    print("exploiting")
+                # pick the grid cell with the largest q value
+                grid_cell_index = torch.argmax(processed_q_values_all_grid_cells).item()
 
-                grid_cell_index = torch.argmax(output_weight).item()
+                # if True:
+                #     print("-----")
+                #     print("exploiting")
+                #     print("state")
+                #     print(state)
+                #     text = input("stop")
+                #     print("input state")
+                #     print(input_state)
+                #     text = input("stop")
+                #     print("q value check")
+                #     print(q_values_all_grid_cells)
+                #     print("processed q value check")
+                #     print(processed_q_values_all_grid_cells)
 
-                if state["has_node"][grid_cell_index] == 0:
-                    if DEBUG:
-                        print("has to randomly pick")
-                    self.neural_net_bad_choice += 1
-                    grid_cell_index = random.choice(index_to_pick)
+                # if state["has_node"][grid_cell_index] == 0:
+                #     if DEBUG:
+                #         print("has to randomly pick")
+                #     self.neural_net_bad_choice += 1
+                #     grid_cell_index = random.choice(index_to_pick)
 
                 self.neural_net_choice += 1
 
@@ -459,7 +478,7 @@ class AuvEnvManager():
     
     def init_env_randomly(self, dist = DIST):
 
-        auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
+        auv_init_pos = Motion_plan_state(x = 20.0, y = 10.0, z = -5.0, theta = 0.0)
         shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
         # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
         obstacle_array = [\
@@ -1000,9 +1019,9 @@ class DQN():
                     print("UPDATE TARGET NETWORK")
                     self.target_net.load_state_dict(self.policy_net.state_dict())
 
-            print("*********************************")
-            print("final state")
-            print(state)
+            # print("*********************************")
+            # print("final state")
+            # print(state)
 
             if self.loss_in_eps != []:
                 avg_loss = np.mean(self.loss_in_eps)
@@ -1104,8 +1123,6 @@ class DQN():
             print("Test Episode # ", eps, "end with reward: ", eps_reward, " used time: ", episode_durations[-1])
             print("+++++++++++++++++++++++++++++")
 
-            text = input("stop")
-
 
         self.em.close()
 
@@ -1124,12 +1141,6 @@ class DQN():
         print(np.mean(total_reward_array))
         print("-----------------")
 
-        text = input("stop")
-
-        print("collision obstacles")
-        print(collision_obstacles_count)
-        print("collision walls")
-        print(collision_walls_count)
 
 
     def test_model_during_training (self, num_episodes, max_step, starting_dist):
@@ -1211,8 +1222,8 @@ class DQN():
 def main():
     dqn = DQN()
    
-    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = True, live_graph_2D = True, use_HER = False)
-    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_2D = True)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
+    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_2D = True)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 
