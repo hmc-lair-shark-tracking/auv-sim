@@ -35,7 +35,7 @@ class SharkOccupancyGrid:
         '''
         self.data = shark_dict
         self.cell_size = cell_size
-        self.cell_list = self.split(boundary)
+        self.cell_list = splitCell(boundary, cell_size)
         self.bin_interval = bin_interval
         self.detect_range = detect_range
         self.boundary = boundary
@@ -66,25 +66,6 @@ class SharkOccupancyGrid:
             resultArr[time] = grid
             resultCell[time] = self.convert2DArr(grid)
         return (resultArr, resultCell)
-    
-    def split(self, polygon):
-        minx, miny, maxx, maxy = polygon.bounds
-        horizontal_splitters = []
-        while (miny + self.cell_size) <= maxy:
-            horizontal_splitters.append(LineString([(minx, miny + self.cell_size), (maxx, miny + self.cell_size)]))
-            miny = miny + self.cell_size
-        vertical_splitters = []
-        minx, miny, maxx, maxy = polygon.bounds
-        while (minx + self.cell_size) <= maxx:
-            vertical_splitters.append(LineString([(minx + self.cell_size, miny), (minx + self.cell_size, maxy)]))
-            minx += self.cell_size
-
-        splitters = horizontal_splitters + vertical_splitters
-        result = polygon
-        for splitter in splitters:
-            result = MultiPolygon(split(result, splitter))
-        
-        return result
 
     def splitCell(self, geometry, count=0):
         """Split a Polygon into two parts across it's shortest dimension
@@ -351,6 +332,25 @@ class SharkOccupancyGrid:
         
         plt.legend(loc="lower right")
         plt.show()
+
+def splitCell(polygon, cell_size):
+    minx, miny, maxx, maxy = polygon.bounds
+    horizontal_splitters = []
+    while (miny + cell_size) <= maxy:
+        horizontal_splitters.append(LineString([(minx, miny + cell_size), (maxx, miny + cell_size)]))
+        miny = miny + cell_size
+    vertical_splitters = []
+    minx, miny, maxx, maxy = polygon.bounds
+    while (minx + cell_size) <= maxx:
+        vertical_splitters.append(LineString([(minx + cell_size, miny), (minx + cell_size, maxy)]))
+        minx += cell_size
+
+    splitters = horizontal_splitters + vertical_splitters
+    result = polygon
+    for splitter in splitters:
+        result = MultiPolygon(split(result, splitter))
+        
+    return result
         
 
 
@@ -369,15 +369,13 @@ class SharkOccupancyGrid:
 #     8: [Motion_plan_state(-250 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
 #     9: [Motion_plan_state(-260 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
 #     10: [Motion_plan_state(-275 + (0.3 * i), 80 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)]}
-# testing = SharkOccupancyGrid(shark_dict, 10, boundary_poly, 5, 50)
+# testing = SharkOccupancyGrid(shark_dict, 10, boundary_poly, 50, 50)
 # boundary_poly = box(0.0, 0.0, 10.0, 10.0)
 # shark_dict = {1: [Motion_plan_state(0 + (0.1 * i), 2 + (0.1 * i), traj_time_stamp=0.1*i) for i in range(1,51)]}
 # testing = SharkOccupancyGrid(shark_dict, 2, boundary_poly, 2, 4)
 # occGrid = testing.constructSharkOccupancyGrid(shark_dict[5])
 # auvGrid = testing.constructAUVGrid(occGrid)
-# start = time.time()
 # grid = testing.convert()
-# end = time.time()
 # print(grid[1])
 # with open('AUVGrid_prob.csv', 'w', newline='') as csvfile:
 #     fieldnames = ['time bin', 'grid']

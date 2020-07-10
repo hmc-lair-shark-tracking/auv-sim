@@ -5,10 +5,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import Polygon
 
-from rrt_dubins import RRT
+from rrt_dubins import RRT, createSharkGrid
 from motion_plan_state import Motion_plan_state
 import catalina
-from sharkOccupancyGrid import SharkOccupancyGrid
+from sharkOccupancyGrid import SharkOccupancyGrid, splitCell
 
 def summary_1(cost_funcs, num_habitats=10, test_num=100):
     '''
@@ -127,7 +127,7 @@ def summary_2(start, goal, obstacle_array, boundary, habitats, shark_dict, shark
     improvement = []
 
     for _ in range(test_num):
-        rrt = RRT(goal, goal, boundary, obstacle_array, habitats)
+        rrt = RRT(start, goal, boundary, obstacle_array, habitats)
         if weights[1] == "random time":
             plan_time = True
             if weights[2] == "trajectory time stamp":
@@ -171,13 +171,13 @@ def summary_3(start, goal, boundary, boundary_poly, obstacle_array, habitats, sh
     improvements = []
     time_list = [plot_interval + i * plot_interval for i in range(math.ceil(plan_time//plot_interval))]
 
-    weight1 = [[1, -3, -3, -3], "random time", "trajectory time stamp"]
-    weight2 = [[1, -3, -3, -3], "random time", "planning time stamp"]
-    weight3 = [[1, -3, -3, -3], "random (x,y)"]
+    weight1 = [[1, -3, -1, -5], "random time", "trajectory time stamp"]
+    weight2 = [[1, -3, -1, -5], "random time", "planning time stamp"]
+    weight3 = [[1, -3, -1, -5], "random (x,y)"]
     weights = [weight1, weight2, weight3]
 
-    sharkTesting = SharkOccupancyGrid(shark_dict, 10, boundary_poly, 5, 50)
-    sharkGrid = sharkTesting.convert()[1]
+    cell_list = splitCell(boundary_poly, 10)
+    sharkGrid = createSharkGrid('path_planning/AUVGrid_prob.csv', cell_list)
     
     for weight in weights:
         result, improvement = summary_2(start, goal, obstacle_array, boundary, habitats, shark_dict, sharkGrid, test_num, plan_time, plot_interval, weight)
@@ -230,7 +230,6 @@ start = Motion_plan_state(start[0], start[1])
 goal = catalina.create_cartesian(catalina.GOAL, catalina.ORIGIN_BOUND)
 goal = Motion_plan_state(goal[0], goal[1])
 
-
 obstacles = []
 for ob in catalina.OBSTACLES:
     pos = catalina.create_cartesian((ob.x, ob.y), catalina.ORIGIN_BOUND)
@@ -244,26 +243,25 @@ for b in catalina.BOUNDARIES:
     boundary_poly.append((pos[0],pos[1]))
 boundary_poly = Polygon(boundary_poly)
         
-boat_list = []
 for boat in catalina.BOATS:
     pos = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
-    boat_list.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
+    obstacles.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
         
-#testing data for habitats
+# testing data for habitats
 habitats = []
 for habitat in catalina.HABITATS:
     pos = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
     habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
-        
-#testing data for shark trajectories
+    
+# #testing data for shark trajectories
 shark_dict = shark_dict = {1: [Motion_plan_state(-120 + (0.3 * i), -60 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
-    2: [Motion_plan_state(-65 - (0.3 * i), -50 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
-    3: [Motion_plan_state(-110 + (0.3 * i), -40 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
-    4: [Motion_plan_state(-105 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
-    5: [Motion_plan_state(-120 + (0.3 * i), -50 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
-    6: [Motion_plan_state(-85 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
-    7: [Motion_plan_state(-270 + (0.3 * i), 50 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
-    8: [Motion_plan_state(-250 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
-    9: [Motion_plan_state(-260 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
-    10: [Motion_plan_state(-275 + (0.3 * i), 80 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)]}
-summary_3(start, goal, boundary, boundary_poly, obstacles+boat_list, habitats, shark_dict, 5, 10, 0.5)
+2: [Motion_plan_state(-65 - (0.3 * i), -50 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+3: [Motion_plan_state(-110 + (0.3 * i), -40 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+4: [Motion_plan_state(-105 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+5: [Motion_plan_state(-120 + (0.3 * i), -50 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+6: [Motion_plan_state(-85 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+7: [Motion_plan_state(-270 + (0.3 * i), 50 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+8: [Motion_plan_state(-250 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+9: [Motion_plan_state(-260 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+10: [Motion_plan_state(-275 + (0.3 * i), 80 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)]}
+summary_3(Motion_plan_state(-200, 0), goal, boundary, boundary_poly, obstacles, habitats, shark_dict, 5, 10, 0.5)
