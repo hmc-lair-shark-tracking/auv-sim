@@ -550,10 +550,11 @@ class Planner_RRT:
 def main():
     auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
     shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
-    # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
+    
     obstacle_array = [\
         Motion_plan_state(x=12.0, y=38.0, size=4),\
         Motion_plan_state(x=17.0, y=34.0, size=5),\
+        Motion_plan_state(x=20.0, y=29.0, size=4),\
         Motion_plan_state(x=25.0, y=25.0, size=3),\
         Motion_plan_state(x=29.0, y=20.0, size=4),\
         Motion_plan_state(x=34.0, y=17.0, size=3),\
@@ -566,7 +567,7 @@ def main():
     success_count = 0
     for _ in range(1000):
         rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=10, cell_side_length=5)
-        path, step = rrt.planning(max_step=150)
+        path, step = rrt.planning(max_step=300)
         if path != [] and type(path) == list:
             success_count += 1
         step_array.append(step)

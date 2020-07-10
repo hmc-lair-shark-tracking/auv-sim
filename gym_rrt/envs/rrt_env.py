@@ -240,6 +240,19 @@ class RRTEnv(gym.Env):
         return np.array(rrt_grid_1D_array)
 
 
+    def convert_rrt_grid_to_1D_num_of_nodes_only(self, rrt_grid):
+        """
+        Parameter:
+            rrt_grid - a 2D array, represent all the grid cells
+        """
+        rrt_grid_1D_array = []
+
+        for row in rrt_grid:
+            for grid_cell in row:
+                rrt_grid_1D_array.append(len(grid_cell.node_list))
+
+        return np.array(rrt_grid_1D_array)
+
     def generate_rrt_grid_has_node_array (self, rrt_grid):
         """
         Parameter:
@@ -571,6 +584,7 @@ class RRTEnv(gym.Env):
         self.rrt_planner = Planner_RRT(self.auv_init_pos, self.shark_init_pos, self.boundary_array, self.obstacle_array_for_rendering, self.habitats_array_for_rendering, cell_side_length = self.cell_side_length, freq=RRT_PLANNER_FREQ)
 
         rrt_grid_1D_array = self.convert_rrt_grid_to_1D(self.rrt_planner.env_grid)
+        rrt_grid_1D_array_num_of_nodes_only = self.convert_rrt_grid_to_1D_num_of_nodes_only(self.rrt_planner.env_grid)
         has_node_array = self.generate_rrt_grid_has_node_array(self.rrt_planner.env_grid)
 
         self.state = {
@@ -579,7 +593,8 @@ class RRTEnv(gym.Env):
             'obstacles_pos': self.obstacle_array,\
             'rrt_grid': rrt_grid_1D_array,\
             'has_node': has_node_array,\
-            'path': None,
+            'path': None,\
+            'rrt_grid_num_of_nodes_only': rrt_grid_1D_array_num_of_nodes_only,\
         }
 
         return self.state

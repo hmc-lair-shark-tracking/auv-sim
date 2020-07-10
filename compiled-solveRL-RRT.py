@@ -32,11 +32,11 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 20.0
 
-NUM_OF_EPISODES = 500
-MAX_STEP = 300
+NUM_OF_EPISODES = 1000
+MAX_STEP = 150
 
 NUM_OF_EPISODES_TEST =  1000
-MAX_STEP_TEST = 300
+MAX_STEP_TEST = 150
 
 N_V = 7
 N_W = 7
@@ -59,7 +59,7 @@ NUM_GOALS_SAMPLED_HER = 4
 
 TARGET_UPDATE = 10000
 
-NUM_OF_OBSTACLES = 7
+NUM_OF_OBSTACLES = 6
 
 ENV_SIZE = 50.0
 ENV_GRID_CELL_SIDE_LENGTH = 5.0
@@ -94,20 +94,20 @@ def process_state_for_nn(state):
     Parameter:
         state - a direction of two np arrays
     """
-    # auv_tensor = torch.from_numpy(state['auv_pos'])
-    # shark_tensor = torch.from_numpy(state['shark_pos'])
+    auv_tensor = torch.from_numpy(state['auv_pos'])
+    shark_tensor = torch.from_numpy(state['shark_pos'])
 
-    # obstacle_tensor = torch.from_numpy(state['obstacles_pos'])
-    # obstacle_tensor = torch.flatten(obstacle_tensor)
+    obstacle_tensor = torch.from_numpy(state['obstacles_pos'])
+    obstacle_tensor = torch.flatten(obstacle_tensor)
 
-    rrt_grid_tensor = torch.from_numpy(state['rrt_grid_num_of_nodes_only'])
-    # rrt_grid_tensor = torch.flatten(rrt_grid_tensor)
+    rrt_grid_tensor = torch.from_numpy(state['rrt_grid'])
+    rrt_grid_tensor = torch.flatten(rrt_grid_tensor)
 
     """habitat_tensor = torch.from_numpy(state['habitats_pos'])
     habitat_tensor = torch.flatten(habitat_tensor)"""
     
     # join tensors together
-    return rrt_grid_tensor.float()
+    return torch.cat((auv_tensor, shark_tensor, obstacle_tensor, rrt_grid_tensor)).float()
 
 
 def extract_tensors(experiences):
@@ -196,6 +196,24 @@ def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
             hab_overlaps = True
             break
     return hab_overlaps
+
+
+"""
+============================================================================
+
+    Motion Plan State (Class Needed To Be Copied)
+
+============================================================================
+"""
+
+
+"""
+============================================================================
+
+    Motion Plan State (Class Needed To Be Copied)
+
+============================================================================
+"""
 
 
 
@@ -477,13 +495,13 @@ class AuvEnvManager():
 
     
     def init_env_randomly(self, dist = DIST):
-        auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
+
+        auv_init_pos = Motion_plan_state(x = 20.0, y = 10.0, z = -5.0, theta = 0.0)
         shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
         # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
         obstacle_array = [\
             Motion_plan_state(x=12.0, y=38.0, size=4),\
             Motion_plan_state(x=17.0, y=34.0, size=5),\
-            Motion_plan_state(x=20.0, y=29.0, size=4),\
             Motion_plan_state(x=25.0, y=25.0, size=3),\
             Motion_plan_state(x=29.0, y=20.0, size=4),\
             Motion_plan_state(x=34.0, y=17.0, size=3),\
@@ -651,8 +669,8 @@ class QValues():
 class DQN():
     def __init__(self):
         # initialize the policy network and the target network
-        self.policy_net = Neural_network(NUM_OF_GRID_CELLS, NUM_OF_GRID_CELLS).to(DEVICE)
-        self.target_net = Neural_network(NUM_OF_GRID_CELLS, NUM_OF_GRID_CELLS).to(DEVICE)
+        self.policy_net = Neural_network(STATE_SIZE, NUM_OF_GRID_CELLS).to(DEVICE)
+        self.target_net = Neural_network(STATE_SIZE, NUM_OF_GRID_CELLS).to(DEVICE)
 
         self.hard_update(self.target_net, self.policy_net)
         self.target_net.eval()
@@ -892,12 +910,10 @@ class DQN():
             # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
             states, actions, next_states, rewards, dones = extract_tensors(experiences)
 
-            # Pass a batch of states and actions to policy network.
-            # return the q value for the given state-action pair
+            # Pass batch of preprocessed states to policy network.
+            # return the q value for the given state-action pair by passing throught the policy net
             current_q_values = QValues.get_current(self.policy_net, states, actions)
-
-            # Pass a batch of next_states to the target network
-            # get the maximum predicted Q values among all actions for each next_state
+        
             next_q_values = QValues.get_next(self.target_net, next_states)
 
             target_q_values = (next_q_values * GAMMA * (1 - dones.flatten())) + rewards
@@ -909,8 +925,6 @@ class DQN():
             self.policy_net_optim.zero_grad()
             
             loss.backward()
-
-            # gradient clipping
             for param in self.policy_net.parameters():
                 param.grad.data.clamp_(-1, 1)
 
@@ -1226,7 +1240,7 @@ class DQN():
 def main():
     dqn = DQN()
    
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = True, live_graph_2D = True, use_HER = False)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
     # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_2D = True)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
