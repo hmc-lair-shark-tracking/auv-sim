@@ -51,7 +51,7 @@ class Cost:
 
         #number of habitats visited
         count = 0
-
+        
         for habitat in habitats:
             for mps in path:
                 dist = math.sqrt((habitat.x-mps.x) **2 + (habitat.y-mps.y) **2)
@@ -62,7 +62,6 @@ class Cost:
         cost = w1 * length - w2 * count
 
         return cost
-
 
     def cost_of_edge (self, new_node, habitat_open_list, habitat_closed_list, weights):
 
@@ -108,7 +107,7 @@ class Cost:
         cost function for habitat exploration, we want to find a path minimizing path length 
         while maximizing the time spent in different habitats visited
         cost function = w1 * length - w2 * number of habitats visited - w3 * time spent in different habitats
-
+       
         path: a list of motion_plan_states
         length: the length of current path
         habitats: a list of habitat areas represented as motion_plan_state
@@ -135,7 +134,7 @@ class Cost:
                 if dist <= habitats[i].size:
                     visited[i+1] = True
                     cost[2] += w3
-
+                    
         #normalize the cost for time spent in habitats
         cost[2] = cost[2] / (0.5 * dist)
     
@@ -149,8 +148,7 @@ class Cost:
 
         return [sum(cost), cost]
     
-
-    def habitat_shark_cost_func(self, path, length, peri, total_traj_time, habitats, shark_dict, weight, sonar_range):
+    def habitat_shark_cost_func(self, path, length, peri, total_traj_time, habitats, shark_dict, weight):
         '''
         cost function for habitat exploration and shark tracking
         we want to find a path minimizing path length, maximizing the time spent in different habitats visited,
@@ -213,4 +211,3 @@ class Cost:
         cost[1] = w2 * count / len(habitats)
 
         return [sum(cost), cost]
-
