@@ -332,12 +332,18 @@ class RobotSim:
             obstacle_array - (optional) an array of motion_plan_states that represent the obstacles's
                 position and size
         """
-        for shark in self.live_graph.shark_array:
-            # only update the shark's position without plotting them
-            self.live_graph.update_shark_location(shark, self.time_array)
+        index = -1
+        for trajectory in planned_traj_array:
+            index += 1
+            if show_live_graph:
+                self.update_live_graph(x_list[index], y_list[index], z_list[index], trajectory, particle_array[index], obstacle_array[index])
+            else:
+                for shark in self.live_graph.shark_array:
+                    # only update the shark's position without plotting them
+                    self.live_graph.update_shark_location(shark, self.curr_time)
 
 
-    def update_live_graph(self, planned_traj_array = [], particle_array = [], obstacle_array = []):
+    def update_live_graph(self, x_list, y_list, z_list, planned_traj_array = [], particle_array = [], obstacle_array = []):
         """
         Plot the position of the robot, the sharks, and any planned trajectories
 
@@ -355,7 +361,7 @@ class RobotSim:
         # scale the arrow for the auv and the sharks properly for graph
         self.live_graph.scale_quiver_arrow()
 
-        #self.live_graph.plot_auv(Auv.x_list, Auv.y_list, Auv.z_list)
+        self.live_graph.plot_auv(x_list, y_list, z_list)
 
         # plot the new positions for all the sharks that the robot is tracking
         self.live_graph.plot_sharks(self.curr_time)
@@ -681,15 +687,17 @@ class RobotSim:
                 self.time_array.append(self.curr_time)
                 # increment the current time by 0.1 second
                 self.curr_time += const.SIM_TIME_INTERVAL
+                for auv in final_auv_x_array:
+                    print("len", len(auv))
                 self.plot(final_auv_x_array, final_auv_y_array, final_auv_z_array, show_live_graph, final_planned_traj_array, final_particle_array, final_obstacle_array)
             
             terminate_loop = self.check_terminate_cond()
             if terminate_loop:
                 self.live_graph.run_sim = False
                 break
-                obstacle_array = [Motion_plan_state(757,243, size=10), Motion_plan_state(763,226, size=15)]
-            
-            self.live_graph.plot_2d_sim_graph(final_auv_x_array, final_auv_y_array, obstacle_array)
+                
+        obstacle_array = [Motion_plan_state(757,243, size=10), Motion_plan_state(763,226, size=15)]
+        self.live_graph.plot_2d_sim_graph(final_auv_x_array, final_auv_y_array, obstacle_array)
             
             # "End Simulation" button is pressed, generate summary graphs for this simulation
             # self.summary_plots()
