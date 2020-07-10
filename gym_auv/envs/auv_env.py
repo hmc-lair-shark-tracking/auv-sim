@@ -35,7 +35,7 @@ END_GAME_RADIUS = 3.0
 FOLLOWING_RADIUS = 50.0
 
 # the auv will receive an immediate negative reward if it is close to the obstacles
-OBSTACLE_ZONE = 3.0
+OBSTACLE_ZONE = 10.0
 WALL_ZONE = 10.0
 
 # constants for reward (old)

@@ -1240,6 +1240,9 @@ class DQN():
             for t in range(1, max_step):
                 action = self.agent.select_action(state, self.policy_net)
 
+                # adjust the auv's action to hardcode it and prevent it from hitting the wall
+                action = self.em.adjust_action(action, state, self.agent.actions_range_v, self.agent.actions_range_w)
+
                 """dist_btw_auv_shark_array.append(calculate_range(state["auv_pos"], state["shark_pos"]))"""
 
                 reward = self.em.take_action(action)
@@ -1404,8 +1407,8 @@ class DQN():
 
 def main():
     dqn = DQN(N_V, N_W)
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_3D = False, live_graph_2D = True, use_HER = False)
-    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_3D = False, live_graph_2D = True, use_HER = False)
+    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 
