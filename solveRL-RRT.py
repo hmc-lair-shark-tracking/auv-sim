@@ -32,7 +32,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 20.0
 
-NUM_OF_EPISODES = 500
+NUM_OF_EPISODES = 1000
 MAX_STEP = 300
 
 NUM_OF_EPISODES_TEST =  1000
@@ -1238,7 +1238,7 @@ class DQN():
 def main():
     dqn = DQN()
    
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = True, live_graph_2D = True, use_HER = False)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
     # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_2D = False)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 

@@ -37,7 +37,7 @@ WALL_ZONE = 10.0
 
 # constants for reward
 R_FOUND_PATH = 1000
-R_FOUND_NODE = -1
+R_CREATE_NODE = -1
 R_INVALID_NODE = -2
 
 # size of the observation space
