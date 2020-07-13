@@ -162,13 +162,14 @@ class SharkOccupancyGrid:
         count = int(math.ceil(self.detect_range / self.cell_size))
         for cell in self.cell_list:
             row, col = self.cellToIndex(cell)
-            row_min, col_min = row - count, col - count
-            for i in range(2 * count):
+            row_min, col_min = row - (2*count), col - (2*count)
+            for i in range(2 * (2*count)):
                 row_temp = row_min + i
-                for j in range(2 * count):
+                for j in range(2 * 2 * count):
                     col_temp = col_min + j
                     if row_temp >=0 and row_temp < len(grid) and col_temp >= 0 and col_temp < len(grid[0]):
-                        grid[row][col] += occGrid[row_temp][col_temp]
+                        if math.sqrt((row_temp - row)**2 + (col_temp - col)**2) <= count:
+                            grid[row][col] += occGrid[row_temp][col_temp]
             if grid[row][col] > 1:
                 print("problem!", grid[row][col])
         return grid
@@ -376,6 +377,7 @@ def splitCell(polygon, cell_size):
 # occGrid = testing.constructSharkOccupancyGrid(shark_dict[5])
 # auvGrid = testing.constructAUVGrid(occGrid)
 # grid = testing.convert()
+# testing.plot(grid[0])
 # print(grid[1])
 # with open('AUVGrid_prob.csv', 'w', newline='') as csvfile:
 #     fieldnames = ['time bin', 'grid']
