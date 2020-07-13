@@ -612,7 +612,7 @@ class RobotSim:
                 # need help working on making a dictionary for the shark_states. i think the problem is rn the dictionary has no initial key values
                 print("==================")
                 print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
-            
+                
                 has_new_data = self.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
                 #boolean  (new data)and dictionary (data) of True and False and Updates Shark Dictionary--> stores range and bearing of the auv
                 '''if has_new_data == True:
@@ -665,7 +665,6 @@ class RobotSim:
                 planned_traj_array = []
 
                 # testing data for displaying particle array
-                particle_array = [[0.0, 0.0, 0, 0, 0]]
                 
                 particle_array += [[np.random.randint(-20, 20, dtype='int'), np.random.randint(-20, 20, dtype='int'), 0, 0, 0] for i in range(50)]
 
@@ -687,6 +686,8 @@ class RobotSim:
                 self.time_array.append(self.curr_time)
                 # increment the current time by 0.1 second
                 self.curr_time += const.SIM_TIME_INTERVAL
+                #plotting stuff
+                """
                 self.plot(final_auv_x_array, final_auv_y_array, final_auv_z_array, show_live_graph, final_planned_traj_array, final_particle_array, final_obstacle_array)
             
             terminate_loop = self.check_terminate_cond()
@@ -696,7 +697,7 @@ class RobotSim:
                 
         obstacle_array = [Motion_plan_state(757,243, size=10), Motion_plan_state(763,226, size=15)]
         self.live_graph.plot_2d_sim_graph(final_auv_x_array, final_auv_y_array, obstacle_array)
-            
+            """
             # "End Simulation" button is pressed, generate summary graphs for this simulation
             # self.summary_plots()
 
@@ -722,8 +723,6 @@ def main():
     for key in sorted(test_robot.auv_dict):
         shark_state = shark_state_dict[1]
         auv_state = test_robot.auv_dict[key]
-        ParticleFilter(shark_state.x, shark_state.y, 0,  auv_state.state.x, auv_state.state.y, 0, 0, 0)
-    
     test_robot.main_navigation_loop()
     #test_robot.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1,2])
 

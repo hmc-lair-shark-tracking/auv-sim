@@ -385,18 +385,11 @@ class ParticleFilter:
         #for particle in particles: 
             #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
         return particles
-
-
-def main(): 
-    NUMBER_OF_PARTICLES = 1000
-    particles = []
-    for x in range(0, NUMBER_OF_PARTICLES):
-            new_particle = Particle(initial_x_shark, initial_y_shark)
-            particles.append(new_particle)
-
-    test_particle.create_and_update(particles)
-    particles = test_particle.main_navigation_loops(particles)
-    particle_coordinates = test_particle.particle_coordinates(particles)
-    print(particle_coordinates)
-if __name__ == "__main__":
-    main()
+    def create(self):
+        NUMBER_OF_PARTICLES = 1000
+        particles = []
+        for x in range(0, NUMBER_OF_PARTICLES):
+                new_particle = Particle(self.x_shark, self.y_shark)
+                particles.append(new_particle)
+        print(particles)
+        return particles
