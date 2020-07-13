@@ -35,30 +35,10 @@ FOLLOWING_RADIUS = 50.0
 OBSTACLE_ZONE = 0.0
 WALL_ZONE = 10.0
 
-# constants for reward (old)
-R_COLLIDE = -10.0       # when the auv collides with an obstacle
-R_ARRIVE = 10.0         # when the auv arrives at the target
-R_RANGE = 0.1           # this is a scaler to help determine immediate reward at a time step
-R_TIME = -0.01          # negative reward (the longer for the auv to reach the goal, the larger this will be)
-
-# constants for reward with habitats
-R_OUT_OF_BOUND = -10000
-R_CLOSE_TO_BOUND = -10
-
-R_COLLIDE_100 = -10000
-R_CLOSE_TO_OBS = -10
-
-R_MAINTAIN_DIST = 5
-
-R_NEW_HAB = 10
-R_IN_HAB = 0
-R_IN_HAB_TOO_LONG = -10
-
-# determine how quickly the reward will decay when the auv stays in an habitat
-# decay rate should be between 0 and 1
-R_HAB_DECAY_RATE = 0.01
-R_HAB_INIT = 4
-R_HAB_OFFSET = 2
+# constants for reward
+R_FOUND_PATH = 1000
+R_FOUND_NODE = -1
+R_INVALID_NODE = -2
 
 # size of the observation space
 # the coordinates of the observation space will be based on 
@@ -70,6 +50,13 @@ DEBUG = False
 # if PLOT_3D = False, plot the 2d version
 PLOT_3D = False
 
+"""
+============================================================================
+
+    Helper Functions
+
+============================================================================
+"""
 def angle_wrap(ang):
     """
     Takes an angle in radians & sets it between the range of -pi to pi
@@ -90,6 +77,13 @@ def angle_wrap(ang):
         return angle_wrap(ang)
 
 
+"""
+============================================================================
+
+    Class - RRT Env
+
+============================================================================
+"""
 class RRTEnv(gym.Env):
     # possible render modes: human, rgb_array (creates image for making videos), ansi (string)
     metadata = {'render.modes': ['human']}
@@ -218,12 +212,12 @@ class RRTEnv(gym.Env):
             self.state["path"] = path
 
         if done and path != None:
-            reward = 200
+            reward = R_FOUND_PATH
         elif path != None:
-            reward = 0
+            reward = R_CREATE_NODE
         else:
             # TODO: For now, the reward encourages using less time to plan the path
-            reward = -1
+            reward = R_INVALID_NODE
 
         return self.state, reward, done, {}
 
@@ -383,179 +377,6 @@ class RRTEnv(gym.Env):
             new_habitats_array[habitat_index][3] += 1
         
         return new_habitats_array
-
-
-    def get_range_reward(self, auv_pos, shark_pos, old_range):
-        """
-        Return the reward that the auv gets at a specific state (at a specific time step)
-
-        The condition is only based on:
-            - whether the auv has maintained a FOLLOW_DIST with the shark
-            - whether the auv has hit an obstacle
-            - the range between the auv and the shark
-        """
-        if self.within_habitat_env(auv_pos, shark_pos):
-            return R_MAINTAIN_DIST
-        elif self.check_collision(auv_pos):
-            return R_COLLIDE
-        else:
-            new_range = self.calculate_range(auv_pos, shark_pos)
-            # if auv has gotten closer to the shark, will receive positive reward
-            #   else, receive negative reward
-            range_diff = old_range - new_range
-            
-            reward = R_RANGE * range_diff
-            
-            return reward
-
-
-    def get_reward_with_habitats(self, auv_pos, shark_pos, old_range, habitats_array, visited_habitat_index_array):
-        """
-        Return the reward that the auv gets at a specific state (at a specific time step)
-
-        The condition is only based on:
-            - whether the auv has hit an obstacle
-            - whether the auv is close to an obstacle
-            - whether the auv is within a FOLLOW_DIST with the shark
-            - whether the auv is visiting any habitat
-                - Note: the reward for visiting any habitat will gradually decrease as the auv spends more time in a habitat
-            - the range between the auv and the shark
-        
-        TODO: not updated for habitat grid yet
-        """
-        # if the auv collides with an obstacle
-        if self.check_collision(auv_pos):
-            return R_COLLIDE_100
-        elif self.check_close_to_obstacles(auv_pos):
-            return R_CLOSE_TO_OBS
-        # if the auv maintain FOLLOW_DISTANCE with the shark
-        elif self.within_follow_range(auv_pos, shark_pos):
-            if DEBUG:
-                print("following shark")
-            reward = R_MAINTAIN_DIST
-
-            # if the auv has visited any habitat in this time step
-            for hab_idx in visited_habitat_index_array:
-                hab = habitats_array[hab_idx]
-                num_of_time_visited = hab[3]
-                if num_of_time_visited == 1:
-                    self.visited_unique_habitat_count += 1
-                # reward will decrease as the number of times that auv spent in the habitat increases
-                reward += R_HAB_INIT * (1 - R_HAB_DECAY_RATE) ** (num_of_time_visited) - R_HAB_OFFSET
-            return reward
-        else:
-            if DEBUG:
-                print("else case in reward")
-            new_range = self.calculate_range(auv_pos, shark_pos)
-            # if auv has gotten closer to the shark, will receive positive reward
-            #   else, receive negative reward
-            range_diff = old_range - new_range
-            
-            reward = R_RANGE * range_diff
-            
-            return reward
-
-
-    def get_reward_with_habitats_no_decay(self, auv_pos, shark_pos, old_range, habitats_array, visited_habitat_cell):
-        """
-        Return the reward that the auv gets at a specific state (at a specific time step)
-
-        The condition is only based on:
-            - whether the auv has hit an obstacle
-            - whether the auv is close to an obstacle
-            - whether the auv is within a FOLLOW_DIST with the shark
-            - whether the auv is visiting any new habitat
-            - the range between the auv and the shark
-        """
-        # if the auv collides with an obstacle
-        if not self.habitat_grid.within_habitat_env(self.state['auv_pos']):
-            return R_OUT_OF_BOUND
-        elif self.check_collision(auv_pos):
-            return R_COLLIDE_100
-        elif self.check_close_to_obstacles(auv_pos):
-            return R_CLOSE_TO_OBS
-        # if the auv maintain FOLLOW_DISTANCE with the shark
-        elif self.within_follow_range(auv_pos, shark_pos):
-            reward = R_MAINTAIN_DIST
-
-            if visited_habitat_cell != False:
-                # if the auv has visited any habitat in this time step
-                hab_idx = visited_habitat_cell.habitat_id
-                hab = habitats_array[hab_idx]
-                num_of_time_visited = hab[3]
-                # when the habitat is visited for the first time
-                if num_of_time_visited == 1:
-                    if DEBUG:
-                        print("visit new habitat")
-                    self.visited_unique_habitat_count += 1
-                    reward += R_NEW_HAB
-                elif num_of_time_visited > 1:
-                    reward += R_IN_HAB
-            
-            return reward
-        else:
-            if DEBUG:
-                print("else case in reward")
-            new_range = self.calculate_range(auv_pos, shark_pos)
-            # if auv has gotten closer to the shark, will receive positive reward
-            #   else, receive negative reward
-            range_diff = old_range - new_range
-            
-            reward = R_RANGE * range_diff
-
-            if visited_habitat_cell != False:
-                # if the auv has visited any habitat in this time step
-                hab_idx = visited_habitat_cell.habitat_id
-                hab = habitats_array[hab_idx]
-                num_of_time_visited = hab[3]
-                # when the habitat is visited for the first time
-                if num_of_time_visited == 1:
-                    if DEBUG:
-                        print("visit new habitat")
-                    self.visited_unique_habitat_count += 1
-                    reward += R_NEW_HAB
-                elif num_of_time_visited > 1:
-                    reward += R_IN_HAB
-            
-            return reward
-
-    
-    def get_reward_with_habitats_no_shark(self, auv_pos, habitats_array, visited_habitat_cell, dist_from_walls_array = []):
-        """
-        Return the reward that the auv gets at a specific state (at a specific time step)
-
-        The condition is only based on:
-            - whether the auv has hit an obstacle
-            - whether the auv is close to an obstacle
-            - whether the auv is within a FOLLOW_DIST with the shark
-            - whether the auv is visiting any new habitat
-            - the range between the auv and the shark
-        """
-        # if the auv collides with an obstacle
-        if not self.habitat_grid.within_habitat_env(self.state['auv_pos']):
-            return R_OUT_OF_BOUND
-        elif self.check_collision(auv_pos):
-            return R_COLLIDE_100
-        else:
-            if DEBUG:
-                print("else case in reward")
-            reward = 0
-
-            if visited_habitat_cell != False:
-                # if the auv has visited any habitat in this time step
-                hab_idx = visited_habitat_cell.habitat_id
-                hab = habitats_array[hab_idx]
-                num_of_time_visited = hab[3]
-                # when the habitat is visited for the first time
-                if num_of_time_visited == 1:
-                    if DEBUG:
-                        print("visit new habitat")
-                    self.visited_unique_habitat_count += 1
-                    reward += R_NEW_HAB
-                elif num_of_time_visited >= 50:
-                    reward += R_IN_HAB_TOO_LONG
-            
-            return reward
     
 
     def reset(self):

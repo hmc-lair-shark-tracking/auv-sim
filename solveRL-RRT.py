@@ -83,6 +83,9 @@ FILTER_IN_UPDATING_NN = True
 
 DEBUG = False
 
+RAND_PICK = False
+RAND_PICK_RATE = 0.5
+
 """
 ============================================================================
 
@@ -432,6 +435,9 @@ class Agent():
                 
                 # pick the grid cell with the largest q value
                 grid_cell_index = torch.argmax(processed_q_values_all_grid_cells).item()
+
+                if RAND_PICK_RATE > random.random() and RAND_PICK:
+                    grid_cell_index = random.choice(index_to_pick)
 
                 if DEBUG:
                     print("-----")
@@ -1128,6 +1134,7 @@ class DQN():
             print("Test Episode # ", eps, "end with reward: ", eps_reward, " used time: ", episode_durations[-1])
             print("+++++++++++++++++++++++++++++")
 
+            total_reward_array.append(eps_reward)
 
         self.em.close()
 
@@ -1139,12 +1146,16 @@ class DQN():
 
         text = input("stop")
 
-
         print("total reward")
         print(total_reward_array)
         print("average total reward")
         print(np.mean(total_reward_array))
         print("-----------------")
+
+        text = input("stop")
+
+        print("success count")
+        print(success_count)
 
 
 
@@ -1227,8 +1238,8 @@ class DQN():
 def main():
     dqn = DQN()
    
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
-    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_2D = True)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = True, live_graph_2D = True, use_HER = False)
+    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_2D = False)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 
