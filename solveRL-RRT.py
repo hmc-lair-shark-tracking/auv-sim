@@ -19,7 +19,7 @@ from motion_plan_state import Motion_plan_state
 from habitatGrid import HabitatGrid
 
 # namedtuple allows us to store Experiences as labeled tuples
-Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward', 'done'))
+Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward', 'done', 'has_nodes_array'))
 
 """
 ============================================================================
@@ -49,7 +49,7 @@ EPS_DECAY = 0.001
 
 LEARNING_RATE = 0.001
 
-NEGATIVE_OFFSET = -10000
+NEGATIVE_OFFSET = -10
 
 MEMORY_SIZE = 100000
 BATCH_SIZE = 64
@@ -63,6 +63,7 @@ NUM_OF_OBSTACLES = 7
 
 ENV_SIZE = 50.0
 ENV_GRID_CELL_SIDE_LENGTH = 5.0
+
 # the output size for the neural network
 NUM_OF_GRID_CELLS = int((int(ENV_SIZE) / int(ENV_GRID_CELL_SIDE_LENGTH)) ** 2)
 
@@ -121,8 +122,9 @@ def extract_tensors(experiences):
     t3 = torch.stack(batch.next_state)
     t4 = torch.cat(batch.reward)
     t5 = torch.stack(batch.done)
+    t6 = torch.stack(batch.has_nodes_array)
 
-    return (t1, t2, t3, t4, t5)
+    return (t1, t2, t3, t4, t5, t6)
 
 
 def save_model(policy_net, target_net):
@@ -638,13 +640,18 @@ class QValues():
 
     
     @staticmethod        
-    def get_next(target_net, next_states):  
+    def get_next(target_net, next_states, has_nodes_arrays):  
         # for each next state, we want to obtain the max q-value predicted by the target_net among all the possible next actions              
         # we want to know where the final states are bc we shouldn't pass them into the target net
-       
-        max_q_values = target_net(next_states).max(dim=1)[0].detach()
-        
-        return max_q_values
+
+        q_values_for_all_actions = target_net(next_states)
+
+        # remove the q values of the invalid grid cells
+        processed_q_values_for_all_actions = q_values_for_all_actions + (1 - has_nodes_arrays) * NEGATIVE_OFFSET
+
+        processed_max_q_values = processed_q_values_for_all_actions.max(dim=1)[0].detach()
+
+        return processed_max_q_values
 
 
 
@@ -823,8 +830,8 @@ class DQN():
             next_state['habitats_pos'], visited_habitat_cell)"""
         
         """reward = self.em.get_reward_with_habitats_no_shark(next_state['auv_pos'], next_state['habitats_pos'], visited_habitat_cell, next_state['auv_dist_from_walls'])"""
-
-        self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
+        
+        self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"])))
 
         # print("**********************")
         # print("real experience")
@@ -890,7 +897,7 @@ class DQN():
             experiences = self.memory.sample(BATCH_SIZE)
             
             # extract states, actions, rewards, next_states into their own individual tensors from experiences batch
-            states, actions, next_states, rewards, dones = extract_tensors(experiences)
+            states, actions, next_states, rewards, dones, has_nodes_arrays = extract_tensors(experiences)
 
             # Pass a batch of states and actions to policy network.
             # return the q value for the given state-action pair
@@ -898,7 +905,7 @@ class DQN():
 
             # Pass a batch of next_states to the target network
             # get the maximum predicted Q values among all actions for each next_state
-            next_q_values = QValues.get_next(self.target_net, next_states)
+            next_q_values = QValues.get_next(self.target_net, next_states, has_nodes_arrays)
 
             target_q_values = (next_q_values * GAMMA * (1 - dones.flatten())) + rewards
 
@@ -1226,7 +1233,7 @@ class DQN():
 def main():
     dqn = DQN()
    
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = True, live_graph_2D = True, use_HER = False)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
     # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_2D = True)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
