@@ -335,14 +335,13 @@ class RobotSim:
                 position and size
         """
         index = -1
-        for trajectory in planned_traj_array:
-            index += 1
-            if show_live_graph:
-                self.update_live_graph(x_list, y_list, z_list, trajectory, particle_array[index], obstacle_array[index])
-            else:
-                for shark in self.live_graph.shark_array:
-                    # only update the shark's position without plotting them
-                    self.live_graph.update_shark_location(shark, self.curr_time)
+        
+        if show_live_graph:
+            self.update_live_graph(x_list, y_list, z_list, planned_traj_array, particle_array[index], obstacle_array[index])
+        else:
+            for shark in self.live_graph.shark_array:
+                # only update the shark's position without plotting them
+                self.live_graph.update_shark_location(shark, self.curr_time)
 
 
     def update_live_graph(self, x_list, y_list, z_list, planned_traj_array = [], particle_array = [], obstacle_array = []):
@@ -370,33 +369,34 @@ class RobotSim:
         
         # if there's any planned trajectory to plot, plot each one
         if planned_traj_array != []:
-            for planned_traj in planned_traj_array:
-                # pass in the planner name and the trajectory array
-                self.live_graph.plot_planned_traj(planned_traj[0], planned_traj[1])
+            for auv_planned_trajs in planned_traj_array:
+                for traj in auv_planned_trajs:
+                    # pass in the planner name and the trajectory array
+                    self.live_graph.plot_planned_traj(traj[0], traj[1])
 
-            # if there's particles to plot, plot them
-            """
-            if particle_array != []:
-                self.live_graph.plot_particles(particle_array)
-            """
-            if obstacle_array != []:
-                self.live_graph.plot_obstacles(obstacle_array)
+        # if there's particles to plot, plot them
+        """
+        if particle_array != []:
+            self.live_graph.plot_particles(particle_array)
+        """
+        if obstacle_array != []:
+            self.live_graph.plot_obstacles(obstacle_array)
 
-            self.live_graph.ax.legend(self.live_graph.labels)
+        self.live_graph.ax.legend(self.live_graph.labels)
 
-            # self.live_graph.plot_obstacles(self.get_habitats(), color="red")
-            
-            # re-add the labels because they will get erased
-            self.live_graph.ax.set_xlabel('X')
-            self.live_graph.ax.set_ylabel('Y')
-            self.live_graph.ax.set_zlabel('Z')
+        # self.live_graph.plot_obstacles(self.get_habitats(), color="red")
+        
+        # re-add the labels because they will get erased
+        self.live_graph.ax.set_xlabel('X')
+        self.live_graph.ax.set_ylabel('Y')
+        self.live_graph.ax.set_zlabel('Z')
 
-            plt.draw()
+        plt.draw()
 
-            # pause so the plot can be updated
-            plt.pause(0.5)
+        # pause so the plot can be updated
+        plt.pause(0.5)
 
-            self.live_graph.ax.clear()
+        self.live_graph.ax.clear()
 
 
     def summary_graphs(self):

@@ -152,7 +152,7 @@ class Live3DGraph:
                     # determine the color of this shark's trajectory
                     c = self.colors[i % len(self.colors)]
                     shark = self.shark_array[i]
-                    
+
                     self.update_shark_location(shark, sim_time)
                     
                     # calculate orientation by: current coordinate - previous coordinate
@@ -160,7 +160,7 @@ class Live3DGraph:
                     x_orient = shark.x_pos_array[-1]-shark.x_pos_array[-2]
                     y_orient = shark.y_pos_array[-1]-shark.y_pos_array[-2]
                     z_orient = shark.z_pos_array[-1]-shark.z_pos_array[-2]
-                    
+
                     # plot the trajectory of the shark
                     self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ",", color = c, label = "shark #" + str(shark.id))
 
