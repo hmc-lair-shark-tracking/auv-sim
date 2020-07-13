@@ -63,7 +63,7 @@ class Live3DGraph:
 
         # an array of the labels that will appear in the legend
         # TODO: labels and legends still have minor bugs
-        self.labels = ["auv"]
+        self.labels = []
 
 
     def scale_quiver_arrow(self):
@@ -126,6 +126,17 @@ class Live3DGraph:
         if len(self.shark_array) != 0:
              # create legend with the auv and all the sharks
             self.labels += list(map(lambda s: "shark #" + str(s.id), self.shark_array))
+
+
+    def load_auv_labels(self, num_of_auv):
+        """
+        Add all the auvs to the legend
+        
+        Should be called in __init__ in robotSim after we create live3DGraph object
+        """
+        for i in range(1, num_of_auv):
+             # create legend with auvs
+            self.labels += ["auv #" + str(i)]
     
 
     def plot_sharks(self, sim_time):

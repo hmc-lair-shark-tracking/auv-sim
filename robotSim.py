@@ -82,6 +82,8 @@ class RobotSim:
         #self.testing_trajectory = self.get_auv_trajectory(5, 0.5)
 
         self.live_graph = Live3DGraph()
+        # create proper labels for the auvs, so the legend will work
+        self.live_graph.load_auv_labels(num_of_auv)
 
         #time interval to replan trajectory
         self.replan_time = 0.5
@@ -687,7 +689,8 @@ class RobotSim:
                 self.time_array.append(self.curr_time)
                 # increment the current time by 0.1 second
                 self.curr_time += const.SIM_TIME_INTERVAL
-                self.plot(final_auv_x_array, final_auv_y_array, final_auv_z_array, show_live_graph, final_planned_traj_array, final_particle_array, final_obstacle_array)
+
+            self.plot(final_auv_x_array, final_auv_y_array, final_auv_z_array, show_live_graph, final_planned_traj_array, final_particle_array, final_obstacle_array)
             
             terminate_loop = self.check_terminate_cond()
             if terminate_loop:
