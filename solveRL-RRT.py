@@ -49,7 +49,7 @@ EPS_DECAY = 0.001
 
 LEARNING_RATE = 0.001
 
-NEGATIVE_OFFSET = -10
+NEGATIVE_OFFSET = -10000
 
 MEMORY_SIZE = 100000
 BATCH_SIZE = 64
@@ -78,6 +78,8 @@ SAVE_EVERY = 10
 RENDER_EVERY = 100
 # how many episode should we run a test on the model
 TEST_EVERY = 50
+
+FILTER_IN_UPDATING_NN = True
 
 DEBUG = False
 
@@ -242,6 +244,7 @@ class Neural_network(nn.Module):
         Parameters:
             t - the state as a tensor
         """
+
         # input layer
         t = self.input(t)
         t = F.relu(t)
@@ -430,19 +433,9 @@ class Agent():
                 # pick the grid cell with the largest q value
                 grid_cell_index = torch.argmax(processed_q_values_all_grid_cells).item()
 
-                # if True:
-                #     print("-----")
-                #     print("exploiting")
-                #     print("state")
-                #     print(state)
-                #     text = input("stop")
-                #     print("input state")
-                #     print(input_state)
-                #     text = input("stop")
-                #     print("q value check")
-                #     print(q_values_all_grid_cells)
-                #     print("processed q value check")
-                #     print(processed_q_values_all_grid_cells)
+                if DEBUG:
+                    print("-----")
+                    print("exploiting")
 
                 # if state["has_node"][grid_cell_index] == 0:
                 #     if DEBUG:
@@ -642,17 +635,18 @@ class QValues():
     @staticmethod        
     def get_next(target_net, next_states, has_nodes_arrays):  
         # for each next state, we want to obtain the max q-value predicted by the target_net among all the possible next actions              
-        # we want to know where the final states are bc we shouldn't pass them into the target net
+        # we want to know where the final states are bc we shouldn't pass them into the target net  
+        if FILTER_IN_UPDATING_NN:
+            q_values_for_all_actions = target_net(next_states)
 
-        q_values_for_all_actions = target_net(next_states)
+            # remove the q values of the invalid grid cells
+            processed_q_values_for_all_actions = q_values_for_all_actions + (1 - has_nodes_arrays) * NEGATIVE_OFFSET
 
-        # remove the q values of the invalid grid cells
-        processed_q_values_for_all_actions = q_values_for_all_actions + (1 - has_nodes_arrays) * NEGATIVE_OFFSET
+            processed_max_q_values = processed_q_values_for_all_actions.max(dim=1)[0].detach()
 
-        processed_max_q_values = processed_q_values_for_all_actions.max(dim=1)[0].detach()
-
-        return processed_max_q_values
-
+            return processed_max_q_values
+        else:
+            return target_net(next_states).max(dim=1)[0].detach()           
 
 
 class DQN():
@@ -983,8 +977,8 @@ class DQN():
                 if (eps % RENDER_EVERY == 0) and live_graph_2D:
                     self.em.render(print_state = False, live_graph_2D = live_graph_2D)
                     
-                    if DEBUG:
-                        text = input("stop")
+                    # if DEBUG:
+                    #     text = input("stop")
 
                 state = next_state
 

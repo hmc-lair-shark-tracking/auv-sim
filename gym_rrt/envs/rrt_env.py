@@ -211,6 +211,8 @@ class RRTEnv(gym.Env):
 
         self.state["has_node"] = self.generate_rrt_grid_has_node_array(self.rrt_planner.env_grid)
 
+        self.state["rrt_grid_num_of_nodes_only"] = self.convert_rrt_grid_to_1D_num_of_nodes_only(self.rrt_planner.env_grid)
+
         # if the RRT planner has found a path in this step
         if path != None:
             self.state["path"] = path

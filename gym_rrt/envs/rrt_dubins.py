@@ -179,11 +179,15 @@ class Planner_RRT:
             path - the collision-free path if there is one, otherwise it's null
             new_node
         """
-
-        # print("chosen grid cell")
-        # print(grid_cell)
-        # text = input("stop")
-        # randomly pick a node from the grid cell
+        if grid_cell.node_list == []:
+            print("hmmmm invalid grid cell pic")     
+            print(grid_cell)
+            print("node list")
+            print(grid_cell.node_list)
+            text = input("stop")
+            return False, None
+        
+        # randomly pick a node from the grid cell   
         rand_node = random.choice(grid_cell.node_list)
 
         new_node = self.steer(rand_node, self.dist_to_end, self.diff_max, self.freq)
