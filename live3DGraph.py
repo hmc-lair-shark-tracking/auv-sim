@@ -160,13 +160,13 @@ class Live3DGraph:
                     x_orient = shark.x_pos_array[-1]-shark.x_pos_array[-2]
                     y_orient = shark.y_pos_array[-1]-shark.y_pos_array[-2]
                     z_orient = shark.z_pos_array[-1]-shark.z_pos_array[-2]
-                    
+                    self.ax.quiver3D(shark.x_pos_array[-1], shark.y_pos_array[-1], shark.z_pos_array[-1], x_orient, y_orient, z_orient, color = c, pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
+
                     # plot the trajectory of the shark
                     self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ",", color = c, label = "shark #" + str(shark.id))
 
                     # plot the direction vectors for the shark
-                    self.ax.quiver3D(shark.x_pos_array[-1], shark.y_pos_array[-1], shark.z_pos_array[-1], x_orient, y_orient, z_orient, color = c, pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
-
+                   
 
     def update_shark_location(self, shark, sim_time):
         """

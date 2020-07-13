@@ -668,7 +668,7 @@ class RobotSim:
 
                 # testing data for displaying particle array
                 
-                particle_array += [[np.random.randint(-20, 20, dtype='int'), np.random.randint(-20, 20, dtype='int'), 0, 0, 0] for i in range(50)]
+                particle_array = [[np.random.randint(-20, 20, dtype='int'), np.random.randint(-20, 20, dtype='int'), 0, 0, 0] for i in range(50)]
 
                 # example of first parameter to update_live_graph function
                 planned_traj_array = [["A *", A_star_traj], ["RRT", RRT_traj]]
@@ -698,7 +698,7 @@ class RobotSim:
                 
         obstacle_array = [Motion_plan_state(757,243, size=10), Motion_plan_state(763,226, size=15)]
         self.live_graph.plot_2d_sim_graph(final_auv_x_array, final_auv_y_array, obstacle_array)
-            """
+        
             # "End Simulation" button is pressed, generate summary graphs for this simulation
             # self.summary_plots()
 
