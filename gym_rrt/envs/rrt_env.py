@@ -25,7 +25,7 @@ SHARK_MIN_V = 0.5
 SHARK_MAX_V = 1
 SHARK_MAX_W = np.pi/8
 
-RRT_PLANNER_FREQ = 30
+RRT_PLANNER_FREQ = 10
 
 # the maximum range between the auv and shark to be considered that the auv has reached the shark
 END_GAME_RADIUS = 3.0
