@@ -336,7 +336,7 @@ class RobotSim:
         for trajectory in planned_traj_array:
             index += 1
             if show_live_graph:
-                self.update_live_graph(x_list[index], y_list[index], z_list[index], trajectory, particle_array[index], obstacle_array[index])
+                self.update_live_graph(x_list, y_list, z_list, trajectory, particle_array[index], obstacle_array[index])
             else:
                 for shark in self.live_graph.shark_array:
                     # only update the shark's position without plotting them
@@ -360,9 +360,9 @@ class RobotSim:
         """
         # scale the arrow for the auv and the sharks properly for graph
         self.live_graph.scale_quiver_arrow()
-
+        
         self.live_graph.plot_auv(x_list, y_list, z_list)
-
+        
         # plot the new positions for all the sharks that the robot is tracking
         self.live_graph.plot_sharks(self.curr_time)
         
@@ -372,29 +372,29 @@ class RobotSim:
                 # pass in the planner name and the trajectory array
                 self.live_graph.plot_planned_traj(planned_traj[0], planned_traj[1])
 
-        # if there's particles to plot, plot them
-        """
-        if particle_array != []:
-            self.live_graph.plot_particles(particle_array)
-        """
-        if obstacle_array != []:
-            self.live_graph.plot_obstacles(obstacle_array)
+            # if there's particles to plot, plot them
+            """
+            if particle_array != []:
+                self.live_graph.plot_particles(particle_array)
+            """
+            if obstacle_array != []:
+                self.live_graph.plot_obstacles(obstacle_array)
 
-        self.live_graph.ax.legend(self.live_graph.labels)
+            self.live_graph.ax.legend(self.live_graph.labels)
 
-        # self.live_graph.plot_obstacles(self.get_habitats(), color="red")
-        
-        # re-add the labels because they will get erased
-        self.live_graph.ax.set_xlabel('X')
-        self.live_graph.ax.set_ylabel('Y')
-        self.live_graph.ax.set_zlabel('Z')
+            # self.live_graph.plot_obstacles(self.get_habitats(), color="red")
+            
+            # re-add the labels because they will get erased
+            self.live_graph.ax.set_xlabel('X')
+            self.live_graph.ax.set_ylabel('Y')
+            self.live_graph.ax.set_zlabel('Z')
 
-        plt.draw()
+            plt.draw()
 
-        # pause so the plot can be updated
-        plt.pause(0.5)
+            # pause so the plot can be updated
+            plt.pause(0.5)
 
-        self.live_graph.ax.clear()
+            self.live_graph.ax.clear()
 
 
     def summary_graphs(self):
@@ -687,8 +687,6 @@ class RobotSim:
                 self.time_array.append(self.curr_time)
                 # increment the current time by 0.1 second
                 self.curr_time += const.SIM_TIME_INTERVAL
-                for auv in final_auv_x_array:
-                    print("len", len(auv))
                 self.plot(final_auv_x_array, final_auv_y_array, final_auv_z_array, show_live_graph, final_planned_traj_array, final_particle_array, final_obstacle_array)
             
             terminate_loop = self.check_terminate_cond()
