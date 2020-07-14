@@ -11,7 +11,7 @@ import random
 
 from gym_rrt.envs.live3DGraph_rrt_env import Live3DGraph
 from gym_rrt.envs.rrt_dubins import Planner_RRT
-from gym_rrt.envs.motion_plan_state import Motion_plan_state
+from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
 
 # auv's max speed (unit: m/s)
 AUV_MAX_V = 2.0
@@ -25,7 +25,7 @@ SHARK_MIN_V = 0.5
 SHARK_MAX_V = 1
 SHARK_MAX_W = np.pi/8
 
-RRT_PLANNER_FREQ = 10
+RRT_PLANNER_FREQ = 20
 
 # the maximum range between the auv and shark to be considered that the auv has reached the shark
 END_GAME_RADIUS = 3.0
@@ -178,7 +178,7 @@ class RRTEnv(gym.Env):
         
         return self.reset()
 
-    def step(self, chosen_grid_cell_idx):
+    def step(self, chosen_grid_cell_idx, step_num):
         """
         In each step, we will generate an additional node in the RRT tree.
 
@@ -198,7 +198,7 @@ class RRTEnv(gym.Env):
 
         chosen_grid_cell = self.rrt_planner.env_grid[chosen_grid_cell_row_idx][chosen_grid_cell_col_idx]
 
-        done, path = self.rrt_planner.generate_one_node(chosen_grid_cell)
+        done, path = self.rrt_planner.generate_one_node(chosen_grid_cell, step_num)
 
         # TODO: how we are updating the grid's info and the has node array is very inefficient
         self.state["rrt_grid"] = self.convert_rrt_grid_to_1D(self.rrt_planner.env_grid)
@@ -211,14 +211,34 @@ class RRTEnv(gym.Env):
         if path != None:
             self.state["path"] = path
 
+            if type(path) != list:
+                print("*************")
+                print("node: ")
+                print(self.state["path"])
+                print("---")
+                print("path in node: ")
+                for pt in self.state["path"].path:
+                    print(pt)
+            else:
+                print("*************")
+                print("final path: ")
+                for pt in path:
+                    print(pt)
+
+            
+
         if done and path != None:
+            print("found a path")
             reward = R_FOUND_PATH
         elif path != None:
+            print("found a node")
             reward = R_CREATE_NODE
         else:
+            print("found nothing")
             # TODO: For now, the reward encourages using less time to plan the path
             reward = R_INVALID_NODE
-
+        print("$$$$$$$$$$$$$")
+        
         return self.state, reward, done, {}
 
 
@@ -458,6 +478,7 @@ class RRTEnv(gym.Env):
         if new_state != None and type(new_state) != list:
             # draw the new edge, which is not a successful path
             self.live_graph.ax_2D.plot([point.x for point in new_state.path], [point.y for point in new_state.path], '-', color="#000000")
+            self.live_graph.ax_2D.plot(new_state.x, new_state.y, 'o', color="#000000")
         elif new_state != None and type(new_state) == list:
             # if we are supposed to draw the final path  
             # new_state is now a list of nodes

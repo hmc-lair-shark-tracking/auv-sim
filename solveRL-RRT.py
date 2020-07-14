@@ -14,7 +14,7 @@ import torch.nn.functional as F
 import torchvision.transforms as T  
 import copy
 
-from motion_plan_state import Motion_plan_state
+from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
 
 from habitatGrid import HabitatGrid
 
@@ -35,7 +35,7 @@ DIST = 20.0
 NUM_OF_EPISODES = 500
 MAX_STEP = 300
 
-NUM_OF_EPISODES_TEST =  1000
+NUM_OF_EPISODES_TEST =  50
 MAX_STEP_TEST = 300
 
 N_V = 7
@@ -62,7 +62,7 @@ TARGET_UPDATE = 10000
 NUM_OF_OBSTACLES = 7
 
 ENV_SIZE = 50.0
-ENV_GRID_CELL_SIDE_LENGTH = 5.0
+ENV_GRID_CELL_SIDE_LENGTH = 10.0
 
 # the output size for the neural network
 NUM_OF_GRID_CELLS = int((int(ENV_SIZE) / int(ENV_GRID_CELL_SIDE_LENGTH)) ** 2)
@@ -75,7 +75,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 100
+RENDER_EVERY = 1
 # how many episode should we run a test on the model
 TEST_EVERY = 50
 
@@ -83,7 +83,7 @@ FILTER_IN_UPDATING_NN = True
 
 DEBUG = False
 
-RAND_PICK = True
+RAND_PICK = False
 RAND_PICK_RATE = 0.25
 
 """
@@ -486,6 +486,15 @@ class AuvEnvManager():
         auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
         shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
         # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
+        # obstacle_array = [\
+        #     Motion_plan_state(x=12.0, y=38.0, size=4),\
+        #     Motion_plan_state(x=17.0, y=34.0, size=5),\
+        #     Motion_plan_state(x=20.0, y=29.0, size=4),\
+        #     Motion_plan_state(x=25.0, y=25.0, size=3),\
+        #     Motion_plan_state(x=29.0, y=20.0, size=4),\
+        #     Motion_plan_state(x=34.0, y=17.0, size=3),\
+        #     Motion_plan_state(x=37.0, y=8.0, size=5)\
+        # ]
         obstacle_array = [\
             Motion_plan_state(x=12.0, y=38.0, size=4),\
             Motion_plan_state(x=17.0, y=34.0, size=5),\
@@ -493,7 +502,6 @@ class AuvEnvManager():
             Motion_plan_state(x=25.0, y=25.0, size=3),\
             Motion_plan_state(x=29.0, y=20.0, size=4),\
             Motion_plan_state(x=34.0, y=17.0, size=3),\
-            Motion_plan_state(x=37.0, y=8.0, size=5)\
         ]
 
         boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = ENV_SIZE, y = ENV_SIZE)]
@@ -545,20 +553,23 @@ class AuvEnvManager():
             self.env.live_graph.ax_2D.clear()
 
 
-    def take_action(self, chosen_grid_cell_index):
+    def take_action(self, chosen_grid_cell_index, step_num):
         """
         Parameter: 
             action - tensor of the format: tensor([v_index, w_index])
                 use the index from the action and take a step in environment
                 based on the chosen values for v and w
+            step_num - to allow us to identify the useful states
         """
         chosen_grid_cell_index = chosen_grid_cell_index.item()
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
-        self.current_state, reward, self.done, _ = self.env.step(chosen_grid_cell_index)
+        self.current_state, reward, self.done, _ = self.env.step(chosen_grid_cell_index, step_num)
 
         if DEBUG:
             print("=========================")
+            print("step num")
+            print(step_num)
             print("chosen grid cell index: ")
             print(chosen_grid_cell_index)
             print("chosen grid: ")
@@ -693,7 +704,7 @@ class DQN():
         Load already trained neural network
         """
         print("Loading previously trained neural network...")
-        self.agent.strategy.start = EPS_DECAY + 0.001
+        self.agent.strategy.start = EPS_END
         self.policy_net.load_state_dict(torch.load('checkpoint_policy.pth'))
         self.target_net.load_state_dict(torch.load('checkpoint_target.pth'))
 
@@ -976,7 +987,7 @@ class DQN():
 
                 action_array.append(chosen_grid_cell_index)
 
-                score = self.em.take_action(chosen_grid_cell_index)
+                score = self.em.take_action(chosen_grid_cell_index, t)
                 eps_reward += score.item()
                 reward_array.append(score)
 
@@ -987,6 +998,14 @@ class DQN():
 
                 if (eps % RENDER_EVERY == 0) and live_graph_2D:
                     self.em.render(print_state = False, live_graph_2D = live_graph_2D)
+
+                print("&&&&&&&&&&&")
+                print("step: ")
+                print(t)
+                print("node situation")
+                print(next_state["rrt_grid"])
+                print("&&&&&&&&&&&")
+                text = input("stop")
                     
                     # if DEBUG:
                     #     text = input("stop")
@@ -1000,10 +1019,9 @@ class DQN():
             
             num_of_bad_choices.append(self.agent.neural_net_bad_choice)
             num_of_bad_choices_over_total_choices.append(self.agent.neural_net_choice)
-
             episode_durations.append(iteration)
-
             total_reward_in_training.append(eps_reward)
+            
 
             # reset the state before we start updating the neural network
             state = self.em.reset()
@@ -1118,7 +1136,7 @@ class DQN():
             for t in range(1, max_step):
                 chosen_grid_cell_index = self.agent.select_action(state, self.policy_net)
 
-                reward = self.em.take_action(chosen_grid_cell_index)
+                reward = self.em.take_action(chosen_grid_cell_index, t)
 
                 eps_reward += reward.item()
 
@@ -1192,7 +1210,7 @@ class DQN():
             for t in range(1, max_step):
                 chosen_grid_cell_index = self.agent.select_action(state, self.policy_net, testing = True)
 
-                reward = self.em.take_action(chosen_grid_cell_index)
+                reward = self.em.take_action(chosen_grid_cell_index, t)
 
                 eps_reward += reward.item()
 
@@ -1243,8 +1261,8 @@ class DQN():
 def main():
     dqn = DQN()
    
-    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
-    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_2D = False)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
+    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_2D = False)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 

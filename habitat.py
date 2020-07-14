@@ -3,10 +3,10 @@ A wrapper class to represent state of a habitat, which consists of many habitat 
     including x, y, z, size, and the number of time visited
 """
 class Habitat:
-    def __init__(self, x, y, id, side_length = 1, num_of_time_visited = 0):
+    def __init__(self, x, y, id_in, side_length = 1, num_of_time_visited = 0):
         self.x = x
         self.y = y
-        self.id = id
+        self.id = id_in
         self.side_length = side_length
         self.num_of_time_visited = num_of_time_visited
 

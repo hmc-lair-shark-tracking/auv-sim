@@ -12,7 +12,7 @@ import numpy as np
 from shapely.wkt import loads as load_wkt 
 from shapely.geometry import Polygon, Point
 
-from gym_rrt.envs.motion_plan_state import Motion_plan_state
+from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
 from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
 
 # from motion_plan_state import Motion_plan_state
@@ -170,7 +170,7 @@ class Planner_RRT:
         return path, step
 
 
-    def generate_one_node(self, grid_cell, min_length=250):
+    def generate_one_node(self, grid_cell, step_num = None, min_length=250):
         """
         Based on the grid cell, randomly pick a node to expand the tree from from
 
@@ -180,7 +180,7 @@ class Planner_RRT:
             new_node
         """
         if grid_cell.node_list == []:
-            print("hmmmm invalid grid cell pic")     
+            print("hmmmm invalid grid cell pick")     
             print(grid_cell)
             print("node list")
             print(grid_cell.node_list)
@@ -190,7 +190,7 @@ class Planner_RRT:
         # randomly pick a node from the grid cell   
         rand_node = random.choice(grid_cell.node_list)
 
-        new_node = self.steer(rand_node, self.dist_to_end, self.diff_max, self.freq)
+        new_node = self.steer(rand_node, self.dist_to_end, self.diff_max, self.freq, step_num=step_num)
 
         valid_new_node = False
         
@@ -202,7 +202,7 @@ class Planner_RRT:
             self.add_node_to_grid(new_node)
             valid_new_node = True
 
-        final_node = self.connect_to_goal_curve_alt(self.mps_list[-1], self.exp_rate)
+        final_node = self.connect_to_goal_curve_alt(self.mps_list[-1], self.exp_rate, step_num=step_num)
 
         # if we can create a path between the newly generated node and the goal
         if self.check_collision_free(final_node, self.obstacle_list):
@@ -216,13 +216,13 @@ class Planner_RRT:
             return False, None
 
 
-    def steer(self, mps, dist_to_end, diff_max, freq, velocity=1, traj_time_stamp=False):
+    def steer(self, mps, dist_to_end, diff_max, freq, velocity = 1, traj_time_stamp = False, step_num = None):
         """
         """
         if traj_time_stamp:
-            new_mps = Motion_plan_state(mps.x, mps.y, theta = mps.theta, traj_time_stamp=mps.traj_time_stamp)
+            new_mps = Motion_plan_state(mps.x, mps.y, theta = mps.theta, traj_time_stamp = mps.traj_time_stamp, rl_state_id = step_num)
         else:
-            new_mps = Motion_plan_state(mps.x, mps.y, theta = mps.theta, plan_time_stamp=time.time()-self.t_start, traj_time_stamp=mps.traj_time_stamp)
+            new_mps = Motion_plan_state(mps.x, mps.y, theta = mps.theta, plan_time_stamp = time.time()-self.t_start, traj_time_stamp = mps.traj_time_stamp, rl_state_id = step_num)
 
         new_mps.path = [mps]
 
@@ -250,7 +250,7 @@ class Planner_RRT:
                 else:
                     new_mps.plan_time_stamp = time.time() - self.t_start
                     new_mps.traj_time_stamp += (math.sqrt(delta_x ** 2 + delta_y ** 2)) / velocity
-                new_mps.path.append(Motion_plan_state(new_mps.x, new_mps.y, theta=new_mps.theta, traj_time_stamp=new_mps.traj_time_stamp, plan_time_stamp=new_mps.plan_time_stamp))
+                new_mps.path.append(Motion_plan_state(new_mps.x, new_mps.y, theta=new_mps.theta, traj_time_stamp=new_mps.traj_time_stamp, plan_time_stamp=new_mps.plan_time_stamp, rl_state_id = step_num))
 
         new_mps.path[0] = mps
 
@@ -375,8 +375,8 @@ class Planner_RRT:
         return new_mps
     
     
-    def connect_to_goal_curve_alt(self, mps, exp_rate):
-        new_mps = Motion_plan_state(mps.x, mps.y, theta=mps.theta, traj_time_stamp=mps.traj_time_stamp)
+    def connect_to_goal_curve_alt(self, mps, exp_rate, step_num = None):
+        new_mps = Motion_plan_state(mps.x, mps.y, theta = mps.theta, traj_time_stamp = mps.traj_time_stamp, rl_state_id = step_num)
         theta_0 = new_mps.theta
         _, theta = self.get_distance_angle(mps, self.goal)
         diff = theta - theta_0
@@ -422,7 +422,7 @@ class Planner_RRT:
             new_mps.x = x_C + radius * math.sin(ang_vel * i + theta_0)
             new_mps.y = y_C - radius * math.cos(ang_vel * i + theta_0)
             new_mps.theta = ang_vel * i + theta_0
-            new_mps.path.append(Motion_plan_state(new_mps.x, new_mps.y, theta = new_mps.theta, plan_time_stamp=time.time()-self.t_start))
+            new_mps.path.append(Motion_plan_state(new_mps.x, new_mps.y, theta = new_mps.theta, plan_time_stamp=time.time()-self.t_start, rl_state_id = step_num))
         
         return new_mps
 
@@ -446,6 +446,7 @@ class Planner_RRT:
                 closest_mps = mps
         return closest_mps
     
+
     def get_closest_mps_time(self, ran_time, mps_list):
         while len(mps_list) > 3:
             left = mps_list[len(mps_list)//2 - 1]
