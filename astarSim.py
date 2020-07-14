@@ -13,7 +13,7 @@ from live3DGraph import Live3DGraph
 from motion_plan_state import Motion_plan_state
 
 from path_planning.astar_fixLen import astar
-from path_planning.rrt_dubins import RRT
+# from path_planning.rrt_dubins import RRT
 from path_planning.cost import Cost
 from path_planning.catalina import create_cartesian
 
@@ -110,7 +110,7 @@ class astarSim:
         """
 
         start = (self.x, self.y)
-    
+
         environ = catalina.create_environs(catalina.OBSTACLES, catalina.BOUNDARIES, catalina.BOATS, catalina.HABITATS) # output: ([obstacle_list, boundary_list, boat_list, habitat_list])
         
         obstacle_list = environ[0]
@@ -120,21 +120,24 @@ class astarSim:
 
         astar_solver = astar(start, obstacle_list+boat_list, boundary_list, habitat_list) 
         final_path_mps = astar_solver.astar(habitat_list, obstacle_list+boat_list, boundary_list, start, self.pathLenLimit, self.weights)
-
         A_star_traj = final_path_mps[0]
         print("\n", "trajectory cost: ", final_path_mps[1][0])
         print("\n", "trajectory: ", final_path_mps[0])
         print ("\n", "trajectory length: ", len(final_path_mps[0]))
         A_star_traj_cost = round(final_path_mps[1][0], 2)
-        A_star_new_traj = self.create_trajectory_list(A_star_traj)
+        # A_star_new_traj = self.create_trajectory_list(A_star_traj)
 
         astar_x_array = []
         astar_y_array = []
 
-        for point in A_star_new_traj:
-            astar_x_array.append(point.x)
-            astar_y_array.append(point.y)
+        for point in A_star_traj:
+            astar_x_array.append(round(point.x, 2))
+            astar_y_array.append(round(point.y, 2))
+            # astar_x_array.append(point.x)
+            # astar_y_array.append(point.y)
 
+        print ("\n", "astar_x_array: ", astar_x_array)
+        print ("\n", "astar_y_array: ", astar_y_array)
         self.live_graph.plot_2d_astar_traj(astar_x_array, astar_y_array, A_star_traj_cost)
     
 '''
@@ -177,7 +180,7 @@ class astarSim:
 '''
 
 def main():
-    pos = create_cartesian((33.445089, -118.486933), catalina.ORIGIN_BOUND)
+    pos = create_cartesian((33.446198, -118.486652), catalina.ORIGIN_BOUND)
     test_robot = astarSim(round(pos[0], 2), round(pos[1], 2), 0, pathLenLimit=800, weights=[0, 10, 10])
     test_robot.display_astar_trajectory()
 
