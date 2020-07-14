@@ -83,8 +83,8 @@ FILTER_IN_UPDATING_NN = True
 
 DEBUG = False
 
-RAND_PICK = False
-RAND_PICK_RATE = 0.25
+RAND_PICK = True
+RAND_PICK_RATE = 0.75
 
 R_USEFUL_STATE = 10
 
@@ -861,16 +861,28 @@ class DQN():
                 if pt.rl_state_id != useful_state_idx_array[-1] and pt.rl_state_id != None:
                     useful_state_idx_array.append(pt.rl_state_id)
 
+            # remove the first useful state because that state already receives a large final reward
+            useful_state_idx_array = useful_state_idx_array[1:]
+
         return useful_state_idx_array
 
 
     def post_process_reward_array_from_path(self, reward_array, useful_state_idx_array):
         """
-        Modify the reward by boosting the reward for picking useful states
+        Modify the reward by boosting the reward for useful states
+
+        Parameters:
+            reward_array - stores the reward for all the states
+            useful_state_idx_array - store the step number of the useful states
+                (states that contribute to creating the final path)
+
+        Warning:
+            This function modifies the reward_array directly
         """
         for idx in useful_state_idx_array:
-            print("previous reward")
-            reward_array[idx] = R_USEFUL_STATE
+            # we have to do idx-1 because the first for loop starts out at 1
+            # we have to subtract by 1 to get the right index to modify the reward
+            reward_array[idx-1] =  torch.tensor([R_USEFUL_STATE], device=DEVICE).float()
         
         return reward_array
 
@@ -1059,11 +1071,16 @@ class DQN():
             print(useful_state_idx_array)
             text = input("stop")
 
-            print("#######################")
+            print("pre")
+            print(len(reward_array))
+
+            modified_reward_array = self.post_process_reward_array_from_path(reward_array,useful_state_idx_array)
+            
             for i in range(len(reward_array)):
-                print("before: " + str(i) + " : " + reward_array[i])
-                print("after: " + str(i) + " : " + reward_array[i])
+                print("before: " + str(i) + " : " + str(reward_array[i].item()))
+                print("after: " + str(i) + " : " + str(modified_reward_array[i].item()))
                 print("----")
+
             text = input("stop")
             
 
@@ -1079,8 +1096,6 @@ class DQN():
                 next_state = next_state_array[t]
                 done = done_array[t]
                 reward = reward_array[t]
-
-                reward = self.post_process_reward_array_from_path(reward, useful_state_idx_array)
                 
                 # store the actual experience that the auv has in the first loop into the memory
                 self.save_real_experiece(state, next_state, action, reward, done)
