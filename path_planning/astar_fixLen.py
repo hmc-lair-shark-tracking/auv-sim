@@ -47,7 +47,7 @@ class astar:
         self.obstacle_list = obstacleList
         self.boundary_list = boundaryList
         self.habitat_list = habitatList
-        self.visited_nodes = np.zeros([550, 600])
+        self.visited_nodes = np.zeros([600, 600])
         
     def euclidean_dist(self, point1, point2): # point is a position tuple (x, y)
         """
@@ -141,6 +141,7 @@ class astar:
             current_point: a Motion_plan_state object
         """
 
+        # print ("\n", "Walkable called")
         start_x = check_point.x
         start_y = check_point.y
 
@@ -149,8 +150,9 @@ class astar:
     
         while start_x <= current_point.x and start_y <= current_point.y:
             intermediate = (start_x, start_y)
+            # print ("intermediate position: ", intermediate)
             start_x += step_x
-            step_y += step_y
+            start_y += step_y
 
             if not self.collision_free(intermediate, obstacleList): # if collision happens
                 return False
@@ -226,15 +228,11 @@ class astar:
             mps: a Motion_plan_state object; the location to check
             habitat_list: a list of Motion_plan_state objects
         """
-        print ("\n", "called!")
-        print ("\n", "habitats: ", habitats)
+    
         for habitat in habitats:
-            # dist = math.sqrt((mps.x - habitat.x) **2 + (mps.y - habitat.y) **2)
             dist = euclidean_dist((habitat.x, habitat.y), (mps.x, mps. y))
-            print ("\n", "distance from habitat: ", dist)
-            print ("\n", "habitat size: ", habitat.size)
+           
             if dist <= habitat.size:
-                print ("\n", "inside habitats? ", dist <= habitat.size)
                 return True
 
         return False
@@ -334,8 +332,9 @@ class astar:
         checkPoint = trajectory[index] # starting point of the path
         index += 1
         currentPoint = trajectory[index] # next point in path
+        smoothTraj = trajectory[:] # holds smoothed trajectory 
         
-        while index <= len(trajectory)-2:
+        while index < len(trajectory)-1:
 
             print ("\n", "index: ", index)
 
@@ -343,24 +342,27 @@ class astar:
                 
                 inside_habitats = self.inside_habitats(currentPoint, haibitats)
                 print ("\n", "currentPoint inside habitats? ", inside_habitats)
+                print ("\n", "currentPoint: ", (currentPoint.x, currentPoint.y))
            
                 if not inside_habitats: # if currentPoint is NOT within any of the habitats => removable
                     temp = currentPoint
                     index += 1 
                     currentPoint = trajectory[index]                    
-                    trajectory.remove(temp)
+                    smoothTraj.remove(temp)
+                    
                     print ("\n", "Eliminate: ", (temp.x, temp.y)) 
-                    print ("\n", "Walkable traj: ", trajectory)
-                else:
+                    print ("\n", "Walkable traj: ", smoothTraj)
+                else: 
                     index += 1
+                    currentPoint = trajectory[index]
                     
             else:
                 checkPoint = currentPoint
                 index += 1
                 currentPoint = trajectory[index]
-                print ("\n", "NOT Walkable traj: ", trajectory)
+                print ("\n", "currentPoint NOT Walkable: ", (currentPoint.x, currentPoint.y))
 
-        return trajectory
+        return smoothTraj
 
     def astar(self, habitat_list, obs_lst, boundary_list, start, pathLenLimit, weights): 
         """
@@ -370,7 +372,6 @@ class astar:
             start - a tuple of two elements: x and y coordinates
             goal - a tuple of two elements: x and y coordinates
         """
-        print ("\n", "habitats in smoothPath 1: ", habitat_list)
 
         w1 = weights[0]
         w2 = weights[1]
@@ -386,17 +387,13 @@ class astar:
         open_list = [] # hold neighbors of the expanded nodes
         closed_list = [] # hold all the exapnded nodes
 
-        habitats = []
-
-        for habi in habitat_list: 
-            habitats.append(Motion_plan_state(habi.x, habi.y, size=habi.size)) 
-        print ("\n", "habitats in smoothPath 2: ", habitats)
+        habitats = habitat_list[:]
+        
 
         habitat_open_list = habitat_list # hold haibitats that have not been explored 
         habitat_closed_list = [] # hold habitats that have been explored 
 
         open_list.append(start_node)
-        print ("\n", "habitats in smoothPath 3: ", habitats)
 
         while len(open_list) > 0:
             current_node = open_list[0] # initialize the current node
@@ -427,18 +424,19 @@ class astar:
                     mps = Motion_plan_state(point[0], point[1])
                     path_mps.append(mps)
                 
-                
                 trajectory = path_mps[::-1]
                 
-                print ("\n", "habitats in smoothPath 4: ", habitats)
-                smoothPath_1 = self.smoothPath(trajectory, habitats)
-                smoothPath_2 = self.smoothPath(smoothPath_1, habitats)
-                smoothPath_3 = self.smoothPath(smoothPath_2, habitats)
-                smoothPath_4 = self.smoothPath(smoothPath_3, habitats)
-                smoothPath_5 = self.smoothPath(smoothPath_4, habitats)
-                smoothPath_6 = self.smoothPath(smoothPath_5, habitats)
+                print ("\n", "original trajectory: ", trajectory)
+                print ("\n", "original trajectory length: ", len(trajectory))
 
-                return ([smoothPath_6, cost])
+                smoothPath_1 = self.smoothPath(trajectory, habitats)
+                # smoothPath_2 = self.smoothPath(smoothPath_1, habitats)
+                # smoothPath_3 = self.smoothPath(smoothPath_2, habitats)
+                # smoothPath_4 = self.smoothPath(smoothPath_3, habitats)
+                # smoothPath_5 = self.smoothPath(smoothPath_4, habitats)
+                # smoothPath_6 = self.smoothPath(smoothPath_5, habitats)
+
+                return ([smoothPath_1, cost])
                 # return (path_mps[::-1], cost)
             
             current_neighbors = self.curr_neighbors(current_node, boundary_list)
@@ -463,7 +461,7 @@ class astar:
                     children.append(new_node)
            
             '''
-            Implementation of Grid Map
+            IMPLEMENTATION OF GRID MAP => DISCARDED FOR NOW
            
             for neighbor in current_neighbors: # create new node if the neighbor is collision-free
                 
@@ -510,22 +508,18 @@ class astar:
                         continue
                 
                 x_pos, y_pos = self.get_indices(child.position[0], child.position[1])
-                # print ('\n', "x_in_meter, y_in_meter: ", child.position[0], child.position[1])
-                # print ('\n', "x_pos, y_pos", x_pos, y_pos)
 
                 if self.visited_nodes[x_pos, y_pos] == 0: 
                     open_list.append(child)
                     self.visited_nodes[x_pos, y_pos] = 1
-                # else: 
-                #     print ("False attempt : ", child.position)
+
 def main():
     weights = [0, 10, 10]
-    start_cartesian = create_cartesian((33.446056, -118.489111), catalina.ORIGIN_BOUND)
-    print (start_cartesian)
+    start_cartesian = create_cartesian((33.445089, -118.486933), catalina.ORIGIN_BOUND)
     start = (round(start_cartesian[0], 2), round(start_cartesian[1], 2))
     print ("start: ", start) 
 
-    # convert to environment in casrtesian coordinates 
+    #  convert to environment in casrtesian coordinates 
     environ = catalina.create_environs(catalina.OBSTACLES, catalina.BOUNDARIES, catalina.BOATS, catalina.HABITATS)
     
     obstacle_list = environ[0]
@@ -534,8 +528,7 @@ def main():
     habitat_list = environ[3]
 
     astar_solver = astar(start, obstacle_list+boat_list, boundary_list, habitat_list) 
-    print ("\n", "habitat list passed: ", habitat_list)
-    final_path_mps = astar_solver.astar(habitat_list, obstacle_list, boundary_list, start, 800, weights)
+    final_path_mps = astar_solver.astar(habitat_list, obstacle_list+boat_list, boundary_list, start, 800, weights)
 
     print ("\n", "final trajectory: ",  final_path_mps[0])
     print ("\n", "Trajectory length: ", len(final_path_mps[0]))
