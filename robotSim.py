@@ -166,8 +166,8 @@ class RobotSim:
             for shark_id in shark_state_dict: 
                 shark_data = shark_state_dict[shark_id]
 
-                delta_x = shark_data.x - auv_sensor_data.x
-                delta_y = shark_data.y - auv_sensor_data.y
+                delta_x = shark_data.x - auv_sensor_data.state.x
+                delta_y = shark_data.y - auv_sensor_data.state.y
                 
                 range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
                 bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
@@ -654,15 +654,17 @@ class RobotSim:
                 final_particle_array = []
                 # update particles
                 particles = test_particle.create_and_update(particles)
-                # this does not update because it is an object at <particleFilter.Particle object at 0x11ffc5c50>,
                 shark_state_dict = self.get_all_sharks_state()
                 # need help working on making a dictionary for the shark_states. i think the problem is rn the dictionary has no initial key values
                 """
                 print("==================")
                 print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
                 """
+                print("======================================================", self.auv_dict)
+
                 for auv in sorted(self.auv_dict):
                     test_auv = self.auv_dict[auv]
+                    print("auv number", auv)
                     auv_sensor_data = self.auv_dict[auv].get_auv_sensor_measurements(self.curr_time)
                     has_new_data = self.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
                     #boolean  (new data)and dictionary (data) of True and False and Updates Shark Dictionary--> stores range and bearing of the auv
@@ -673,7 +675,11 @@ class RobotSim:
                         for shark in sorted(self.shark_sensor_data_dict):
                             test_shark = self.shark_sensor_data_dict[shark]
                             measurement_dict[shark] = [test_shark.range, test_shark.bearing]
-
+                    else:
+                        for shark in sorted(self.shark_sensor_data_dict):
+                            test_shark = self.shark_sensor_data_dict[shark]
+                            measurement_dict[shark] = [test_shark.range, test_shark.bearing]
+                        print("measurement dict", measurement_dict)
                     # example of how to indicate the obstacles and plot them
                     obstacle_array = [Motion_plan_state(757,243, size=2),Motion_plan_state(763,226, size=5)]
                     # testing data for plotting RRT_traj
@@ -682,7 +688,7 @@ class RobotSim:
                     #testing data for habitats
                     habitats = [Motion_plan_state(63,23, size=5), Motion_plan_state(12,45,size=7), Motion_plan_state(51,36,size=5), Motion_plan_state(45,82,size=5),\
                         Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
-
+                    print("this loop ends here")
                     #condition to replan trajectory
                     """
                     if self.curr_time == 0 or self.curr_time - t_start >= self.replan_time:
@@ -768,15 +774,15 @@ def main():
         velocity = random.uniform(0,4)
         curr_traj_pt_index = 0
         w_1 = random.uniform(-math.pi/2, math.pi/2)
-        test_robot.auv_dict[i] = Auv(x,y,z, theta, velocity, w_1, curr_traj_pt_index, i)
+        test_robot.auv_dict[i + 1] = Auv(x,y,z, theta, velocity, w_1, curr_traj_pt_index, i)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
     test_robot.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1,2])
     shark_state_dict = test_robot.get_all_sharks_state()
     # create a dictionary of all the particleFilters
     shark_state = shark_state_dict[1]
-    auv_state = test_robot.auv_dict[0]
-    auv_state_2 = test_robot.auv_dict[1]
+    auv_state = test_robot.auv_dict[1]
+    auv_state_2 = test_robot.auv_dict[2]
     test_robot.filter_dict[0] = ParticleFilter(shark_state.x, shark_state.y, 0,  auv_state.state.x, auv_state.state.y, auv_state_2.state.x, auv_state_2.state.y, 0)
     test_robot.main_navigation_loop()
     #test_robot.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1,2])

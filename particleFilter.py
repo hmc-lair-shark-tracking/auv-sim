@@ -352,10 +352,10 @@ class ParticleFilter:
     def create_and_update(self, particles):
         particles_list = []
         for particle in particles: 
-            particle_before = particle.update_particle(.1)
-            particles_list.append(particle_before)
+            particle.update_particle(.1)
+            particles_list.append(particle)
         return particles_list
-        print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
+        #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
 
     def update_weights(self,particles, auv_alpha, auv_range, auv_alpha_2, auv_range_2):
         #print("auv range and alpha", auv_alpha, auv_range)
