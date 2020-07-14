@@ -1096,6 +1096,19 @@ class DQN():
                 next_state = next_state_array[t]
                 done = done_array[t]
                 reward = reward_array[t]
+
+                if reward.item() == 10.0:
+                    print("useful state!")
+                    print("curr_state")
+                    print(state["rrt_grid_num_of_nodes_only"])
+                    print("----")
+                    print("action:  ")
+                    print(action)
+                    print("----")
+                    print("next_state")
+                    print(state["rrt_grid_num_of_nodes_only"])
+                    print(done)
+                    text = input("stop")
                 
                 # store the actual experience that the auv has in the first loop into the memory
                 self.save_real_experiece(state, next_state, action, reward, done)
