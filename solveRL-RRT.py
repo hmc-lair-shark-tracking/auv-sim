@@ -86,6 +86,8 @@ DEBUG = False
 RAND_PICK = False
 RAND_PICK_RATE = 0.25
 
+R_USEFUL_STATE = 10
+
 """
 ============================================================================
 
@@ -862,12 +864,15 @@ class DQN():
         return useful_state_idx_array
 
 
-    def post_process_reward_array_from_path(self, reward, useful_state_idx_array):
+    def post_process_reward_array_from_path(self, reward_array, useful_state_idx_array):
         """
         Modify the reward by boosting the reward for picking useful states
         """
-
-        return reward
+        for idx in useful_state_idx_array:
+            print("previous reward")
+            reward_array[idx] = R_USEFUL_STATE
+        
+        return reward_array
 
 
     def save_real_experiece(self, state, next_state, action, reward, done):
@@ -1053,6 +1058,14 @@ class DQN():
             print("useful state index")
             print(useful_state_idx_array)
             text = input("stop")
+
+            print("#######################")
+            for i in range(len(reward_array)):
+                print("before: " + str(i) + " : " + reward_array[i])
+                print("after: " + str(i) + " : " + reward_array[i])
+                print("----")
+            text = input("stop")
+            
 
             # reset the state before we start updating the neural network
             state = self.em.reset()

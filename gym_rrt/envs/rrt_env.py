@@ -36,7 +36,7 @@ OBSTACLE_ZONE = 0.0
 WALL_ZONE = 10.0
 
 # constants for reward
-R_FOUND_PATH = 200
+R_FOUND_PATH = 300
 R_CREATE_NODE = 0
 R_INVALID_NODE = -1
 
@@ -222,9 +222,6 @@ class RRTEnv(gym.Env):
         if done and path != None:
             print("found a path")
             reward = R_FOUND_PATH
-        elif path != None:
-            print("found a node")
-            reward = R_CREATE_NODE
         else:
             print("found nothing")
             # TODO: For now, the reward encourages using less time to plan the path
