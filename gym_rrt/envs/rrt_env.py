@@ -211,15 +211,7 @@ class RRTEnv(gym.Env):
         if path != None:
             self.state["path"] = path
 
-            if type(path) != list:
-                print("*************")
-                print("node: ")
-                print(self.state["path"])
-                print("---")
-                print("path in node: ")
-                for pt in self.state["path"].path:
-                    print(pt)
-            else:
+            if type(path) == list:
                 print("*************")
                 print("final path: ")
                 for pt in path:

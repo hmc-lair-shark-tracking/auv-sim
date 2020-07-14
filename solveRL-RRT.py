@@ -486,15 +486,6 @@ class AuvEnvManager():
         auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
         shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
         # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
-        # obstacle_array = [\
-        #     Motion_plan_state(x=12.0, y=38.0, size=4),\
-        #     Motion_plan_state(x=17.0, y=34.0, size=5),\
-        #     Motion_plan_state(x=20.0, y=29.0, size=4),\
-        #     Motion_plan_state(x=25.0, y=25.0, size=3),\
-        #     Motion_plan_state(x=29.0, y=20.0, size=4),\
-        #     Motion_plan_state(x=34.0, y=17.0, size=3),\
-        #     Motion_plan_state(x=37.0, y=8.0, size=5)\
-        # ]
         obstacle_array = [\
             Motion_plan_state(x=12.0, y=38.0, size=4),\
             Motion_plan_state(x=17.0, y=34.0, size=5),\
@@ -502,7 +493,16 @@ class AuvEnvManager():
             Motion_plan_state(x=25.0, y=25.0, size=3),\
             Motion_plan_state(x=29.0, y=20.0, size=4),\
             Motion_plan_state(x=34.0, y=17.0, size=3),\
+            Motion_plan_state(x=37.0, y=8.0, size=5)\
         ]
+        # obstacle_array = [\
+        #     Motion_plan_state(x=12.0, y=38.0, size=4),\
+        #     Motion_plan_state(x=17.0, y=34.0, size=5),\
+        #     Motion_plan_state(x=20.0, y=29.0, size=4),\
+        #     Motion_plan_state(x=25.0, y=25.0, size=3),\
+        #     Motion_plan_state(x=29.0, y=20.0, size=4),\
+        #     Motion_plan_state(x=34.0, y=17.0, size=3),\
+        # ]
 
         boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = ENV_SIZE, y = ENV_SIZE)]
 
@@ -837,6 +837,39 @@ class DQN():
         text = input("stop")
 
 
+    def extract_useful_states(self, path):
+        """
+        Parameter:
+            path - might be 1. list of motion plan state, representing the final path
+                            2. [BAD] a motion plan state, representing a node added to the tree
+                                (so the RRT planner was not able to find a valid path)
+                            3. [BAD] None, representing that there isn't any new node added to the tree
+                                (so the RRT planner was not able to find a valid path)
+        """
+        useful_state_idx_array = []
+
+        # path is a valid parameter, the rrt planner actually found a valid path from start to goal
+        if type(path) == list:
+            # add the first step into the useful states first
+            useful_state_idx_array.append(path[0].rl_state_id)
+            
+            for i in range(1, len(path)):
+                pt = path[i]
+                # prevent adding repeated state id or start and goal
+                if pt.rl_state_id != useful_state_idx_array[-1] and pt.rl_state_id != None:
+                    useful_state_idx_array.append(pt.rl_state_id)
+
+        return useful_state_idx_array
+
+
+    def post_process_reward_array_from_path(self, reward, useful_state_idx_array):
+        """
+        Modify the reward by boosting the reward for picking useful states
+        """
+
+        return reward
+
+
     def save_real_experiece(self, state, next_state, action, reward, done):
         """old_range = calculate_range(state['auv_pos'], state['shark_pos'])"""
 
@@ -998,14 +1031,6 @@ class DQN():
 
                 if (eps % RENDER_EVERY == 0) and live_graph_2D:
                     self.em.render(print_state = False, live_graph_2D = live_graph_2D)
-
-                print("&&&&&&&&&&&")
-                print("step: ")
-                print(t)
-                print("node situation")
-                print(next_state["rrt_grid"])
-                print("&&&&&&&&&&&")
-                text = input("stop")
                     
                     # if DEBUG:
                     #     text = input("stop")
@@ -1022,6 +1047,12 @@ class DQN():
             episode_durations.append(iteration)
             total_reward_in_training.append(eps_reward)
             
+            useful_state_idx_array = self.extract_useful_states(state["path"])
+            
+            print("#######################")
+            print("useful state index")
+            print(useful_state_idx_array)
+            text = input("stop")
 
             # reset the state before we start updating the neural network
             state = self.em.reset()
@@ -1035,6 +1066,8 @@ class DQN():
                 next_state = next_state_array[t]
                 done = done_array[t]
                 reward = reward_array[t]
+
+                reward = self.post_process_reward_array_from_path(reward, useful_state_idx_array)
                 
                 # store the actual experience that the auv has in the first loop into the memory
                 self.save_real_experiece(state, next_state, action, reward, done)
