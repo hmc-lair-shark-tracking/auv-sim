@@ -36,9 +36,9 @@ OBSTACLE_ZONE = 0.0
 WALL_ZONE = 10.0
 
 # constants for reward
-R_FOUND_PATH = 1000
-R_CREATE_NODE = -1
-R_INVALID_NODE = -2
+R_FOUND_PATH = 200
+R_CREATE_NODE = 0
+R_INVALID_NODE = -1
 
 # size of the observation space
 # the coordinates of the observation space will be based on 

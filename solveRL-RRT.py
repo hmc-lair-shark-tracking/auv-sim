@@ -32,7 +32,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 20.0
 
-NUM_OF_EPISODES = 1000
+NUM_OF_EPISODES = 500
 MAX_STEP = 300
 
 NUM_OF_EPISODES_TEST =  1000
@@ -45,7 +45,7 @@ GAMMA = 0.999
 
 EPS_START = 1
 EPS_END = 0.05
-EPS_DECAY = 0.001
+EPS_DECAY = 0.000075
 
 LEARNING_RATE = 0.001
 
@@ -83,8 +83,8 @@ FILTER_IN_UPDATING_NN = True
 
 DEBUG = False
 
-RAND_PICK = False
-RAND_PICK_RATE = 0.5
+RAND_PICK = True
+RAND_PICK_RATE = 0.25
 
 """
 ============================================================================
@@ -387,7 +387,7 @@ class Agent():
         return index_to_pick
 
 
-    def select_action(self, state, policy_net):
+    def select_action(self, state, policy_net, testing = False):
         """
         Pick an action (index to select from array of options for v and from array of options for w)
 
@@ -399,9 +399,14 @@ class Agent():
             a tensor representing the index for v action and the index for w action
                 format: tensor([v_index, w_index])
         """
-        self.rate = self.strategy.get_exploration_rate(self.current_step)
-        # as the number of steps increases, the exploration rate will decrease
-        self.current_step += 1
+        if testing:
+            # if we are doing intermediate testing
+            self.rate = EPS_END
+        else:
+            self.rate = self.strategy.get_exploration_rate(self.current_step)
+
+            # as the number of steps increases, the exploration rate will decrease
+            self.current_step += 1
 
         index_to_pick = self.generate_index_to_pick(state["has_node"])
 
@@ -436,7 +441,7 @@ class Agent():
                 # pick the grid cell with the largest q value
                 grid_cell_index = torch.argmax(processed_q_values_all_grid_cells).item()
 
-                if RAND_PICK_RATE > random.random() and RAND_PICK:
+                if random.random() < RAND_PICK_RATE and RAND_PICK:
                     grid_cell_index = random.choice(index_to_pick)
 
                 if DEBUG:
@@ -1185,7 +1190,7 @@ class DQN():
             self.agent.neural_net_choice = 0
 
             for t in range(1, max_step):
-                chosen_grid_cell_index = self.agent.select_action(state, self.policy_net)
+                chosen_grid_cell_index = self.agent.select_action(state, self.policy_net, testing = True)
 
                 reward = self.em.take_action(chosen_grid_cell_index)
 
@@ -1238,8 +1243,8 @@ class DQN():
 def main():
     dqn = DQN()
    
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
-    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_2D = False)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
+    dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_2D = False)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 
