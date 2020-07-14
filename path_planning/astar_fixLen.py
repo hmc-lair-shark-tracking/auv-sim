@@ -429,14 +429,9 @@ class astar:
                 print ("\n", "original trajectory: ", trajectory)
                 print ("\n", "original trajectory length: ", len(trajectory))
 
-                smoothPath_1 = self.smoothPath(trajectory, habitats)
-                # smoothPath_2 = self.smoothPath(smoothPath_1, habitats)
-                # smoothPath_3 = self.smoothPath(smoothPath_2, habitats)
-                # smoothPath_4 = self.smoothPath(smoothPath_3, habitats)
-                # smoothPath_5 = self.smoothPath(smoothPath_4, habitats)
-                # smoothPath_6 = self.smoothPath(smoothPath_5, habitats)
+                smoothPath = self.smoothPath(trajectory, habitats)
 
-                return ([smoothPath_1, cost])
+                return ([smoothPath, cost])
                 # return (path_mps[::-1], cost)
             
             current_neighbors = self.curr_neighbors(current_node, boundary_list)
@@ -515,7 +510,7 @@ class astar:
 
 def main():
     weights = [0, 10, 10]
-    start_cartesian = create_cartesian((33.445089, -118.486933), catalina.ORIGIN_BOUND)
+    start_cartesian = create_cartesian((33.446198, -118.486652), catalina.ORIGIN_BOUND)
     start = (round(start_cartesian[0], 2), round(start_cartesian[1], 2))
     print ("start: ", start) 
 
