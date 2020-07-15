@@ -165,10 +165,10 @@ class RobotSim:
             # iterate through all the sharks that we are tracking
             for shark_id in shark_state_dict: 
                 shark_data = shark_state_dict[shark_id]
-
-                delta_x = shark_data.x - auv_sensor_data.state.x
-                delta_y = shark_data.y - auv_sensor_data.state.y
-                
+                print("shark_data.x", shark_data.x)
+                delta_x = shark_data.x - auv_sensor_data.x
+                delta_y = shark_data.y - auv_sensor_data.y
+                print(" x ",delta_x)
                 range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
                 bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
 
@@ -661,12 +661,13 @@ class RobotSim:
                 print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
                 """
                 print("======================================================", self.auv_dict)
-
                 for auv in sorted(self.auv_dict):
                     test_auv = self.auv_dict[auv]
                     print("auv number", auv)
                     auv_sensor_data = self.auv_dict[auv].get_auv_sensor_measurements(self.curr_time)
-                    has_new_data = self.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
+                    measurement_dict = test_auv.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
+                    print("measurement dict", measurement_dict)
+                    """
                     #boolean  (new data)and dictionary (data) of True and False and Updates Shark Dictionary--> stores range and bearing of the auv
                     if has_new_data == True:
                         print("======NEW DATA=======")
@@ -679,8 +680,10 @@ class RobotSim:
                         for shark in sorted(self.shark_sensor_data_dict):
                             test_shark = self.shark_sensor_data_dict[shark]
                             measurement_dict[shark] = [test_shark.range, test_shark.bearing]
-                        print("measurement dict", measurement_dict)
+                        #print("measurement dict", measurement_dict)
+                    """
                     # example of how to indicate the obstacles and plot them
+
                     obstacle_array = [Motion_plan_state(757,243, size=2),Motion_plan_state(763,226, size=5)]
                     # testing data for plotting RRT_traj
                     boundary = [Motion_plan_state(-500, -500), Motion_plan_state(500,500)]

@@ -2,7 +2,7 @@ from motion_plan_state import Motion_plan_state
 import math
 import numpy as np
 import constants as const
-
+from sharkState import SharkState
 def angle_wrap(ang):
     """
     Takes an angle in radians & sets it between the range of -pi to pi
@@ -32,6 +32,8 @@ class Auv:
         self.x_list += [self.state.x]
         self.y_list += [self.state.y]
         self.z_list += [self.state.z]
+        self.sensor_time = const.NUM_ITER_FOR_NEW_SENSOR_DATA
+        self.shark_sensor_data_dict = {}
 
     def send_trajectory_to_actuators(self):
         # TODO: For now this should just update AUV States?
@@ -51,7 +53,7 @@ class Auv:
         self.state.x = self.state.x + self.velocity_1 * math.cos(self.state.theta)*delta_t
         self.state.y = self.state.y + self.velocity_1 * math.sin(self.state.theta)*delta_t
         self.state.theta = angle_wrap(self.state.theta + self.w_1 * delta_t)
-
+        
         self.x_list += [self.state.x]
         self.y_list += [self.state.y]
         self.z_list += [self.state.z]
@@ -123,3 +125,45 @@ class Auv:
         bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
         Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) + bearing_random)
         return Z_shark_bearing
+
+    def get_all_sharks_sensor_measurements(self, shark_state_dict, auv_sensor_data):
+        """
+        Modify the data member self.shark_state_dict if there is new sensor data
+            key = id of the shark & value = the shark's range and bearing (stored as a sharkState object)
+
+        Parameter: 
+            shark_state_dict - a dictionary, containing the shark's states at a given time
+            auv_sensor_data - a motion_plan_state object, containting the auv's position
+
+        Return Value:
+            True - if it has been 2 sec and there are new shark sensor measurements
+            False - if it hasn't been 2 sec
+        """
+        # decide to sensor_time an integer because floating point addition is not as reliable
+        # each iteration through the main navigation loop is 0.1 sec, so 
+        #   we need 20 iterations to return a new set of sensor data
+        if self.sensor_time == const.NUM_ITER_FOR_NEW_SENSOR_DATA:
+            # iterate through all the sharks that we are tracking
+            for shark_id in shark_state_dict: 
+                shark_data = shark_state_dict[shark_id]
+                print("shark_data.x", shark_data.x)
+                print("shark_id", shark_id)
+                delta_x = shark_data.x - self.state.x
+                delta_y = shark_data.y - self.state.y
+                print(" x ",delta_x)
+                range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
+                bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
+
+                Z_shark_range = math.sqrt(delta_x**2 + delta_y**2) + range_random
+                Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) + bearing_random)
+
+                self.shark_sensor_data_dict[shark_id] = SharkState(shark_data.x, shark_data.y, Z_shark_range, Z_shark_bearing,  shark_id)
+            
+            # reset the 2 sec time counter
+            self.sensor_time = 0
+            
+            return self.shark_sensor_data_dict
+        else: 
+            self.sensor_time += 1
+
+            return self.shark_sensor_data_dict
