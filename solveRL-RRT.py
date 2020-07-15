@@ -70,7 +70,7 @@ R_USEFUL_STATE = 10
 NUM_OF_GRID_CELLS = int((int(ENV_SIZE) / int(ENV_GRID_CELL_SIDE_LENGTH)) ** 2)
 
 # the input size for the neural network
-STATE_SIZE = int(8 + NUM_OF_GRID_CELLS)
+STATE_SIZE = int(8 + NUM_OF_OBSTACLES * 4 + NUM_OF_GRID_CELLS)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -109,8 +109,8 @@ def process_state_for_nn(state):
     auv_tensor = torch.from_numpy(state['auv_pos']).float()
     shark_tensor = torch.from_numpy(state['shark_pos']).float()
 
-    # obstacle_tensor = torch.from_numpy(state['obstacles_pos'])
-    # obstacle_tensor = torch.flatten(obstacle_tensor)
+    obstacle_tensor = torch.from_numpy(state['obstacles_pos'])
+    obstacle_tensor = torch.flatten(obstacle_tensor).float()
 
     rrt_grid_tensor = torch.from_numpy(state['rrt_grid_num_of_nodes_only']).float()
     # rrt_grid_tensor = torch.flatten(rrt_grid_tensor)
@@ -119,7 +119,7 @@ def process_state_for_nn(state):
     habitat_tensor = torch.flatten(habitat_tensor)"""
     
     # join tensors together
-    return torch.cat((auv_tensor, shark_tensor, rrt_grid_tensor)).float()
+    return torch.cat((auv_tensor, shark_tensor, obstacle_tensor, rrt_grid_tensor)).float()
 
 
 def extract_tensors(experiences):
@@ -904,11 +904,11 @@ class DQN():
 
         self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"])))
 
-        if reward.item() == 10.0 or reward.item() == 300.0:
-            print("**********************")
-            print("real experience")
-            print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"])))
-            text = input("stop")
+        # if reward.item() == 10.0 or reward.item() == 300.0:
+        #     print("**********************")
+        #     print("real experience")
+        #     print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"])))
+        #     text = input("stop")
 
     
     def generate_extra_goals(self, time_step, next_state_array):
