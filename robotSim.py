@@ -667,6 +667,7 @@ class RobotSim:
                     auv_sensor_data = self.auv_dict[auv].get_auv_sensor_measurements(self.curr_time)
                     measurement_dict = test_auv.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
                     print("measurement dict", measurement_dict)
+
                     """
                     #boolean  (new data)and dictionary (data) of True and False and Updates Shark Dictionary--> stores range and bearing of the auv
                     if has_new_data == True:
@@ -747,9 +748,10 @@ class RobotSim:
                     final_auv_z_array.append(test_auv.z_list)
                     final_particle_array.append(particle_array)
                     final_obstacle_array.append(obstacle_array)
-                    self.time_array.append(self.curr_time)
-                    # increment the current time by 0.1 second
-                    self.curr_time += const.SIM_TIME_INTERVAL
+
+                self.time_array.append(self.curr_time)
+                # increment the current time by 0.1 second
+                self.curr_time += const.SIM_TIME_INTERVAL
 
                 self.plot(final_auv_x_array, final_auv_y_array, final_auv_z_array, show_live_graph, final_planned_traj_array, final_particle_array, final_obstacle_array)
                 

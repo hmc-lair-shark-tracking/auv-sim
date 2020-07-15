@@ -143,6 +143,7 @@ class Auv:
         # each iteration through the main navigation loop is 0.1 sec, so 
         #   we need 20 iterations to return a new set of sensor data
         if self.sensor_time == const.NUM_ITER_FOR_NEW_SENSOR_DATA:
+
             # iterate through all the sharks that we are tracking
             for shark_id in shark_state_dict: 
                 shark_data = shark_state_dict[shark_id]
