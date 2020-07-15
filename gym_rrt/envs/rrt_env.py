@@ -211,22 +211,20 @@ class RRTEnv(gym.Env):
         if path != None:
             self.state["path"] = path
 
-            if type(path) == list:
-                print("*************")
-                print("final path: ")
-                for pt in path:
-                    print(pt)
-
-            
+            # if type(path) == list:
+            #     print("*************")
+            #     print("final path: ")
+            #     for pt in path:
+            #         print(pt)
 
         if done and path != None:
-            print("found a path")
+            # print("found a path")
             reward = R_FOUND_PATH
         else:
-            print("found nothing")
+            # print("found nothing")
             # TODO: For now, the reward encourages using less time to plan the path
             reward = R_INVALID_NODE
-        print("$$$$$$$$$$$$$")
+        # print("$$$$$$$$$$$$$")
         
         return self.state, reward, done, {}
 

@@ -32,7 +32,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 20.0
 
-NUM_OF_EPISODES = 500
+NUM_OF_EPISODES = 1000
 MAX_STEP = 300
 
 NUM_OF_EPISODES_TEST =  50
@@ -75,7 +75,7 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 1
+RENDER_EVERY = 100
 # how many episode should we run a test on the model
 TEST_EVERY = 50
 
@@ -83,7 +83,7 @@ FILTER_IN_UPDATING_NN = True
 
 DEBUG = False
 
-RAND_PICK = True
+RAND_PICK = False
 RAND_PICK_RATE = 0.75
 
 R_USEFUL_STATE = 10
@@ -899,15 +899,6 @@ class DQN():
 
         self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"])))
 
-        if reward.item() == 10.0:
-            print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"])))
-            
-            text = input("stop")
-        elif reward.item() == 300.0:
-            print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"])))
-            
-            text = input("stop")
-
         # print("**********************")
         # print("real experience")
         # print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
@@ -1074,25 +1065,9 @@ class DQN():
             total_reward_in_training.append(eps_reward)
             
             useful_state_idx_array = self.extract_useful_states(state["path"])
+
+            reward_array = self.post_process_reward_array_from_path(reward_array, useful_state_idx_array)
             
-            print("#######################")
-            print("useful state index")
-            print(useful_state_idx_array)
-            text = input("stop")
-
-            # print("pre")
-            # print(len(reward_array))
-
-            modified_reward_array = self.post_process_reward_array_from_path(reward_array,useful_state_idx_array)
-            
-            # for i in range(len(reward_array)):
-            #     print("before: " + str(i) + " : " + str(reward_array[i].item()))
-            #     print("after: " + str(i) + " : " + str(modified_reward_array[i].item()))
-            #     print("----")
-
-            # text = input("stop")
-            
-
             # reset the state before we start updating the neural network
             state = self.em.reset()
 
@@ -1106,61 +1081,6 @@ class DQN():
                 done = done_array[t]
                 reward = reward_array[t]
 
-                
-                if reward.item() == 10.0:
-                    print("useful state at t: " + str(t))
-                    print("curr_state")
-                    print(state["rrt_grid"])
-                    print("----")
-                    print("action:  ")
-                    print(action)
-                    print("----")
-                    print("next_state")
-                    print(next_state["rrt_grid"])
-                    print("--------------")
-                    print("curr_state_only_cell_info")
-                    print(state["rrt_grid_num_of_nodes_only"])
-                    print("----")
-                    print("next_state_only_cell_info")
-                    print(next_state["rrt_grid_num_of_nodes_only"])
-                    
-                    
-                elif reward.item() == 300.0:
-                    print("final state at t: " + str(t))
-                    print("curr_state")
-                    print(state["rrt_grid"])
-                    print("----")
-                    print("action:  ")
-                    print(action)
-                    print("----")
-                    print("next_state")
-                    print(next_state["rrt_grid"])
-                    print("--------------")
-                    print("curr_state_only_cell_info")
-                    print(state["rrt_grid_num_of_nodes_only"])
-                    print("----")
-                    print("next_state_only_cell_info")
-                    print(next_state["rrt_grid_num_of_nodes_only"])
-                    
-                   
-                # else:
-                #     print("regular state at " + str(t))
-                #     print("curr_state")
-                #     print(state["rrt_grid"])
-                #     print("----")
-                #     print("action:  ")
-                #     print(action)
-                #     print("----")
-                #     print("next_state")
-                #     print(next_state["rrt_grid"])
-                #     print("--------------")
-                #     print("curr_state_only_cell_info")
-                #     print(state["rrt_grid_num_of_nodes_only"])
-                #     print("----")
-                #     print("next_state_only_cell_info")
-                #     print(next_state["rrt_grid_num_of_nodes_only"])
-                #     text = input("stop")
-                
                 # store the actual experience that the auv has in the first loop into the memory
                 self.save_real_experiece(state, next_state, action, reward, done)
 
