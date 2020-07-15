@@ -418,10 +418,10 @@ class RobotSim:
                     self.live_graph.plot_planned_traj(traj[0], traj[1])
 
         # if there's particles to plot, plot them
-        """
+        
         if particle_array != []:
             self.live_graph.plot_particles(particle_array)
-        """
+        
         if obstacle_array != []:
             self.live_graph.plot_obstacles(obstacle_array)
 
@@ -640,7 +640,7 @@ class RobotSim:
             # particleFilter object created
             test_particle = self.filter_dict[filter]
             # dictionary for range and bearings
-            measurement_dict = {}
+            measurement_data_dict = {}
             #created particles
             particles = test_particle.create()
             while self.live_graph.run_sim:
@@ -655,19 +655,22 @@ class RobotSim:
                 # update particles
                 particles = test_particle.create_and_update(particles)
                 shark_state_dict = self.get_all_sharks_state()
-                # need help working on making a dictionary for the shark_states. i think the problem is rn the dictionary has no initial key values
                 """
                 print("==================")
                 print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
                 """
-                print("======================================================", self.auv_dict)
+                for auv in sorted(self.auv_dict):
+                    test_auv = self.auv_dict[auv]
+                    auv_sensor_data = self.auv_dict[auv].get_auv_sensor_measurements(self.curr_time)
+                    measurement_data_dict[auv] =  test_auv.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
                 for auv in sorted(self.auv_dict):
                     test_auv = self.auv_dict[auv]
                     print("auv number", auv)
-                    auv_sensor_data = self.auv_dict[auv].get_auv_sensor_measurements(self.curr_time)
-                    measurement_dict = test_auv.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
-                    print("measurement dict", measurement_dict)
+                    # have to store the information from all the AUVS Range and bearings 
+                    particles = test_particle.update_weights(particles, measurement_dict[1].range, measurement_dict[1].bearing, measurement_dict[2].range, measurement_dict[2].bearing)
+                    # in "measurement_dict[2].range", I have to add the measurement_dict[1].range of the other AUVs information... 
 
+                    # need suggestions on how to store this information...
                     """
                     #boolean  (new data)and dictionary (data) of True and False and Updates Shark Dictionary--> stores range and bearing of the auv
                     if has_new_data == True:
@@ -688,11 +691,9 @@ class RobotSim:
                     obstacle_array = [Motion_plan_state(757,243, size=2),Motion_plan_state(763,226, size=5)]
                     # testing data for plotting RRT_traj
                     boundary = [Motion_plan_state(-500, -500), Motion_plan_state(500,500)]
-
                     #testing data for habitats
                     habitats = [Motion_plan_state(63,23, size=5), Motion_plan_state(12,45,size=7), Motion_plan_state(51,36,size=5), Motion_plan_state(45,82,size=5),\
                         Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
-                    print("this loop ends here")
                     #condition to replan trajectory
                     """
                     if self.curr_time == 0 or self.curr_time - t_start >= self.replan_time:
@@ -731,7 +732,7 @@ class RobotSim:
 
                     # testing data for displaying particle array
                     
-                    particle_array = [[np.random.randint(-20, 20, dtype='int'), np.random.randint(-20, 20, dtype='int'), 0, 0, 0] for i in range(50)]
+                    particle_array = particles
 
                     # example of first parameter to update_live_graph function
                     planned_traj_array = [["A *", A_star_traj], ["RRT", RRT_traj]]

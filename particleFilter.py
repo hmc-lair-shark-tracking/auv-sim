@@ -99,13 +99,13 @@ class Particle:
             constant = 2.506628275
             MINIMUM_WEIGHT = .001
             if particleAlpha > 0:
-                function_alpha = .001 + (1/(SIGMA_ALPHA * constant)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha[0])**2))))/(2*(SIGMA_ALPHA)**2))))
+                function_alpha = .001 + (1/(SIGMA_ALPHA * constant)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha)**2))))/(2*(SIGMA_ALPHA)**2))))
                 self.weight_p = function_alpha
             elif particleAlpha == 0:
-                function_alpha = .001 + (1/(SIGMA_ALPHA * constant)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha[0])**2))))/(2*(SIGMA_ALPHA)**2))))
+                function_alpha = .001 + (1/(SIGMA_ALPHA * constant)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha)**2))))/(2*(SIGMA_ALPHA)**2))))
                 self.weight_p = function_alpha
             else:
-                function_alpha = .001 + (1/(SIGMA_ALPHA * constant)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha[0])**2))))/(2*(SIGMA_ALPHA)**2))))
+                function_alpha = .001 + (1/(SIGMA_ALPHA * constant)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha)**2))))/(2*(SIGMA_ALPHA)**2))))
                 self.weight_p = function_alpha
     
             #range weight

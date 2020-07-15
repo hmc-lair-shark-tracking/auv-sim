@@ -151,7 +151,7 @@ class Auv:
                 print("shark_id", shark_id)
                 delta_x = shark_data.x - self.state.x
                 delta_y = shark_data.y - self.state.y
-                print(" x ",delta_x)
+
                 range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
                 bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
 
@@ -162,7 +162,7 @@ class Auv:
             
             # reset the 2 sec time counter
             self.sensor_time = 0
-            
+            print("================== has new data")
             return self.shark_sensor_data_dict
         else: 
             self.sensor_time += 1
