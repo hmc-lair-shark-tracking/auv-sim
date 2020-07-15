@@ -33,7 +33,7 @@ class Auv:
         self.y_list += [self.state.y]
         self.z_list += [self.state.z]
         self.sensor_time = const.NUM_ITER_FOR_NEW_SENSOR_DATA
-        self.shark_sensor_data_dict = {}
+        self.shark_sensor_data_list = []
 
     def send_trajectory_to_actuators(self):
         # TODO: For now this should just update AUV States?
@@ -158,13 +158,13 @@ class Auv:
                 Z_shark_range = math.sqrt(delta_x**2 + delta_y**2) + range_random
                 Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) + bearing_random)
 
-                self.shark_sensor_data_dict[shark_id] = SharkState(shark_data.x, shark_data.y, Z_shark_range, Z_shark_bearing,  shark_id)
+                self.shark_sensor_data_list.append(SharkState(shark_data.x, shark_data.y, Z_shark_range, Z_shark_bearing,  shark_id))
             
             # reset the 2 sec time counter
             self.sensor_time = 0
             print("================== has new data")
-            return self.shark_sensor_data_dict
+            return self.shark_sensor_data_list
         else: 
             self.sensor_time += 1
 
-            return self.shark_sensor_data_dict
+            return self.shark_sensor_data_list

@@ -662,12 +662,13 @@ class RobotSim:
                 for auv in sorted(self.auv_dict):
                     test_auv = self.auv_dict[auv]
                     auv_sensor_data = self.auv_dict[auv].get_auv_sensor_measurements(self.curr_time)
-                    measurement_data_dict[auv] =  test_auv.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
+                    measurement_dict_list =  test_auv.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
+                print("measurement list", measurement_dict_list)
                 for auv in sorted(self.auv_dict):
                     test_auv = self.auv_dict[auv]
                     print("auv number", auv)
                     # have to store the information from all the AUVS Range and bearings 
-                    particles = test_particle.update_weights(particles, measurement_dict[1].range, measurement_dict[1].bearing, measurement_dict[2].range, measurement_dict[2].bearing)
+                    #particles = test_particle.update_weights(particles, measurement_dict[1].range, measurement_dict[1].bearing, measurement_dict[2].range, measurement_dict[2].bearing)
                     # in "measurement_dict[2].range", I have to add the measurement_dict[1].range of the other AUVs information... 
 
                     # need suggestions on how to store this information...
