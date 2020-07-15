@@ -137,7 +137,7 @@ def summary_2(start, goal, obstacle_array, boundary, habitats, shark_dict, shark
         elif weights[1] == "random (x,y)":
             plan_time = False
             traj_time_stamp = False
-        result = rrt.exploring(shark_dict, sharkGrid, plot_interval, 5, 1, traj_time_stamp=traj_time_stamp, max_plan_time=test_time, plan_time=plan_time, weights=weights[0])
+        result = rrt.exploring(shark_dict, sharkGrid, plot_interval, 5, 1, 50,traj_time_stamp=traj_time_stamp, max_plan_time=test_time, plan_time=plan_time, weights=weights[0])
         if result:
             cost = result["cost list"]
             for i in range(len(cost)):
