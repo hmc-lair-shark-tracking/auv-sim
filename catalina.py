@@ -31,8 +31,16 @@ def create_cartesian(pos, origin):
 
 def create_environs(obstacles, boundaries, boats, habitats):
     """
-    
+    Given the obstacles, boundaries, boats, and habitats in a system of longtitudes and latitudes
+    this function converts them into positions of Cartesian coordinates
+
+    Parameter:
+        obstacles: a list of Motion_plan_state objects 
+        boundaries: a list of Motion_plan_state objects
+        boats: a list of Motion_plan_state objects
+        habitats: a list of Motion_plan_state objects
     """
+
     obstacle_list = []
     boundary_list = []
     boat_list = []
@@ -85,8 +93,6 @@ HABITATS = [Motion_plan_state(33.445733, -118.487789, size=45),
     Motion_plan_state(33.446198, -118.486652, size=32),
     Motion_plan_state(33.445400, -118.485959, size=20),
     Motion_plan_state(33.445287, -118.484928, size=55)]
-
-# HABITATS = [Motion_plan_state(33.444811, -118.485918, size=45)]
 
 GOAL_LIST = [(33.444928, -118.484448), (33.444686, -118.484716), 
 (33.444328, -118.485606), (33.444811, -118.486454), 
