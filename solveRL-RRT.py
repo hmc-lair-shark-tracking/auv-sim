@@ -64,11 +64,13 @@ NUM_OF_OBSTACLES = 7
 ENV_SIZE = 50.0
 ENV_GRID_CELL_SIDE_LENGTH = 5.0
 
+R_USEFUL_STATE = 10
+
 # the output size for the neural network
 NUM_OF_GRID_CELLS = int((int(ENV_SIZE) / int(ENV_GRID_CELL_SIDE_LENGTH)) ** 2)
 
 # the input size for the neural network
-STATE_SIZE = int(8 + NUM_OF_OBSTACLES * 4 + NUM_OF_GRID_CELLS * 3)
+STATE_SIZE = int(8 + NUM_OF_GRID_CELLS)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -86,7 +88,9 @@ DEBUG = False
 RAND_PICK = False
 RAND_PICK_RATE = 0.75
 
-R_USEFUL_STATE = 10
+# to limit the terminal output for training over high computing resources
+PLOT_INTERMEDIATE_TESTING = True
+LIMIT_TERMINAL_OUTPUT = False
 
 """
 ============================================================================
@@ -102,20 +106,20 @@ def process_state_for_nn(state):
     Parameter:
         state - a direction of two np arrays
     """
-    # auv_tensor = torch.from_numpy(state['auv_pos'])
-    # shark_tensor = torch.from_numpy(state['shark_pos'])
+    auv_tensor = torch.from_numpy(state['auv_pos']).float()
+    shark_tensor = torch.from_numpy(state['shark_pos']).float()
 
     # obstacle_tensor = torch.from_numpy(state['obstacles_pos'])
     # obstacle_tensor = torch.flatten(obstacle_tensor)
 
-    rrt_grid_tensor = torch.from_numpy(state['rrt_grid_num_of_nodes_only'])
+    rrt_grid_tensor = torch.from_numpy(state['rrt_grid_num_of_nodes_only']).float()
     # rrt_grid_tensor = torch.flatten(rrt_grid_tensor)
 
     """habitat_tensor = torch.from_numpy(state['habitats_pos'])
     habitat_tensor = torch.flatten(habitat_tensor)"""
     
     # join tensors together
-    return rrt_grid_tensor.float()
+    return torch.cat((auv_tensor, shark_tensor, rrt_grid_tensor)).float()
 
 
 def extract_tensors(experiences):
@@ -135,7 +139,8 @@ def extract_tensors(experiences):
 
 
 def save_model(policy_net, target_net):
-    print("Model Save...")
+    if not LIMIT_TERMINAL_OUTPUT:
+        print("Model Save...")
     torch.save(policy_net.state_dict(), 'checkpoint_policy.pth')
     torch.save(target_net.state_dict(), 'checkpoint_target.pth')
 
@@ -509,17 +514,17 @@ class AuvEnvManager():
         boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = ENV_SIZE, y = ENV_SIZE)]
 
         # self.habitat_grid = HabitatGrid(habitat_bound_x, habitat_bound_y, habitat_bound_size_x, habitat_bound_size_y, HABITAT_SIDE_LENGTH, HABITAT_CELL_SIDE_LENGTH)
-
-        print("===============================")
-        print("Starting Positions")
-        print(auv_init_pos)
-        print(shark_init_pos)
-        print("-")
-        print(obstacle_array)
-        print("-")
-        print("Number of Environment Grid")
-        print(NUM_OF_GRID_CELLS)
-        print("===============================")
+        if not LIMIT_TERMINAL_OUTPUT:
+            print("===============================")
+            print("Starting Positions")
+            print(auv_init_pos)
+            print(shark_init_pos)
+            print("-")
+            print(obstacle_array)
+            print("-")
+            print("Number of Environment Grid")
+            print(NUM_OF_GRID_CELLS)
+            print("===============================")
 
         if DEBUG:
             text = input("stop")
@@ -676,8 +681,8 @@ class QValues():
 class DQN():
     def __init__(self):
         # initialize the policy network and the target network
-        self.policy_net = Neural_network(NUM_OF_GRID_CELLS, NUM_OF_GRID_CELLS).to(DEVICE)
-        self.target_net = Neural_network(NUM_OF_GRID_CELLS, NUM_OF_GRID_CELLS).to(DEVICE)
+        self.policy_net = Neural_network(STATE_SIZE, NUM_OF_GRID_CELLS).to(DEVICE)
+        self.target_net = Neural_network(STATE_SIZE, NUM_OF_GRID_CELLS).to(DEVICE)
 
         self.hard_update(self.target_net, self.policy_net)
         self.target_net.eval()
@@ -775,43 +780,43 @@ class DQN():
             bad_choices_array.append(result["bad_choices"])
             bad_choices_over_total_choices_array.append(result["bad_choices_over_total_choices"])
 
-        
-        # begin plotting the graph
-        # plot #1: 
-        #   average total reward vs episodes
-        #   average duration in episodes vs episodes
-        upper_plot_title = "average total reward vs. episodes"
-        upper_plot_ylabel = "average total reward"
+        if PLOT_INTERMEDIATE_TESTING:
+            # begin plotting the graph
+            # plot #1: 
+            #   average total reward vs episodes
+            #   average duration in episodes vs episodes
+            upper_plot_title = "average total reward vs. episodes"
+            upper_plot_ylabel = "average total reward"
 
-        lower_plot_title = "average episode duration vs episodes"
-        lower_plot_ylabel = "avg episode duration (steps)"
+            lower_plot_title = "average episode duration vs episodes"
+            lower_plot_ylabel = "avg episode duration (steps)"
 
-        self.plot_summary_graph(episode_array, avg_total_reward_array, upper_plot_ylabel, upper_plot_title, \
-            avg_episode_duration_array, lower_plot_ylabel, lower_plot_title)
+            self.plot_summary_graph(episode_array, avg_total_reward_array, upper_plot_ylabel, upper_plot_title, \
+                avg_episode_duration_array, lower_plot_ylabel, lower_plot_title)
 
-        # plot #2: 
-        #   success rate vs epsiodes
-        #   success rate (normalized) vs  episodes
-        upper_plot_title = "success rate vs. episodes"
-        upper_plot_ylabel = "success rate (%)"
+            # plot #2: 
+            #   success rate vs epsiodes
+            #   success rate (normalized) vs  episodes
+            upper_plot_title = "success rate vs. episodes"
+            upper_plot_ylabel = "success rate (%)"
 
-        lower_plot_title = "success rate (divided by avg episode duraiton) vs. episodes"
-        lower_plot_ylabel = "success rate (%)"
+            lower_plot_title = "success rate (divided by avg episode duraiton) vs. episodes"
+            lower_plot_ylabel = "success rate (%)"
 
-        self.plot_summary_graph(episode_array, success_rate_array, upper_plot_ylabel, upper_plot_title, \
-            success_rate_array_norm, lower_plot_ylabel, lower_plot_title)
+            self.plot_summary_graph(episode_array, success_rate_array, upper_plot_ylabel, upper_plot_title, \
+                success_rate_array_norm, lower_plot_ylabel, lower_plot_title)
 
-        # plot #2: 
-        #   success rate vs epsiodes
-        #   success rate (normalized) vs  episodes
-        upper_plot_title = "avg number of bad choices by neural net vs. episodes"
-        upper_plot_ylabel = "bad choices"
+            # plot #2: 
+            #   success rate vs epsiodes
+            #   success rate (normalized) vs  episodes
+            upper_plot_title = "avg number of bad choices by neural net vs. episodes"
+            upper_plot_ylabel = "bad choices"
 
-        lower_plot_title = "avg number of bad choices over total choices by neural net vs. episodes"
-        lower_plot_ylabel = "bad choices / total choices"
+            lower_plot_title = "avg number of bad choices over total choices by neural net vs. episodes"
+            lower_plot_ylabel = "bad choices / total choices"
 
-        self.plot_summary_graph(episode_array, bad_choices_array, upper_plot_ylabel, upper_plot_title, \
-            bad_choices_over_total_choices_array, lower_plot_ylabel, lower_plot_title)
+            self.plot_summary_graph(episode_array, bad_choices_array, upper_plot_ylabel, upper_plot_title, \
+                bad_choices_over_total_choices_array, lower_plot_ylabel, lower_plot_title)
 
         
         # print out the result so that we can save for later
@@ -899,10 +904,11 @@ class DQN():
 
         self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"])))
 
-        # print("**********************")
-        # print("real experience")
-        # print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done))
-        # text = input("stop")
+        if reward.item() == 10.0 or reward.item() == 300.0:
+            print("**********************")
+            print("real experience")
+            print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"])))
+            text = input("stop")
 
     
     def generate_extra_goals(self, time_step, next_state_array):
@@ -1049,8 +1055,8 @@ class DQN():
                 if (eps % RENDER_EVERY == 0) and live_graph_2D:
                     self.em.render(print_state = False, live_graph_2D = live_graph_2D)
                     
-                    # if DEBUG:
-                    #     text = input("stop")
+                    if DEBUG:
+                        text = input("stop")
 
                 state = next_state
 
@@ -1095,23 +1101,24 @@ class DQN():
                 target_update_counter += 1
 
                 if target_update_counter % TARGET_UPDATE == 0:
-                    print("UPDATE TARGET NETWORK")
+                    if not LIMIT_TERMINAL_OUTPUT:
+                        print("UPDATE TARGET NETWORK")
                     self.target_net.load_state_dict(self.policy_net.state_dict())
 
             # print("*********************************")
             # print("final state")
             # print(state)
-
-            if self.loss_in_eps != []:
-                avg_loss = np.mean(self.loss_in_eps)
-                avg_loss_in_training.append(avg_loss)
-                print("+++++++++++++++++++++++++++++")
-                print("Episode # ", eps, "end with reward: ", score, "total reward: ", eps_reward, "average loss", avg_loss, " used time: ", iteration)
-                print("+++++++++++++++++++++++++++++")
-            else:
-                print("+++++++++++++++++++++++++++++")
-                print("Episode # ", eps, "end with reward: ", score, "total reward: ", eps_reward, "average loss nan", " used time: ", iteration)
-                print("+++++++++++++++++++++++++++++")
+            if not LIMIT_TERMINAL_OUTPUT:
+                if self.loss_in_eps != []:
+                    avg_loss = np.mean(self.loss_in_eps)
+                    avg_loss_in_training.append(avg_loss)
+                    print("+++++++++++++++++++++++++++++")
+                    print("Episode # ", eps, "end with reward: ", score, "total reward: ", eps_reward, "average loss", avg_loss, " used time: ", iteration)
+                    print("+++++++++++++++++++++++++++++")
+                else:
+                    print("+++++++++++++++++++++++++++++")
+                    print("Episode # ", eps, "end with reward: ", score, "total reward: ", eps_reward, "average loss nan", " used time: ", iteration)
+                    print("+++++++++++++++++++++++++++++")
 
             # if eps % TARGET_UPDATE == 0:
             #     print("UPDATE TARGET NETWORK")
@@ -1198,9 +1205,10 @@ class DQN():
             if live_graph_2D:
                 self.em.reset_render_graph(live_graph_2D = live_graph_2D)
             
-            print("+++++++++++++++++++++++++++++")
-            print("Test Episode # ", eps, "end with reward: ", eps_reward, " used time: ", episode_durations[-1])
-            print("+++++++++++++++++++++++++++++")
+            if not LIMIT_TERMINAL_OUTPUT:
+                print("+++++++++++++++++++++++++++++")
+                print("Test Episode # ", eps, "end with reward: ", eps_reward, " used time: ", episode_durations[-1])
+                print("+++++++++++++++++++++++++++++")
 
             total_reward_array.append(eps_reward)
 
@@ -1307,7 +1315,7 @@ def main():
     dqn = DQN()
    
     dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
-    # dqn.test(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_2D = False)
+    # dqn.test(1000, MAX_STEP_TEST, live_graph_2D = False)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 

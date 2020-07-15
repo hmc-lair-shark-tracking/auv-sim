@@ -129,7 +129,7 @@ class Planner_RRT:
             self.occupied_grid_cells_array.append((hab_index_row, hab_index_col))
 
 
-    def planning(self, max_traj_time = 10.0, max_step = 200, min_length = 250, plan_time=True):
+    def planning(self, max_step = 200, min_length = 250, plan_time=True):
         """
         RRT path planning with a specific goal
 
@@ -142,9 +142,6 @@ class Planner_RRT:
             animation - flag for animation on or off
 
         """
-        # maximum amount for the planner to expand the tree
-        t_end = time.time() + max_traj_time
-
         path = []
 
         # self.init_live_graph()
@@ -295,23 +292,6 @@ class Planner_RRT:
         return path
 
     
-    def get_random_mps_from_region(self, region, size_max = 15):
-        """
-        Generate a random size based on the region picked by the neural network
-        """
-        x_min = region.x
-        x_max = region.x + region.size
-        y_min = region.y
-        y_max = region.x + region.size
-        
-        ran_x = random.uniform(x_min, x_max)
-        ran_y = random.uniform(y_min, y_max)
-        ran_theta = random.uniform(-math.pi, math.pi)
-        ran_size = random.uniform(1, size_max)
-
-        return Motion_plan_state(ran_x, ran_y, theta=ran_theta, size=ran_size)
-
-    
     def init_live_graph(self):
         _, self.ax = plt.subplots()
 
@@ -353,26 +333,6 @@ class Planner_RRT:
         xl = [x + size * math.cos(np.deg2rad(d)) for d in deg]
         yl = [y + size * math.sin(np.deg2rad(d)) for d in deg]
         plt.plot(xl, yl, color)
-    
-
-    def connect_to_goal_curve(self, mps1):
-        a = (self.goal.y - mps1.y)/(np.cosh(self.goal.x) - np.cosh(mps1.x))
-        b = mps1.y - a * np.cosh(mps1.x)
-        x = np.linspace(mps1.x, self.goal.x, 15)
-        x = x.tolist()
-        y = a * np.cosh(x) + b
-        y = y.tolist()
-
-        new_mps = Motion_plan_state(x[-2], y[-2])
-        new_mps.path.append(mps1)
-        for i in range(1, len(x)):
-            new_mps.path.append(Motion_plan_state(x[i], y[i]))
-            new_mps.length += math.sqrt((new_mps.path[i].x-new_mps.path[i-1].x) ** 2 +  (new_mps.path[i].y-new_mps.path[i-1].y) ** 2)
-        '''plt.plot(mps1.x, mps1.y, color)
-        plt.plot(self.goal.x, self.goal.y, color)
-        plt.plot([mps.x for mps in new_mps.path], [mps.y for mps in new_mps.path], color)
-        plt.show()'''
-        return new_mps
     
     
     def connect_to_goal_curve_alt(self, mps, exp_rate, step_num = None):
@@ -435,32 +395,6 @@ class Planner_RRT:
         elif ang < -math.pi: 
             ang += (2 * math.pi)
             return self.angle_wrap(ang)
-
-    def get_closest_mps(self, ran_mps, mps_list):
-        min_dist, _ = self.get_distance_angle(mps_list[0], ran_mps)
-        closest_mps = mps_list[0]
-        for mps in mps_list:
-            dist, _ = self.get_distance_angle(mps, ran_mps)
-            if dist < min_dist:
-                min_dist = dist
-                closest_mps = mps
-        return closest_mps
-    
-
-    def get_closest_mps_time(self, ran_time, mps_list):
-        while len(mps_list) > 3:
-            left = mps_list[len(mps_list)//2 - 1]
-            left_diff = abs(left.plan_time_stamp - ran_time)
-            right = mps_list[len(mps_list)//2 + 1]
-            right_diff = abs(right.plan_time_stamp - ran_time)
-
-            index =  len(mps_list)//2 
-            if left_diff >= right_diff:
-                mps_list = mps_list[index:]
-            else:
-                mps_list = mps_list[:index]
-        
-        return mps_list[0]
 
     def check_collision_free(self, mps, obstacleList):
         """
@@ -534,23 +468,6 @@ class Planner_RRT:
         return length
     
 
-    def cal_boundary_peri(self):
-        peri = 0
-        for i in range(len(self.boundary)-1):
-            dist, _ = self.get_distance_angle(self.boundary[i], self.boundary[i+1])
-            peri += dist
-        
-        return peri
-    
-    def plot_performance(self, time_list, perf_list):
-        _, ax = plt.subplots()
-        ax.plot(time_list, perf_list)
-        # Add some text for labels, title and custom x-axis tick labels, etc.
-        ax.set_ylabel('optimal sum cost')
-        ax.set_title('RRT performance')
-        ax.legend()
-
-        plt.show()
 
 def main():
     auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)

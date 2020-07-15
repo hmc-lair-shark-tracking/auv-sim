@@ -207,24 +207,19 @@ class RRTEnv(gym.Env):
 
         self.state["rrt_grid_num_of_nodes_only"] = self.convert_rrt_grid_to_1D_num_of_nodes_only(self.rrt_planner.env_grid)
 
-        # if the RRT planner has found a path in this step
         if path != None:
             self.state["path"] = path
 
-            # if type(path) == list:
-            #     print("*************")
-            #     print("final path: ")
-            #     for pt in path:
-            #         print(pt)
-
+        # if the RRT planner has found a path in this step
         if done and path != None:
-            # print("found a path")
             reward = R_FOUND_PATH
+        elif path != None:
+            # if the RRT planner adds a new node
+            reward = R_CREATE_NODE
         else:
-            # print("found nothing")
             # TODO: For now, the reward encourages using less time to plan the path
             reward = R_INVALID_NODE
-        # print("$$$$$$$$$$$$$")
+        
         
         return self.state, reward, done, {}
 
