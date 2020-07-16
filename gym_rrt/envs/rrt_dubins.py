@@ -15,7 +15,7 @@ from shapely.geometry import Polygon, Point
 from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
 from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
 
-# from motion_plan_state import Motion_plan_state
+# from motion_plan_state_rrt import Motion_plan_state
 # from grid_cell_rrt import Grid_cell_RRT
 
 # TODO: wrong import
@@ -488,6 +488,92 @@ def main():
     step_array = []
     success_count = 0
     for _ in range(1000):
+        obstacle_array = []
+
+        # hard-code random obstacles
+        # obstacle # 1
+        obs_x = np.random.uniform(10, 17)
+        obs_y = np.random.uniform(34, 41)
+        obs_size = np.random.randint(3,6)
+
+        obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+
+        # obstacle # 2
+        obs_x = np.random.uniform(17, 21)
+        obs_y = np.random.uniform(29, 36)
+        obs_size = np.random.randint(3,6)
+
+        obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+
+        # obstacle # 3
+        obs_x = np.random.uniform(20, 25)
+        obs_y = np.random.uniform(23, 30)
+        obs_size = np.random.randint(3,6)
+
+        obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+
+        # obstacle # 4
+        obs_x = np.random.uniform(24, 29)
+        obs_y = np.random.uniform(19, 25)
+        obs_size = np.random.randint(3,6)
+
+        obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+
+        # obstacle # 5
+        obs_x = np.random.uniform(27, 33)
+        obs_y = np.random.uniform(17, 24)
+        obs_size = np.random.randint(3,6)
+
+        obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+
+        # obstacle # 6
+        obs_x = np.random.uniform(32, 36)
+        obs_y = np.random.uniform(14, 19)
+        obs_size = np.random.randint(3,6)
+
+        obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+
+        # obstacle # 7
+        obs_x = np.random.uniform(36, 40)
+        obs_y = np.random.uniform(7, 10)
+        obs_size = np.random.randint(3,6)
+
+        obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+
+        auv_min_x = 5.0
+        auv_max_x = 15.0
+        auv_min_y = 5.0
+        auv_max_y = 15.0
+
+        shark_min_x = 35.0
+        shark_max_x = 45.0
+        shark_min_y = 35.0
+        shark_max_y = 45.0
+
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+        shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+
+        # auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
+        # shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
+        
+        obstacle_array = [\
+            Motion_plan_state(x=12.0, y=38.0, size=4),\
+            Motion_plan_state(x=17.0, y=34.0, size=5),\
+            Motion_plan_state(x=20.0, y=29.0, size=4),\
+            Motion_plan_state(x=25.0, y=25.0, size=3),\
+            Motion_plan_state(x=29.0, y=20.0, size=4),\
+            Motion_plan_state(x=34.0, y=17.0, size=3),\
+            Motion_plan_state(x=37.0, y=8.0, size=5)\
+        ]
+
+        print("===============================")
+        print("Starting Positions")
+        print(auv_init_pos)
+        print(shark_init_pos)
+        print("-")
+        print(obstacle_array)
+        print("===============================")
+
         rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=10, cell_side_length=5)
         path, step = rrt.planning(max_step=300)
         if path != [] and type(path) == list:
