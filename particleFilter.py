@@ -188,31 +188,35 @@ class ParticleFilter:
         #print(range)
         return range_value
         
-    def normalize(self, weights_list, weights_list_2):
+    def normalize(self, weights_list):
         newlist = []
-        newlist_2 = []
-        newlist_3 = []
-        denominator= max(weights_list)
-        denominator_2 = max(weights_list_2)
-        for weight in weights_list:
-            #weight1 = (1/ denominator) * weight
-            newlist.append(weight)
-        for weight in weights_list_2:
-            #weight2 = (1/ denominator_2) * weight
-            newlist_2.append(weight)
-        index = -1
         final_list_of_weights = []
-        for weight in newlist:
-            index += 1
-            new_weight = weight + newlist[index]
+        print("===============")
+        # adds the weights of the lists after being individally normalized by its max denominator and then adds the weights of all the auvs together, then normalizes it
+        final_newlist = []
+        for i in range(len(weights_list)):
+            denominator = max(weights_list[i])
+            for weight in weights_list[i]:
+                weight = (1/ denominator) * weight
+                newlist.append(weight)
+            final_newlist.append(newlist)
+        final_list_of_weights_2 = []
+        for i in range(len(final_newlist)):
+            
+            for weight in final_newlist[i]:
+                new_weight += weight
             final_list_of_weights.append(new_weight)
+            
+        
+        #print("len of final list of weights")
+        #print(len(final_list_of_weights))
         final_denominator = max(final_list_of_weights)
         normalized_list = []
         for weight in final_list_of_weights:
             weight_final = (1/ final_denominator) * weight
             normalized_list.append(weight_final)
         return normalized_list
-
+        
     def particleMean(self, new_particles):
         """caculates the mean of the particles x and y positions"""
         sum_x = 0
@@ -357,28 +361,23 @@ class ParticleFilter:
         return particles_list
         #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
 
-    def update_weights(self,particles, auv_alpha, auv_range, auv_alpha_2, auv_range_2):
+    def update_weights(self,particles, list_of_range_bearing):
         #print("auv range and alpha", auv_alpha, auv_range)
+        final_list_of_weights = []
+        #print("len of list_of_range_bearing ")
+        #print(len(list_of_range_bearing))
+        for i in range(len(list_of_range_bearing)):
+            for particle in particles: 
+                particleAlpha = particle.calc_particle_alpha(self.x_auv, self.y_auv, self.theta)
+                particleRange = particle.calc_particle_range(self.x_auv, self.y_auv)
+                particle.weight(list_of_range_bearing[i].bearing, particleAlpha, list_of_range_bearing[i].range, particleRange)
+                #print("weight: ", particle.weight_p)
+            list_of_weights = []
+            for particle in particles: 
+                list_of_weights.append(particle.weight_p)
+            final_list_of_weights.append(list_of_weights)
 
-        for particle in particles: 
-            particleAlpha = particle.calc_particle_alpha(self.x_auv, self.y_auv, self.theta)
-            particleRange = particle.calc_particle_range(self.x_auv, self.y_auv)
-            particle.weight(auv_alpha, particleAlpha, auv_range, particleRange)
-            #print("weight: ", particle.weight_p)
-        list_of_weights = []
-        for particle in particles: 
-            list_of_weights.append(particle.weight_p)
-        #print("new y in the loop", self.y_auv_2)
-        for particle in particles: 
-            particleAlpha_2 = particle.calc_particle_alpha(self.x_auv_2, self.y_auv_2, self.theta_2)
-            particleRange_2 = particle.calc_particle_range(self.x_auv_2, self.y_auv_2)
-            particle.weight(auv_alpha_2, particleAlpha_2, auv_range_2, particleRange_2)
-            #print("weight: ", particle.weight_p)
-        list_of_weights_2 = []
-        for particle in particles: 
-            list_of_weights_2.append(particle.weight_p)
-
-        normalized_weights = self.normalize(list_of_weights, list_of_weights_2)
+        normalized_weights = self.normalize(final_list_of_weights)
         count = 0
         for particle in particles: 
             particle.weight_p = normalized_weights[count]

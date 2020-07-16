@@ -659,34 +659,23 @@ class RobotSim:
                 print("==================")
                 print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
                 """
-                all_auvs_range_bearing_dict = {}
+                all_auvs_range_bearing_dict = []
 
                 for auv in sorted(self.auv_dict):
                     test_auv = self.auv_dict[auv]
                     auv_sensor_data = self.auv_dict[auv].get_auv_sensor_measurements(self.curr_time)
                     measurement_dict_list =  test_auv.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
-                    all_auvs_range_bearing_dict[auv] = measurement_dict_list
-                    print("measurement list", measurement_dict_list)
-                    
-                print("dictionary storing all the auvs' range and bearing")
-                print(all_auvs_range_bearing_dict)
-                text = input("stop")
-                print("to iterate through the dictionary")
-                for auv_id in self.auv_dict:
-                    print("all the range and bearing for auv: " + str(auv_id))
-                    range_bearing_for_auv_and_all_sharks_list = all_auvs_range_bearing_dict[auv_id]
-                    for i in range(len(range_bearing_for_auv_and_all_sharks_list)):
-                        range_bearing = range_bearing_for_auv_and_all_sharks_list[i]
-                        print("update weights by use the range and bearing between shark " + str(i) + " and auv: " + str(auv_id))
-                        print(range_bearing)
-                    print("-")
-                text = input("stop")
+                    all_auvs_range_bearing_dict.append(measurement_dict_list)
+
+
+               # print("measurement_dict_list", measurement_dict_list)
+                particles = test_particle.update_weights(particles,measurement_dict_list)
 
                 for auv in sorted(self.auv_dict):
                     test_auv = self.auv_dict[auv]
                     print("auv number", auv)
                     # have to store the information from all the AUVS Range and bearings 
-                    #particles = test_particle.update_weights(particles, measurement_dict[1].range, measurement_dict[1].bearing, measurement_dict[2].range, measurement_dict[2].bearing)
+                    
                     # in "measurement_dict[2].range", I have to add the measurement_dict[1].range of the other AUVs information... 
 
                     # need suggestions on how to store this information...

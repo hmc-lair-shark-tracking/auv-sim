@@ -146,6 +146,7 @@ class Auv:
 
             # iterate through all the sharks that we are tracking
             for shark_id in shark_state_dict: 
+                shark_id = 1
                 shark_data = shark_state_dict[shark_id]
                 print("shark_data.x", shark_data.x)
                 print("shark_id", shark_id)
