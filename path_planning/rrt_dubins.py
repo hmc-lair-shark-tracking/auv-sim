@@ -72,17 +72,25 @@ class RRT:
         replan_time_interval: Replan time interval i.e. the time between each query to the planner to construct a new traj
         '''
         traj = [start]
+        time_dict = {}
         final_traj_time = list(self.sharkGrid.keys())[-1][1]
-        
-        while traj[-1].traj_time_stamp < final_traj_time:
-            temp = self.exploring(traj[-1], 0.5, 5, 2, (plan_time_budget + replan_time_interval), traj_time_stamp=True, max_plan_time=plan_time_budget, max_traj_time=(traj_time_length + traj[-1].traj_time_stamp), plan_time=True)
+        plan_time = (plan_time_budget + replan_time_interval)
+        count = 1
+
+        while (traj[-1].traj_time_stamp + plan_time) < final_traj_time:
+            if traj_time_length + traj[-1].traj_time_stamp > final_traj_time:
+                traj_time_length = final_traj_time - traj[-1].traj_time_stamp
+            temp = self.exploring(traj[-1], 0.5, 5, 2, plan_time, traj_time_stamp=True, max_plan_time=plan_time_budget, max_traj_time=(traj_time_length + traj[-1].traj_time_stamp), plan_time=True)
             temp_path = temp["path"][1][list(temp["path"][1].keys())[0]]
             temp_path.reverse()
             traj.extend(temp_path)
-            print(temp_path)
+            time_dict[count] = [temp_path, self.habitats]
+            self.removeHabitat(temp_path)
+            count += 1
+
             time.sleep(replan_time_interval)
-        
-        return traj[1:]
+                    
+        return [traj[1:], time_dict]
 
     def exploring(self, initial, plot_interval, bin_interval, v, shark_interval, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1,-1]):
         """
@@ -161,7 +169,7 @@ class RRT:
                     #    if new_mps.traj_time_stamp > max_traj_time:
                     #        continue    
                     #Question: how to normalize the path length?
-                    if new_mps.length >= 80:
+                    if new_mps.length >= 30:
                         #find the corresponding shark occupancy grid
                         sharkOccupancyDict = {}
                         start = closest_mps.traj_time_stamp
@@ -360,10 +368,11 @@ class RRT:
         return mps
 
     def draw_graph(self, traj_path, rnd=None):
-        fig = plt.figure(1, figsize=(10,8))
+        fig = plt.figure(1, figsize=(10,20))
         x,y = self.boundary_poly.exterior.xy
-        for i in range(len(list(self.sharkGrid.keys()))):
-            ax = fig.add_subplot(5,2,i+1)
+        row = math.ceil(len(list(traj_path[1].keys())) / 2)
+        for index, arr in traj_path[1].items():
+            ax = fig.add_subplot(row, 2, index)
             ax.plot(x, y, color="black")
         # for mps in self.mps_list:
         #     if mps.parent:
@@ -373,30 +382,30 @@ class RRT:
             for obs in self.obstacle_list:
                 ax.add_patch(plt.Circle((obs.x, obs.y), obs.size, color = '#000000', fill = False))
         
-            for habitat in self.habitats:
+            for habitat in arr[1]:
                 ax.add_patch(plt.Circle((habitat.x, habitat.y), habitat.size, color = 'b', fill = False))
             
-            patch = []
-            occ = []
-            key = list(self.sharkGrid.keys())[i]
-            for cell in self.cell_list:
-                polygon = patches.Polygon(list(cell.exterior.coords), True)
-                patch.append(polygon)
-                occ.append(self.sharkGrid[key][cell.bounds])
+            # patch = []
+            # occ = []
+
+            # for cell in self.cell_list:
+            #     polygon = patches.Polygon(list(cell.exterior.coords), True)
+            #     patch.append(polygon)
+            #     occ.append(self.sharkGrid[time_tuple][cell.bounds])
             
-            p = collections.PatchCollection(patch)
-            p.set_cmap("Greys")
-            p.set_array(np.array(occ))
-            ax.add_collection(p)
-            fig.colorbar(p, ax=ax)
+            # p = collections.PatchCollection(patch)
+            # p.set_cmap("Greys")
+            # p.set_array(np.array(occ))
+            # ax.add_collection(p)
+            # fig.colorbar(p, ax=ax)
 
             ax.set_xlim([self.boundary_poly.bounds[0]-10, self.boundary_poly.bounds[2]+10])
             ax.set_ylim([self.boundary_poly.bounds[1]-10, self.boundary_poly.bounds[3]+10])
 
-            ax.title.set_text(str(list(self.sharkGrid.keys())[i]))
+            # ax.title.set_text(str(list(self.sharkGrid.keys())[i]))
             
             ax.plot([mps.x for mps in traj_path[0]], [mps.y for mps in traj_path[0]], "r")
-            ax.plot([mps.x for mps in traj_path[1][key]], [mps.y for mps in traj_path[1][key]], 'b')
+            ax.plot([mps.x for mps in arr[0]], [mps.y for mps in arr[0]], 'b')
 
         plt.show()
 
@@ -577,6 +586,13 @@ class RRT:
                     break
         return res
     
+    def removeHabitat(self, path):
+        for point in path:
+            for habitat in self.habitats:
+                if math.sqrt((point.x - habitat.x)**2 + (point.y - habitat.y)**2) <= habitat.size:
+                    self.habitats.remove(habitat)
+                    break
+    
 def createSharkGrid(filepath, cell_list):
     test = {}
     with open(filepath, newline='') as csvfile:
@@ -638,11 +654,11 @@ shark_dict = {1: [Motion_plan_state(-120 + (0.2 * i), -60 + (0.2 * i), traj_time
     8: [Motion_plan_state(-250 - (0.2 * i), 75 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
     9: [Motion_plan_state(-260 - (0.2 * i), 75 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
     10: [Motion_plan_state(-275 + (0.2 * i), 80 - (0.2 * i), traj_time_stamp=i) for i in range(1,501)]}
-sharkGrid = createSharkGrid('path_planning/AUVGrid_prob_500.csv', splitCell(boundary_poly,10))
+sharkGrid = createSharkGrid('path_planning/AUVGrid_prob_500by30.csv', splitCell(boundary_poly,10))
 
 rrt = RRT(boundary, obstacles, habitats, shark_dict, sharkGrid)
 path = rrt.replanning(Motion_plan_state(-200, 0), 10.0, 100.0, 20.0)
-# print(path)
+print(path[0])
 
 # Draw final path
-# rrt.draw_graph(path["path"])
+rrt.draw_graph(path)

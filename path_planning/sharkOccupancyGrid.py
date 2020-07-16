@@ -370,7 +370,7 @@ def splitCell(polygon, cell_size):
 #     8: [Motion_plan_state(-250 - (0.2 * i), 75 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
 #     9: [Motion_plan_state(-260 - (0.2 * i), 75 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
 #     10: [Motion_plan_state(-275 + (0.2 * i), 80 - (0.2 * i), traj_time_stamp=i) for i in range(1,501)]}
-# testing = SharkOccupancyGrid(shark_dict, 10, boundary_poly, 50, 50)
+# testing = SharkOccupancyGrid(shark_dict, 10, boundary_poly, 30, 50)
 # boundary_poly = box(0.0, 0.0, 10.0, 10.0)
 # shark_dict = {1: [Motion_plan_state(0 + (0.1 * i), 2 + (0.1 * i), traj_time_stamp=0.1*i) for i in range(1,51)]}
 # testing = SharkOccupancyGrid(shark_dict, 2, boundary_poly, 2, 4)

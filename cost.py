@@ -208,6 +208,7 @@ class Cost:
                 count += 1
         
         #normalize the cost for number of habitats visited
-        cost[1] = w2 * count / len(habitats)
+        if len(habitats) != 0:
+            cost[1] = w2 * count / len(habitats)
 
         return [sum(cost), cost]
