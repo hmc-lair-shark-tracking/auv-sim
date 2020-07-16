@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 import matplotlib.path as mpath
 import matplotlib.patches as mpatches
 import catalina
-import random
 
 """
 Uses matplotlib to generate live 3D Graph while the simulator is running
@@ -372,7 +371,7 @@ class Live3DGraph:
 
         plt.show()
 
-    def plot_2d_astar_traj(self, astar_x_array, astar_y_array, A_star_traj_cost):
+    def plot_2d_traj(self, traj_dict, shark_dict):
         """
         Plot a trajectory with defined boundaries and obstacles
         """
@@ -409,12 +408,7 @@ class Live3DGraph:
         # plot boats as circles
         for boat in catalina.BOATS:
             pos_boat = create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
-            ax.add_patch(plt.Circle(pos_boat, boat.size, color = 'y', fill = False))
-
-        # plot habitats as circles:
-        for habi in catalina.HABITATS:
-            pos_habi = create_cartesian((habi.x, habi.y), catalina.ORIGIN_BOUND)
-            ax.add_patch(plt.Circle(pos_habi, habi.size, color = 'b', fill = False))
+            ax.add_patch(plt.Circle(pos_boat, boat.size, color = '#000000', fill = False))
         
         for habitat in catalina.HABITATS:
             pos_habitat = create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
@@ -426,78 +420,14 @@ class Live3DGraph:
         ax.grid()
         ax.axis('equal')
 
-        # plot A* trajectory
-        plt.plot(astar_x_array, astar_y_array, marker = ',', color = 'r', label=A_star_traj_cost)
-        legend = plt.legend()
-        plt.setp(legend.get_texts(), color='#000000') 
+        # plot trajectory
+        for planner, traj in traj_dict.items():
+            if traj != []:
+                color = self.traj_checkbox_dict[planner][2]
+                ax.plot(traj[0], traj[1], marker = ',', color = color, label=planner)
 
-        # plt.title('number of habitats covered vs. cost visualization')
-        plt.xlabel('meters')
-        plt.ylabel('meters')
+        # plot sharks
+        for shark_id, shark_pos in shark_dict.items():
+            ax.plot([mps.x for mps in shark_pos],[mps.y for mps in shark_pos], label=shark_id)
+        ax.legend()
         plt.show()
-    
-    def plot_multiple_2d_astar_traj(self, x_list, y_list, traj_cost_list):
-
-        plt.close()
-        
-        fig, ax = plt.subplots()
-
-        # plot the boundaries as polygon lines
-        Path = mpath.Path
-        path_data = []
-
-        for i in range(len(catalina.BOUNDARIES)): 
-            pos = create_cartesian((catalina.BOUNDARIES[i].x, catalina.BOUNDARIES[i].y), catalina.ORIGIN_BOUND)
-            if i == 0: 
-                path_data.append((Path.MOVETO, pos))
-            else:
-                path_data.append((Path.LINETO, pos))
-
-        last = create_cartesian((catalina.BOUNDARIES[0].x, catalina.BOUNDARIES[0].y), catalina.ORIGIN_BOUND)
-        path_data.append((Path.CLOSEPOLY, last))
-
-        codes, verts = zip(*path_data)
-        path = mpath.Path(verts, codes)
-        patch = mpatches.PathPatch(path, facecolor=None, alpha=0)
-
-        ax.add_patch(patch) 
-
-        # plot obstacels as circles 
-        for obs in catalina.OBSTACLES:
-            pos_circle = create_cartesian((obs.x, obs.y), catalina.ORIGIN_BOUND)
-            ax.add_patch(plt.Circle(pos_circle, obs.size, color = '#000000', fill = False))
-        
-        # plot boats as circles
-        for boat in catalina.BOATS:
-            pos_boat = create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
-            ax.add_patch(plt.Circle(pos_boat, boat.size, color = 'y', fill = False))
-
-        # plot habitats as circles:
-        for habi in catalina.HABITATS:
-            pos_habi = create_cartesian((habi.x, habi.y), catalina.ORIGIN_BOUND)
-            ax.add_patch(plt.Circle(pos_habi, habi.size, color = 'b', fill = False))
-        
-        x, y = zip(*path.vertices)
-        line, = ax.plot(x, y, 'go-')
-
-        ax.grid()
-        ax.axis('equal')
-
-        # plot A* trajectory
-
-        for index in range(len(x_list)):
-            r = random.random()
-            g = random.random()
-            b = random.random()
-            color = (r, g, b)
-
-            cost = traj_cost_list[index]
-
-            plt.plot(x_list[index], y_list[index], marker = ',', color = color, label=cost)
-            legend = plt.legend()
-            plt.setp(legend.get_texts(), color='#000000') 
-
-        plt.title('trajectory length and cost visualization')
-        plt.xlabel('meter')
-        plt.ylabel('meter')
-        plt.show()       
