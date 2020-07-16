@@ -665,15 +665,13 @@ class RobotSim:
                     test_auv = self.auv_dict[auv]
                     auv_sensor_data = self.auv_dict[auv].get_auv_sensor_measurements(self.curr_time)
                     measurement_dict_list =  test_auv.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data)
-                    all_auvs_range_bearing_dict.append(measurement_dict_list)
-
-
-               # print("measurement_dict_list", measurement_dict_list)
+                print("measurement_dict_list", measurement_dict_list)
+                print(len(measurement_dict_list))
                 particles = test_particle.update_weights(particles,measurement_dict_list)
+                measurement_dict_list = []
 
                 for auv in sorted(self.auv_dict):
                     test_auv = self.auv_dict[auv]
-                    print("auv number", auv)
                     # have to store the information from all the AUVS Range and bearings 
                     
                     # in "measurement_dict[2].range", I have to add the measurement_dict[1].range of the other AUVs information... 
@@ -780,6 +778,7 @@ def main():
     pos = create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
     test_robot = RobotSim(5.0, 5.0, 0, 0.1, 0.5, 1, 3, 0)
     BOUNDARY_RANGE = 500
+    """
     for i in range(test_robot.num_of_auv - 1):
         x = random.uniform(- BOUNDARY_RANGE, BOUNDARY_RANGE)
         y = random.uniform(- BOUNDARY_RANGE, BOUNDARY_RANGE)
@@ -788,7 +787,15 @@ def main():
         velocity = random.uniform(0,4)
         curr_traj_pt_index = 0
         w_1 = random.uniform(-math.pi/2, math.pi/2)
+    
         test_robot.auv_dict[i + 1] = Auv(x,y,z, theta, velocity, w_1, curr_traj_pt_index, i)
+    """
+    theta = 0
+    velocity = 1/2
+    w_1 = random.uniform(-math.pi/2, math.pi/2)
+    curr_traj_pt_index = 0
+    test_robot.auv_dict[1] = Auv(0,-150,10, theta, velocity, w_1, curr_traj_pt_index, 1)
+    test_robot.auv_dict[2] = Auv(0,150,10, theta, velocity, w_1, curr_traj_pt_index, 2)
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
     test_robot.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1,2])

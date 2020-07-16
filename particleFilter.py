@@ -191,28 +191,26 @@ class ParticleFilter:
     def normalize(self, weights_list):
         newlist = []
         final_list_of_weights = []
-        print("===============")
         # adds the weights of the lists after being individally normalized by its max denominator and then adds the weights of all the auvs together, then normalizes it
         final_newlist = []
+        print("len of input")
+        print(len(weights_list))
         for i in range(len(weights_list)):
             denominator = max(weights_list[i])
+            newlist = []
             for weight in weights_list[i]:
                 weight = (1/ denominator) * weight
                 newlist.append(weight)
             final_newlist.append(newlist)
         final_list_of_weights_2 = []
-        for i in range(len(final_newlist)):
-            
-            for weight in final_newlist[i]:
-                new_weight += weight
-            final_list_of_weights.append(new_weight)
-            
-        
-        #print("len of final list of weights")
-        #print(len(final_list_of_weights))
-        final_denominator = max(final_list_of_weights)
+        for index in range(len(final_newlist[0])):
+            new_weight = 0
+            for weight in final_newlist:
+                new_weight += weight[index]
+            final_list_of_weights_2.append(new_weight)
+        final_denominator = max(final_list_of_weights_2)
         normalized_list = []
-        for weight in final_list_of_weights:
+        for weight in final_list_of_weights_2:
             weight_final = (1/ final_denominator) * weight
             normalized_list.append(weight_final)
         return normalized_list
