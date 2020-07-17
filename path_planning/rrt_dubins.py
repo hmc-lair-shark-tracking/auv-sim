@@ -21,7 +21,7 @@ class RRT:
     """
     Class for RRT planning
     """
-    def __init__(self, boundary, obstacles, habitats, shark_dict, sharkGrid, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 30):
+    def __init__(self, boundary, obstacles, shark_dict, sharkGrid, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 30):
         '''setting parameters:
             initial_location: initial Motion_plan_state of AUV, [x, y, z, theta, v, w, time_stamp]
             goal_location: Motion_plan_state of the shark, [x, y, z]
@@ -35,8 +35,6 @@ class RRT:
             coords.append((corner.x, corner.y))
         self.boundary_poly = Polygon(coords)
         self.obstacle_list = obstacles
-        #testing data for habitats
-        self.habitats = habitats
         
         self.mps_list = [] # a list of motion_plan_state
         self.time_bin = {}
@@ -55,7 +53,13 @@ class RRT:
         self.sharkGrid = sharkGrid
         self.sharkDict = shark_dict
 
-    def replanning(self, start, plan_time_budget, traj_time_length, replan_time_interval):
+        # initialize cost function
+        self.cal_cost = Cost()
+
+        # keep track of the longest single path in the tree to normalize every path length
+        self.peri_boundary = self.cal_boundary_peri()
+
+    def replanning(self, start, habitats, plan_time_budget, traj_time_length, replan_time_interval):
         '''
         RRT path planning to continually generate optimal path given the current trajectory AUV is following
             by choosing certain point along the curretn trajectory as starting node for new RRT planner
@@ -76,23 +80,26 @@ class RRT:
         final_traj_time = list(self.sharkGrid.keys())[-1][1]
         plan_time = (plan_time_budget + replan_time_interval)
         count = 1
+        oriHabitats = habitats.copy()
 
         while (traj[-1].traj_time_stamp + plan_time) < final_traj_time:
             if traj_time_length + traj[-1].traj_time_stamp > final_traj_time:
                 traj_time_length = final_traj_time - traj[-1].traj_time_stamp
-            temp = self.exploring(traj[-1], 0.5, 5, 2, plan_time, traj_time_stamp=True, max_plan_time=plan_time_budget, max_traj_time=(traj_time_length + traj[-1].traj_time_stamp), plan_time=True)
+            temp = self.exploring(traj[-1], habitats, 0.5, 5, 2, plan_time, traj_time_stamp=True, max_plan_time=plan_time_budget, max_traj_time=(traj_time_length + traj[-1].traj_time_stamp), plan_time=True)
             temp_path = temp["path"][1][list(temp["path"][1].keys())[0]]
             temp_path.reverse()
             traj.extend(temp_path)
-            time_dict[count] = [temp_path, self.habitats]
-            self.removeHabitat(temp_path)
+            time_dict[count] = [temp_path, habitats.copy()]
+            habitats = self.removeHabitat(habitats, temp_path)
             count += 1
 
             time.sleep(replan_time_interval)
-                    
-        return [traj[1:], time_dict]
 
-    def exploring(self, initial, plot_interval, bin_interval, v, shark_interval, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1,-1]):
+        length = self.cal_length(traj[1:])
+        cost = self.cal_cost.habitat_shark_cost_func(traj[1:], length, self.peri_boundary, traj[-1].traj_time_stamp, oriHabitats, self.sharkGrid, weight=[1, -3, -1, -5])        
+        return [traj[1:], time_dict, cost]
+
+    def exploring(self, initial, habitats, plot_interval, bin_interval, v, shark_interval, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True, weights=[1,-1,-1,-1]):
         """
         rrt path planning without setting a specific goal, rather try to explore the configuration space as much as possible
         calculate cost while expand and keep track of the current optimal cost path
@@ -104,15 +111,6 @@ class RRT:
         opt_cost = [float("inf")]
         opt_path = None
         opt_cost_list = []
-        
-        # keep track of longest traj_time_stamp
-        # longest_traj_time = 0
-
-        # keep track of the longest single path in the tree to normalize every path length
-        peri_boundary = self.cal_boundary_peri()
-
-        # initialize cost function
-        cal_cost = Cost()
 
         self.mps_list = [initial]
 
@@ -169,33 +167,23 @@ class RRT:
                     #    if new_mps.traj_time_stamp > max_traj_time:
                     #        continue    
                     #Question: how to normalize the path length?
-                    if new_mps.length >= 30:
+                    if new_mps.traj_time_stamp >= max_traj_time-30:
                         #find the corresponding shark occupancy grid
                         sharkOccupancyDict = {}
-                        start = closest_mps.traj_time_stamp
+                        start = initial.traj_time_stamp
                         end = new_mps.traj_time_stamp
                         for time_bin in self.sharkGrid:
                             if (start >= time_bin[0] and start <= time_bin[1]) or (time_bin[0] >= start and time_bin[1] <= end) or(end >= time_bin[0] and end <= time_bin[1]):
                                 sharkOccupancyDict[time_bin] = self.sharkGrid[time_bin]
-                        
-                        temp_length = new_mps.length - closest_mps.length
-                        traj_time = new_mps.traj_time_stamp - closest_mps.traj_time_stamp
-                        if traj_time != 0:    
-                            new_cost = cal_cost.habitat_shark_cost_func(new_mps.path, temp_length, peri_boundary, traj_time, self.habitats, sharkOccupancyDict, weights)
-                            if closest_mps.cost == []:
-                                new_mps.cost = new_cost
-                            else:
-                                temp_cost = []
-                                for i in range(len(new_cost[1])):
-                                    temp_cost.append(closest_mps.cost[1][i]+new_cost[1][i])
-                                new_mps.cost = [closest_mps.cost[0]+new_cost[0], temp_cost]
-                            if new_mps.cost[0] < opt_cost[0]:
-                                opt_cost = new_mps.cost
-                                opt_path = [new_mps.length, path]
+                            
+                        new_cost = self.cal_cost.habitat_shark_cost_func(path, new_mps.length, self.peri_boundary, new_mps.traj_time_stamp, habitats, sharkOccupancyDict, weights)
+                        if new_cost[0] < opt_cost[0]:
+                            opt_cost = new_cost
+                            opt_path = [new_mps.length, path]
                 
-            opt_cost_list.append(opt_cost[0])
+            # opt_cost_list.append(opt_cost[0])
         path = self.splitPath(opt_path[1], shark_interval, [initial.traj_time_stamp, max_traj_time])
-        return {"path length": opt_path[0], "path": [opt_path[1], path], "cost": opt_cost, "cost list": opt_cost_list}
+        return {"path length": opt_path[0], "path": [opt_path[1], path], "cost": opt_cost}
         
 
     def planning(self, bin_interval=5, v=1, traj_time_stamp=False, max_plan_time=5, max_traj_time=200.0, plan_time=True):
@@ -367,12 +355,12 @@ class RRT:
         
         return mps
 
-    def draw_graph(self, traj_path, rnd=None):
-        fig = plt.figure(1, figsize=(10,20))
+    def draw_graph_replan(self, traj_path, rnd=None):
+        fig = plt.figure(1, figsize=(10,30))
         x,y = self.boundary_poly.exterior.xy
-        row = math.ceil(len(list(traj_path[1].keys())) / 2)
+        row = math.ceil(len(list(traj_path[1].keys())) / 3)
         for index, arr in traj_path[1].items():
-            ax = fig.add_subplot(row, 2, index)
+            ax = fig.add_subplot(row, 3, index)
             ax.plot(x, y, color="black")
         # for mps in self.mps_list:
         #     if mps.parent:
@@ -381,7 +369,7 @@ class RRT:
             # plot obstacels as circles 
             for obs in self.obstacle_list:
                 ax.add_patch(plt.Circle((obs.x, obs.y), obs.size, color = '#000000', fill = False))
-        
+
             for habitat in arr[1]:
                 ax.add_patch(plt.Circle((habitat.x, habitat.y), habitat.size, color = 'b', fill = False))
             
@@ -408,7 +396,47 @@ class RRT:
             ax.plot([mps.x for mps in arr[0]], [mps.y for mps in arr[0]], 'b')
 
         plt.show()
+    
+    def draw_graph_explore(self, habitats, traj_path, rnd=None):
+        fig = plt.figure(1, figsize=(10,8))
+        x,y = self.boundary_poly.exterior.xy
+        for i in range(len(list(self.sharkGrid.keys()))):
+            ax = fig.add_subplot(5,2,i+1)
+            ax.plot(x, y, color="black")
+        # for mps in self.mps_list:
+        #     if mps.parent:
+        #         plt.plot([point.x for point in mps.path], [point.y for point in mps.path], '-g')
 
+            # plot obstacels as circles 
+            for obs in self.obstacle_list:
+                ax.add_patch(plt.Circle((obs.x, obs.y), obs.size, color = '#000000', fill = False))
+        
+            for habitat in habitats:
+                ax.add_patch(plt.Circle((habitat.x, habitat.y), habitat.size, color = 'b', fill = False))
+            
+            patch = []
+            occ = []
+            key = list(self.sharkGrid.keys())[i]
+            for cell in self.cell_list:
+                polygon = patches.Polygon(list(cell.exterior.coords), True)
+                patch.append(polygon)
+                occ.append(self.sharkGrid[key][cell.bounds])
+            
+            p = collections.PatchCollection(patch)
+            p.set_cmap("Greys")
+            p.set_array(np.array(occ))
+            ax.add_collection(p)
+            fig.colorbar(p, ax=ax)
+
+            ax.set_xlim([self.boundary_poly.bounds[0]-10, self.boundary_poly.bounds[2]+10])
+            ax.set_ylim([self.boundary_poly.bounds[1]-10, self.boundary_poly.bounds[3]+10])
+
+            ax.title.set_text(str(list(self.sharkGrid.keys())[i]))
+            
+            ax.plot([mps.x for mps in traj_path[0]], [mps.y for mps in traj_path[0]], "r")
+            ax.plot([mps.x for mps in traj_path[1][key]], [mps.y for mps in traj_path[1][key]], 'b')
+
+        plt.show()
     @staticmethod
     def plot_circle(x, y, size, color="-b"):  # pragma: no cover
         deg = list(range(0, 360, 5))
@@ -586,12 +614,13 @@ class RRT:
                     break
         return res
     
-    def removeHabitat(self, path):
+    def removeHabitat(self, habitats, path):
         for point in path:
-            for habitat in self.habitats:
+            for habitat in habitats:
                 if math.sqrt((point.x - habitat.x)**2 + (point.y - habitat.y)**2) <= habitat.size:
-                    self.habitats.remove(habitat)
+                    habitats.remove(habitat)
                     break
+        return habitats
     
 def createSharkGrid(filepath, cell_list):
     test = {}
@@ -644,7 +673,7 @@ for habitat in catalina.HABITATS:
     habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
     
 # testing data for shark trajectories
-shark_dict = {1: [Motion_plan_state(-120 + (0.2 * i), -60 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
+shark_dict1 = {1: [Motion_plan_state(-120 + (0.2 * i), -60 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
     2: [Motion_plan_state(-65 - (0.2 * i), -50 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
     3: [Motion_plan_state(-110 + (0.2 * i), -40 - (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
     4: [Motion_plan_state(-105 - (0.2 * i), -55 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
@@ -654,11 +683,26 @@ shark_dict = {1: [Motion_plan_state(-120 + (0.2 * i), -60 + (0.2 * i), traj_time
     8: [Motion_plan_state(-250 - (0.2 * i), 75 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
     9: [Motion_plan_state(-260 - (0.2 * i), 75 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
     10: [Motion_plan_state(-275 + (0.2 * i), 80 - (0.2 * i), traj_time_stamp=i) for i in range(1,501)]}
-sharkGrid = createSharkGrid('path_planning/AUVGrid_prob_500by30.csv', splitCell(boundary_poly,10))
 
-rrt = RRT(boundary, obstacles, habitats, shark_dict, sharkGrid)
-path = rrt.replanning(Motion_plan_state(-200, 0), 10.0, 100.0, 20.0)
-print(path[0])
+shark_dict2 = {1: [Motion_plan_state(-120 + (0.1 * i), -60 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-90 - (0.1 * i), -30 + (0.15 * i), traj_time_stamp=i) for i in range(302,501)], 
+    2: [Motion_plan_state(-65 - (0.1 * i), -50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-95 + (0.15 * i), -20 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)],
+    3: [Motion_plan_state(-110 + (0.1 * i), -40 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-80 + (0.15 * i), -70 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)], 
+    4: [Motion_plan_state(-105 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-135 + (0.12 * i), -25 + (0.07 * i), traj_time_stamp=i) for i in range(302,501)],
+    5: [Motion_plan_state(-120 + (0.1 * i), -50 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-90 + (0.11 * i), -80 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)], 
+    6: [Motion_plan_state(-85 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-115 - (0.09 * i), -25 - (0.1 * i), traj_time_stamp=i) for i in range(302,501)],
+    7: [Motion_plan_state(-270 + (0.1 * i), 50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-240 - (0.08 * i), 80 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)], 
+    8: [Motion_plan_state(-250 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-280 - (0.1 * i), 105 - (0.1 * i), traj_time_stamp=i) for i in range(302,501)],
+    9: [Motion_plan_state(-260 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-290 + (0.08 * i), 105 + (0.07 * i), traj_time_stamp=i) for i in range(302,501)], 
+    10: [Motion_plan_state(-275 + (0.1 * i), 80 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-245 - (0.13 * i), 50 - (0.12 * i), traj_time_stamp=i) for i in range(302,501)]}
+# sharkGrid1 = createSharkGrid('path_planning/AUVGrid_prob_500_straight.csv', splitCell(boundary_poly,10))
+sharkGrid2 = createSharkGrid('path_planning/AUVGrid_prob_500_turn.csv', splitCell(boundary_poly,10))
+
+rrt = RRT(boundary, obstacles, shark_dict2, sharkGrid2)
+path = rrt.replanning(Motion_plan_state(-200, 0), habitats, 10.0, 100.0, 20.0)
+print(path[2])
+# path = rrt.exploring(Motion_plan_state(-200, 0), habitats, 0.5, 5, 2, 50, traj_time_stamp=True, max_plan_time=10, max_traj_time=500, plan_time=True, weights=[1, -3, -1, -5])
+# print(path["cost"])
 
 # Draw final path
-rrt.draw_graph(path)
+# rrt.draw_graph_explore(habitats, path['path'])
+rrt.draw_graph_replan(path)
