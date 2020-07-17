@@ -72,7 +72,7 @@ NUM_OF_SUBSECTIONS_IN_GRID_CELL = 4
 NUM_OF_GRID_CELLS = int(((int(ENV_SIZE) / int(ENV_GRID_CELL_SIDE_LENGTH)) ** 2) * NUM_OF_SUBSECTIONS_IN_GRID_CELL)
 
 # the input size for the neural network
-STATE_SIZE = int(NUM_OF_GRID_CELLS)
+STATE_SIZE = int(NUM_OF_GRID_CELLS * 4)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -117,12 +117,15 @@ def process_state_for_nn(state):
     rrt_grid_tensor = torch.from_numpy(state['rrt_grid_num_of_nodes_only']).float()
     # rrt_grid_tensor = torch.flatten(rrt_grid_tensor)
 
+    rrt_grid_all_info_tensor = torch.from_numpy(state['rrt_grid']).float()
+    rrt_grid_all_info_tensor = torch.flatten(rrt_grid_all_info_tensor)
+
     """habitat_tensor = torch.from_numpy(state['habitats_pos'])
     habitat_tensor = torch.flatten(habitat_tensor)"""
     
     # join tensors together
     # return torch.cat((shark_tensor, rrt_grid_tensor)).float()
-    return rrt_grid_tensor.float()
+    return rrt_grid_all_info_tensor.float()
 
 
 def extract_tensors(experiences):
@@ -191,44 +194,44 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shar
 
     # hard-code random obstacles
     # obstacle # 1
-    obs_x = np.random.uniform(10, 17)
+    obs_x = np.random.uniform(12, 17)
     obs_y = np.random.uniform(34, 41)
-    obs_size = np.random.randint(3,6)
+    obs_size = np.random.randint(4,6)
 
     obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
     # obstacle # 2
     obs_x = np.random.uniform(17, 21)
     obs_y = np.random.uniform(29, 36)
-    obs_size = np.random.randint(3,6)
+    obs_size = np.random.randint(5,7)
 
     obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
     # obstacle # 3
     obs_x = np.random.uniform(20, 25)
     obs_y = np.random.uniform(23, 30)
-    obs_size = np.random.randint(3,6)
+    obs_size = np.random.randint(6,8)
 
     obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
     # obstacle # 4
     obs_x = np.random.uniform(24, 29)
     obs_y = np.random.uniform(19, 25)
-    obs_size = np.random.randint(3,6)
+    obs_size = np.random.randint(4,6)
 
     obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
     # obstacle # 5
     obs_x = np.random.uniform(27, 33)
     obs_y = np.random.uniform(17, 24)
-    obs_size = np.random.randint(3,6)
+    obs_size = np.random.randint(4,6)
 
     obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
     # obstacle # 6
     obs_x = np.random.uniform(32, 36)
     obs_y = np.random.uniform(14, 19)
-    obs_size = np.random.randint(3,6)
+    obs_size = np.random.randint(6,8)
 
     obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
@@ -1372,7 +1375,7 @@ def main():
     dqn = DQN()
    
     dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
-    # dqn.test(1000, MAX_STEP_TEST, live_graph_2D = False)
+    # dqn.test(1000, MAX_STEP_TEST, live_graph_2D = True)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 

@@ -179,7 +179,7 @@ class Planner_RRT:
         step = 0
     
         for _ in range(max_step):
-            print(self.occupied_grid_cells_array)
+
             # pick the row index and col index for the grid cell where the tree will get expanded
             grid_cell_row, grid_cell_col, grid_cell_subsection = random.choice(self.occupied_grid_cells_array)
 
@@ -525,44 +525,44 @@ def main():
 
         # hard-code random obstacles
         # obstacle # 1
-        obs_x = np.random.uniform(10, 17)
+        obs_x = np.random.uniform(12, 17)
         obs_y = np.random.uniform(34, 41)
-        obs_size = np.random.randint(3,6)
+        obs_size = np.random.randint(4,6)
 
         obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
         # obstacle # 2
         obs_x = np.random.uniform(17, 21)
         obs_y = np.random.uniform(29, 36)
-        obs_size = np.random.randint(3,6)
+        obs_size = np.random.randint(5,7)
 
         obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
         # obstacle # 3
         obs_x = np.random.uniform(20, 25)
         obs_y = np.random.uniform(23, 30)
-        obs_size = np.random.randint(3,6)
+        obs_size = np.random.randint(6,8)
 
         obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
         # obstacle # 4
         obs_x = np.random.uniform(24, 29)
         obs_y = np.random.uniform(19, 25)
-        obs_size = np.random.randint(3,6)
+        obs_size = np.random.randint(4,6)
 
         obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
         # obstacle # 5
         obs_x = np.random.uniform(27, 33)
         obs_y = np.random.uniform(17, 24)
-        obs_size = np.random.randint(3,6)
+        obs_size = np.random.randint(4,6)
 
         obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
         # obstacle # 6
         obs_x = np.random.uniform(32, 36)
         obs_y = np.random.uniform(14, 19)
-        obs_size = np.random.randint(3,6)
+        obs_size = np.random.randint(6,8)
 
         obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
@@ -583,21 +583,21 @@ def main():
         shark_min_y = 35.0
         shark_max_y = 45.0
 
-        # auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
-        # shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+        shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
 
-        auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
-        shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
+        # auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
+        # shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
         
-        obstacle_array = [\
-            Motion_plan_state(x=12.0, y=38.0, size=4),\
-            Motion_plan_state(x=17.0, y=34.0, size=5),\
-            Motion_plan_state(x=20.0, y=29.0, size=4),\
-            Motion_plan_state(x=25.0, y=25.0, size=3),\
-            Motion_plan_state(x=29.0, y=20.0, size=4),\
-            Motion_plan_state(x=34.0, y=17.0, size=3),\
-            Motion_plan_state(x=37.0, y=8.0, size=5)\
-        ]
+        # obstacle_array = [\
+        #     Motion_plan_state(x=12.0, y=38.0, size=4),\
+        #     Motion_plan_state(x=17.0, y=34.0, size=5),\
+        #     Motion_plan_state(x=20.0, y=29.0, size=4),\
+        #     Motion_plan_state(x=25.0, y=25.0, size=3),\
+        #     Motion_plan_state(x=29.0, y=20.0, size=4),\
+        #     Motion_plan_state(x=34.0, y=17.0, size=3),\
+        #     Motion_plan_state(x=37.0, y=8.0, size=5)\
+        # ]
 
         print("===============================")
         print("Starting Positions")
