@@ -129,7 +129,7 @@ class RRTEnv(gym.Env):
         self.visited_unique_habitat_count = 0
 
 
-    def init_env(self, auv_init_pos, shark_init_pos, boundary_array, grid_cell_side_length, obstacle_array = [], habitat_grid = None):
+    def init_env(self, auv_init_pos, shark_init_pos, boundary_array, grid_cell_side_length, num_of_subsections, obstacle_array = [], habitat_grid = None):
         """
         Initialize the environment based on the auv and shark's initial position
 
@@ -164,6 +164,7 @@ class RRTEnv(gym.Env):
         self.boundary_array = boundary_array
 
         self.cell_side_length = grid_cell_side_length
+        self.num_of_subsections = num_of_subsections
 
         # declare the observation space (required by OpenAI)
         self.observation_space = spaces.Dict({
@@ -192,11 +193,33 @@ class RRTEnv(gym.Env):
             done - float, whether the episode has ended
             info - dictionary, can provide debugging info (TODO: right now, it's just an empty one)
         """
-        # convert the index for grid cells in the 1D array back to 2D array
-        chosen_grid_cell_row_idx = chosen_grid_cell_idx // len(self.rrt_planner.env_grid[0])
-        chosen_grid_cell_col_idx = chosen_grid_cell_idx % len(self.rrt_planner.env_grid[0])
+        # print("picked unprocessed index")
+        # print(chosen_grid_cell_idx)
 
-        chosen_grid_cell = self.rrt_planner.env_grid[chosen_grid_cell_row_idx][chosen_grid_cell_col_idx]
+        # print("state")
+        # for i in range(len(self.state["rrt_grid"])):
+        #     print(str(i) + " : " + str(self.state["rrt_grid"][i]))
+
+        grid_cell_index = chosen_grid_cell_idx // self.num_of_subsections
+        subsection_index = chosen_grid_cell_idx % self.num_of_subsections
+        
+        # print("grid cell index")
+        # print(grid_cell_index)
+
+        # print("subsection index")
+        # print(subsection_index)
+
+        # convert the index for grid cells in the 1D array back to 2D array
+        chosen_grid_cell_row_idx = grid_cell_index // len(self.rrt_planner.env_grid[0])
+        chosen_grid_cell_col_idx = grid_cell_index % len(self.rrt_planner.env_grid[0])
+
+        # print("row and col")
+        # print(chosen_grid_cell_row_idx)
+        # print(chosen_grid_cell_col_idx)
+
+        # text = input("stop")
+
+        chosen_grid_cell = self.rrt_planner.env_grid[chosen_grid_cell_row_idx][chosen_grid_cell_col_idx].subsection_cells[subsection_index]
 
         done, path = self.rrt_planner.generate_one_node(chosen_grid_cell, step_num)
 
@@ -233,7 +256,8 @@ class RRTEnv(gym.Env):
 
         for row in rrt_grid:
             for grid_cell in row:
-                rrt_grid_1D_array.append([grid_cell.x, grid_cell.y, len(grid_cell.node_list)])
+                for subsection in grid_cell.subsection_cells:
+                    rrt_grid_1D_array.append([grid_cell.x, grid_cell.y, subsection.theta, len(subsection.node_array)])
 
         return np.array(rrt_grid_1D_array)
 
@@ -247,7 +271,8 @@ class RRTEnv(gym.Env):
 
         for row in rrt_grid:
             for grid_cell in row:
-                rrt_grid_1D_array.append(len(grid_cell.node_list))
+                for subsection in grid_cell.subsection_cells:
+                    rrt_grid_1D_array.append(len(subsection.node_array))
 
         return np.array(rrt_grid_1D_array)
 
@@ -261,10 +286,11 @@ class RRTEnv(gym.Env):
 
         for row in rrt_grid:
             for grid_cell in row:
-                if len(grid_cell.node_list) == 0:
-                    has_node_array.append(0)
-                else:
-                    has_node_array.append(1)
+                for subsection in grid_cell.subsection_cells:
+                    if len(subsection.node_array) == 0:
+                        has_node_array.append(0)
+                    else:
+                        has_node_array.append(1)
 
         return np.array(has_node_array)
 
@@ -406,7 +432,7 @@ class RRTEnv(gym.Env):
         shark_init_pos = np.array([self.shark_init_pos.x, self.shark_init_pos.y, self.shark_init_pos.z, self.shark_init_pos.theta])
 
         # initialize the RRT planner
-        self.rrt_planner = Planner_RRT(self.auv_init_pos, self.shark_init_pos, self.boundary_array, self.obstacle_array_for_rendering, self.habitats_array_for_rendering, cell_side_length = self.cell_side_length, freq=RRT_PLANNER_FREQ)
+        self.rrt_planner = Planner_RRT(self.auv_init_pos, self.shark_init_pos, self.boundary_array, self.obstacle_array_for_rendering, self.habitats_array_for_rendering, cell_side_length = self.cell_side_length, freq=RRT_PLANNER_FREQ, subsections_in_cell = self.num_of_subsections)
 
         rrt_grid_1D_array = self.convert_rrt_grid_to_1D(self.rrt_planner.env_grid)
         rrt_grid_1D_array_num_of_nodes_only = self.convert_rrt_grid_to_1D_num_of_nodes_only(self.rrt_planner.env_grid)

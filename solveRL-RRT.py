@@ -35,7 +35,7 @@ DIST = 20.0
 NUM_OF_EPISODES = 1000
 MAX_STEP = 300
 
-NUM_OF_EPISODES_TEST =  250
+NUM_OF_EPISODES_TEST =  50
 MAX_STEP_TEST = 300
 
 N_V = 7
@@ -66,11 +66,13 @@ ENV_GRID_CELL_SIDE_LENGTH = 5.0
 
 R_USEFUL_STATE = 10
 
+NUM_OF_SUBSECTIONS_IN_GRID_CELL = 4
+
 # the output size for the neural network
-NUM_OF_GRID_CELLS = int((int(ENV_SIZE) / int(ENV_GRID_CELL_SIDE_LENGTH)) ** 2)
+NUM_OF_GRID_CELLS = int(((int(ENV_SIZE) / int(ENV_GRID_CELL_SIDE_LENGTH)) ** 2) * NUM_OF_SUBSECTIONS_IN_GRID_CELL)
 
 # the input size for the neural network
-STATE_SIZE = int(4 + NUM_OF_GRID_CELLS)
+STATE_SIZE = int(NUM_OF_GRID_CELLS)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -85,7 +87,7 @@ FILTER_IN_UPDATING_NN = True
 
 DEBUG = False
 
-RAND_PICK = True
+RAND_PICK = False
 RAND_PICK_RATE = 0.75
 
 # to limit the terminal output for training over high computing resources
@@ -119,8 +121,8 @@ def process_state_for_nn(state):
     habitat_tensor = torch.flatten(habitat_tensor)"""
     
     # join tensors together
-    return torch.cat((shark_tensor, rrt_grid_tensor)).float()
-    # return rrt_grid_tensor.float()
+    # return torch.cat((shark_tensor, rrt_grid_tensor)).float()
+    return rrt_grid_tensor.float()
 
 
 def extract_tensors(experiences):
@@ -587,7 +589,7 @@ class AuvEnvManager():
         if DEBUG:
             text = input("stop")
 
-        return self.env.init_env(auv_init_pos, shark_init_pos, boundary_array = boundary_array, grid_cell_side_length = ENV_GRID_CELL_SIDE_LENGTH, obstacle_array = obstacle_array)
+        return self.env.init_env(auv_init_pos, shark_init_pos, boundary_array = boundary_array, grid_cell_side_length = ENV_GRID_CELL_SIDE_LENGTH, obstacle_array = obstacle_array, num_of_subsections=NUM_OF_SUBSECTIONS_IN_GRID_CELL)
 
 
     def reset(self):
@@ -838,6 +840,28 @@ class DQN():
             bad_choices_array.append(result["bad_choices"])
             bad_choices_over_total_choices_array.append(result["bad_choices_over_total_choices"])
 
+        # print out the result so that we can save for later
+        print("episode tested")
+        print(episode_array)
+
+        # for plot #1 
+        print("total reward array")
+        print(avg_total_reward_array)
+        print("average episode duration")
+        print(avg_episode_duration_array)
+
+        # for plot #2
+        print("success")
+        print(success_rate_array)
+        print(success_rate_array_norm)
+
+        # for plot #2
+        print("choice")
+        print(bad_choices_array)
+        print(bad_choices_over_total_choices_array)
+
+        text = input("stop")
+
         if PLOT_INTERMEDIATE_TESTING:
             # begin plotting the graph
             # plot #1: 
@@ -875,31 +899,6 @@ class DQN():
 
             self.plot_summary_graph(episode_array, bad_choices_array, upper_plot_ylabel, upper_plot_title, \
                 bad_choices_over_total_choices_array, lower_plot_ylabel, lower_plot_title)
-
-        
-        # print out the result so that we can save for later
-        print("episode tested")
-        print(episode_array)
-        text = input("stop")
-
-        # for plot #1 
-        print("total reward array")
-        print(avg_total_reward_array)
-        print("average episode duration")
-        print(avg_episode_duration_array)
-        text = input("stop")
-
-        # for plot #2
-        print("success")
-        print(success_rate_array)
-        print(success_rate_array_norm)
-        text = input("stop")
-
-        # for plot #2
-        print("choice")
-        print(bad_choices_array)
-        print(bad_choices_over_total_choices_array)
-        text = input("stop")
 
 
     def extract_useful_states(self, path):
@@ -1372,8 +1371,8 @@ class DQN():
 def main():
     dqn = DQN()
    
-    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
-    dqn.test(1000, MAX_STEP_TEST, live_graph_2D = False)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
+    # dqn.test(1000, MAX_STEP_TEST, live_graph_2D = False)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 

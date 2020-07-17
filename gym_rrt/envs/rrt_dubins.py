@@ -9,8 +9,8 @@ import matplotlib.path as mpath
 import matplotlib.patches as mpatches
 from matplotlib.patches import Rectangle
 import numpy as np
-from shapely.wkt import loads as load_wkt 
-from shapely.geometry import Polygon, Point
+# from shapely.wkt import loads as load_wkt 
+# from shapely.geometry import Polygon, Point
 
 from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
 from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
@@ -31,7 +31,7 @@ class Planner_RRT:
     """
     Class for RRT planning
     """
-    def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 50, cell_side_length = 2):
+    def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 50, cell_side_length = 2, subsections_in_cell = 8):
         '''
         Parameters:
             start - initial Motion_plan_state of AUV, [x, y, z, theta, v, w, time_stamp]
@@ -45,9 +45,10 @@ class Planner_RRT:
 
         self.boundary_point = boundary
         self.cell_side_length = cell_side_length
+        self.subsections_in_cell = subsections_in_cell
 
         # discretize the environment into grids
-        self.discretize_env(self.cell_side_length)
+        self.discretize_env(self.cell_side_length, self.subsections_in_cell)
         
         self.occupied_grid_cells_array = []
 
@@ -60,7 +61,6 @@ class Planner_RRT:
         
         # a list of motion_plan_state
         self.mps_list = [self.start]
-        self.time_bin = {}
 
         # if minimum path length is not achieved within maximum iteration, return the latest path
         self.last_path = []
@@ -74,7 +74,7 @@ class Planner_RRT:
         self.t_start = time.time()
 
 
-    def discretize_env(self, cell_side_length):
+    def discretize_env(self, cell_side_length, subsections_in_cell):
         """
         Separate the environment into grid
         """
@@ -90,7 +90,7 @@ class Planner_RRT:
             for col in range(int(env_width) // int(cell_side_length)):
                 env_cell_x = env_btm_left_corner.x + col * cell_side_length
                 env_cell_y = env_btm_left_corner.y + row * cell_side_length
-                self.env_grid[row].append(Grid_cell_RRT(env_cell_x, env_cell_y, side_length = cell_side_length))
+                self.env_grid[row].append(Grid_cell_RRT(env_cell_x, env_cell_y, side_length = cell_side_length, num_of_subsections=subsections_in_cell))
 
 
     def print_env_grid(self):
@@ -111,6 +111,7 @@ class Planner_RRT:
         Parameter:
             mps - a motion plan state object, represent the RRT node that we are trying add to the grid
         """
+        # from the x and y position, we can figure out which grid cell does the new node belong to
         hab_index_row = int(mps.y / self.cell_side_length)
         hab_index_col = int(mps.x / self.cell_side_length)
 
@@ -122,11 +123,40 @@ class Planner_RRT:
             print("auv is out of the habitat environment bound horizontally")
             return
 
-        self.env_grid[hab_index_row][hab_index_col].node_list.append(mps)
+        # then, we need to figure out which subsection dooes the new node belong to
+        raw_hab_index_subsection = mps.theta / self.env_grid[hab_index_row][hab_index_col].delta_theta
+
+        # round down the index to an integer
+        hab_index_subsection = math.floor(raw_hab_index_subsection)
+
+        # if index >= 0, then it has already found the right subsection
+        # however, if index < 0, we have to do an extra step to find the right index
+        if hab_index_subsection < 0:
+            hab_index_subsection = int(self.subsections_in_cell + hab_index_subsection)
+
+        if hab_index_subsection == self.subsections_in_cell:
+            print("why invalid subsection ;-;")
+            print(mps)
+            print("found roow and col")
+            print(hab_index_col)
+            print(hab_index_col)
+            print("all cells")
+            print(self.env_grid[hab_index_row][hab_index_col])
+            print("subsections")
+            print(self.env_grid[hab_index_row][hab_index_col].subsection_cells)
+            print("raw")
+            print(raw_hab_index_subsection)
+            print("found index")
+            print(hab_index_subsection)
+            text = input("stop")
+
+            hab_index_subsection -= 1
+
+        self.env_grid[hab_index_row][hab_index_col].subsection_cells[hab_index_subsection].node_array.append(mps)
 
         # add the grid cell into the occupied grid cell array if it hasn't been added
-        if len(self.env_grid[hab_index_row][hab_index_col].node_list) == 1:
-            self.occupied_grid_cells_array.append((hab_index_row, hab_index_col))
+        if len(self.env_grid[hab_index_row][hab_index_col].subsection_cells[hab_index_subsection].node_array) == 1:
+            self.occupied_grid_cells_array.append((hab_index_row, hab_index_col, hab_index_subsection))
 
 
     def planning(self, max_step = 200, min_length = 250, plan_time=True):
@@ -149,16 +179,17 @@ class Planner_RRT:
         step = 0
     
         for _ in range(max_step):
-
+            print(self.occupied_grid_cells_array)
             # pick the row index and col index for the grid cell where the tree will get expanded
-            grid_cell_row, grid_cell_col = random.choice(self.occupied_grid_cells_array)
+            grid_cell_row, grid_cell_col, grid_cell_subsection = random.choice(self.occupied_grid_cells_array)
 
-            done, path = self.generate_one_node(self.env_grid[grid_cell_row][grid_cell_col])
+            done, path = self.generate_one_node(self.env_grid[grid_cell_row][grid_cell_col].subsection_cells[grid_cell_subsection])
 
             # if (not done) and path != None:
             #     self.draw_graph(path)
             # elif done:
             #     plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
+
             step += 1
 
             if done:
@@ -176,16 +207,16 @@ class Planner_RRT:
             path - the collision-free path if there is one, otherwise it's null
             new_node
         """
-        if grid_cell.node_list == []:
+        if grid_cell.node_array == []:
             print("hmmmm invalid grid cell pick")     
             print(grid_cell)
             print("node list")
-            print(grid_cell.node_list)
+            print(grid_cell.node_array)
             text = input("stop")
             return False, None
-        
+
         # randomly pick a node from the grid cell   
-        rand_node = random.choice(grid_cell.node_list)
+        rand_node = random.choice(grid_cell.node_array)
 
         new_node = self.steer(rand_node, self.dist_to_end, self.diff_max, self.freq, step_num=step_num)
 
@@ -237,7 +268,7 @@ class Planner_RRT:
                 phi = (s1 + s2)/ (2 * radius)
                 
                 ori_theta = new_mps.theta
-                new_mps.theta += phi
+                new_mps.theta = self.angle_wrap(new_mps.theta + phi)
                 delta_x = radius * (math.sin(new_mps.theta) - math.sin(ori_theta))
                 delta_y = radius * (-math.cos(new_mps.theta) + math.cos(ori_theta))
                 new_mps.x += delta_x
@@ -315,7 +346,8 @@ class Planner_RRT:
         if rnd != None:
             # self.ax.plot(rnd.x, rnd.y, ",", color="#000000")
 
-            self.ax.plot([point.x for point in rnd.path], [point.y for point in rnd.path], '-', color="#000000")
+            plt.plot([point.x for point in rnd.path], [point.y for point in rnd.path], '-', color="#000000")
+            plt.plot(rnd.x, rnd.y, 'o', color="#000000")
         else:
             for mps in self.mps_list:
                 if mps.parent:
@@ -487,6 +519,7 @@ def main():
 
     step_array = []
     success_count = 0
+
     for _ in range(1000):
         obstacle_array = []
 
@@ -550,11 +583,11 @@ def main():
         shark_min_y = 35.0
         shark_max_y = 45.0
 
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
-        shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+        # auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+        # shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
 
-        # auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
-        # shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
+        auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
+        shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
         
         obstacle_array = [\
             Motion_plan_state(x=12.0, y=38.0, size=4),\
@@ -574,18 +607,15 @@ def main():
         print(obstacle_array)
         print("===============================")
 
-        rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=10, cell_side_length=5)
+        rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=10, cell_side_length=5, subsections_in_cell = 4)
+        
         path, step = rrt.planning(max_step=300)
         if path != [] and type(path) == list:
             success_count += 1
         step_array.append(step)
 
-    print(step_array)
-    print(np.mean(step_array))
-    print("success")
-    print(success_count)
-    text = input("stop")
-
+    rrt.init_live_graph()
+    
     if path != [] and type(path) == list:
         rrt.draw_graph()
         plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
@@ -593,7 +623,13 @@ def main():
         print("Failed to find path")
         rrt.draw_graph()
 
-    plt.show()
+    plt.draw()
+
+    print(step_array)
+    print(np.mean(step_array))
+    print("success")
+    print(success_count)
+    text = input("stop")
         
 
 
