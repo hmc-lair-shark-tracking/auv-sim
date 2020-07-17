@@ -119,17 +119,11 @@ class Particle:
 class ParticleFilter:
     # 2 sets of initial data- shark's initial position and velocity, and position of AUV 
     # output- estimates the sharks position and velocity
-    def __init__(self, init_x_shark, init_y_shark, init_theta, init_x_auv_1, init_y_auv_1, init_x_auv_2, init_y_auv_2, init_theta_2):
+    def __init__(self, init_x_shark, init_y_shark, init_auv_list):
         "how you create an object out of the particle Filter class i.e. "
         self.x_shark = init_x_shark
         self.y_shark = init_y_shark
-        self.theta = init_theta
-        self.x_auv = init_x_auv_1
-        self.y_auv = init_y_auv_1
-        self.x_auv_2 = init_x_auv_2
-        self.y_auv_2 = init_y_auv_2
-        self.theta_2 = init_theta_2
-
+        self.auv_list = init_auv_list
     def update_auv(self, dt):
         #v_x_shark = random.uniform(-5, 5)
         #v_y_shark = random.uniform(-5, 5)
@@ -360,14 +354,13 @@ class ParticleFilter:
         #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
 
     def update_weights(self,particles, list_of_range_bearing):
-        #print("auv range and alpha", auv_alpha, auv_range)
         final_list_of_weights = []
         #print("len of list_of_range_bearing ")
         #print(len(list_of_range_bearing))
         for i in range(len(list_of_range_bearing)):
-            for particle in particles: 
-                particleAlpha = particle.calc_particle_alpha(self.x_auv, self.y_auv, self.theta)
-                particleRange = particle.calc_particle_range(self.x_auv, self.y_auv)
+            for particle in particles:
+                particleAlpha = particle.calc_particle_alpha(self.auv_list[i].state.x, self.auv_list[i].state.y, self.auv_list[i].state.theta)
+                particleRange = particle.calc_particle_range(self.auv_list[i].state.x, self.auv_list[i].state.y)
                 particle.weight(list_of_range_bearing[i].bearing, particleAlpha, list_of_range_bearing[i].range, particleRange)
                 #print("weight: ", particle.weight_p)
             list_of_weights = []
@@ -392,5 +385,4 @@ class ParticleFilter:
         for x in range(0, NUMBER_OF_PARTICLES):
                 new_particle = Particle(self.x_shark, self.y_shark)
                 particles.append(new_particle)
-        print(particles)
         return particles
