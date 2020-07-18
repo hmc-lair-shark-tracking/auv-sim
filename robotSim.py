@@ -670,19 +670,18 @@ class RobotSim:
                     auv_sensor_data = self.auv_dict[auv].get_auv_sensor_measurements(self.curr_time)
                     measurement_dict_list.append(test_auv.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data))
                     # updates the particleFitlers's auv x and y 
-                    test_auv.state.x = auv_list[auv_index].state.x
-                    test_auv.state.y = auv_list[auv_index].state.y
-                    test_auv.state.theta = auv_list[auv_index].state.theta
+                    auv_list[auv_index].state.x = test_auv.state.x 
+                    auv_list[auv_index].state.y = test_auv.state.y 
+                    auv_list[auv_index].state.theta = test_auv.state.theta
                 #print("measurement_dict_list", measurement_dict_list)
                 final_measurement_dict_list = []
                 # this makes sure that the particleFitler is only getting range and bearing information from the first shark
                 for measurement in measurement_dict_list:
                     final_measurement_dict_list.append(measurement[0])
-                print("len of final dict list")
-                print((final_measurement_dict_list))
                 # update particleFilter shark's x and y positions
                 for measurement in final_measurement_dict_list:
                     measurement.x = test_particle.x_shark
+                    print("x shark", test_particle.x_shark)
                     measurement.y =  test_particle.y_shark
                     
                 particles = test_particle.update_weights(particles,final_measurement_dict_list)
@@ -821,11 +820,11 @@ def main():
     shark_state_dict = test_robot.get_all_sharks_state()
     # create a dictionary of all the particleFilters
     shark_state = shark_state_dict[1]
-    auv_state = [test_robot.auv_dict[1],test_robot.auv_dict[2]]
+    auv_state = [test_robot.auv_dict[1], test_robot.auv_dict[2]]
     #list of auv objects 
     test_robot.filter_dict[0] = ParticleFilter(shark_state.x, shark_state.y, auv_state)
+    
     test_robot.main_navigation_loop()
-    #test_robot.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1,2])
 
     # test_robot.display_auv_trajectory()
     

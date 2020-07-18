@@ -123,7 +123,7 @@ class Auv:
         delta_x = x_shark - self.state.x
         delta_y = y_shark - self.state.y 
         bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
-        Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) + bearing_random)
+        Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) - self.state.theta + bearing_random)
         return Z_shark_bearing
 
     def get_all_sharks_sensor_measurements(self, shark_state_dict, auv_sensor_data):
@@ -144,11 +144,10 @@ class Auv:
         #   we need 20 iterations to return a new set of sensor data
         if self.sensor_time == const.NUM_ITER_FOR_NEW_SENSOR_DATA:
             self.shark_sensor_data_list = []
+            print(" len of shark_state_dict", len(shark_state_dict))
             # iterate through all the sharks that we are tracking
             for shark_id in shark_state_dict: 
                 shark_data = shark_state_dict[shark_id]
-                print("shark_data.x", shark_data.x)
-                print("shark_id", shark_id)
                 delta_x = shark_data.x - self.state.x
                 delta_y = shark_data.y - self.state.y
 
@@ -156,8 +155,8 @@ class Auv:
                 bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
 
                 Z_shark_range = math.sqrt(delta_x**2 + delta_y**2) + range_random
-                Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) + bearing_random)
-
+                Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) - self.state.theta + bearing_random)
+                # updates new x, y here 
                 self.shark_sensor_data_list.append(SharkState(shark_data.x, shark_data.y, Z_shark_range, Z_shark_bearing,  shark_id))
             
             # reset the 2 sec time counter

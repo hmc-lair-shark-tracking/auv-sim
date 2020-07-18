@@ -60,7 +60,6 @@ class Particle:
                     generally set to .1, but it should be whatever the "time.sleep" is set to in the main loop
 
             """
-
             #random_v and random_theta are values to be added to the velocity and theta for randomization
             RANDOM_VELOCITY = 5
             RANDOM_THETA = math.pi/2
@@ -86,7 +85,7 @@ class Particle:
             """
                 calculates the range from the particle to the auv
             """
-            particleRange_squared = (y_auv - self.y_p)**2 + (x_auv - self.x_p)**2
+            particleRange_squared = math.sqrt((y_auv - self.y_p)**2 + (x_auv - self.x_p)**2)
             return particleRange_squared
 
         def weight(self, auv_alpha, particleAlpha, auv_range, particleRange):
@@ -124,23 +123,6 @@ class ParticleFilter:
         self.x_shark = init_x_shark
         self.y_shark = init_y_shark
         self.auv_list = init_auv_list
-    def update_auv(self, dt):
-        #v_x_shark = random.uniform(-5, 5)
-        #v_y_shark = random.uniform(-5, 5)
-        v_x_auv = 1
-        v_y_auv = 0
-        self.x_auv = self.x_auv + (v_x_auv * dt)
-        self.y_auv = self.y_auv + (v_y_auv * dt)
-        return [self.x_auv, self.y_auv]
-    
-    def update_auv_2(self, dt):
-        #v_x_shark = random.uniform(-5, 5)
-        #v_y_shark = random.uniform(-5, 5)
-        v_x_auv = 1
-        v_y_auv = 0
-        self.x_auv_2 = self.x_auv_2 + (v_x_auv * dt)
-        self.y_auv_2 = self.y_auv_2 + (v_y_auv * dt)
-        return [self.x_auv_2, self.y_auv_2]
 
     def updateShark(self, dt):
         #v_x_shark = random.uniform(-5, 5)
@@ -150,38 +132,7 @@ class ParticleFilter:
         self.x_shark = self.x_shark + (v_x_shark * dt)
         self.y_shark = self.y_shark + (v_y_shark * dt)
         return [self.x_shark, self.y_shark]
-    def auv_to_alpha(self):
-        #calculates auv's alpha from the shark
-        list_of_real_alpha = []
-        real_alpha = angle_wrap(math.atan2((-self.y_auv + self.y_shark), (self.x_shark- self.x_auv)) - self.theta)
-        #real_alpha_2 = angle_wrap(math.atan2((-self.y_auv_2 + self.y_shark), (self.x_shark- self.x_auv_2)) - self.theta_2)
-        list_of_real_alpha.append(real_alpha)
-        list_of_real_alpha.append(-real_alpha)
-        return list_of_real_alpha
-    
-    def auv_to_alpha_2(self):
-        #calculates auv's alpha from the shark
-        list_of_real_alpha = []
-        real_alpha_2 = angle_wrap(math.atan2((-self.y_auv_2 + self.y_shark), (self.x_shark- self.x_auv_2)) - self.theta_2)
-        list_of_real_alpha.append(real_alpha_2)
-        list_of_real_alpha.append(-real_alpha_2)
-        return list_of_real_alpha
 
-    def range_auv(self):
-        range = []
-        range_value = (float(self.y_auv)- self.y_shark)**2 + (float(self.x_auv)-float(self.x_shark))**2
-        #print("range of auv is")
-        #print(range)
-        return range_value
-    
-    def range_auv_2(self):
-        range = []
-        range_value = (float(self.y_auv_2)- self.y_shark)**2 + (float(self.x_auv_2)-float(self.x_shark))**2
-        range.append(range_value)
-        #print("range of auv is")
-        #print(range)
-        return range_value
-        
     def normalize(self, weights_list):
         newlist = []
         final_list_of_weights = []
@@ -337,12 +288,6 @@ class ParticleFilter:
             if count == 560:
                 initial_time = sim_time
                 list_of_answers.append(sim_time)
-            """
-            elif count == 0:
-                difference = sim_time - initial_time
-                if difference >= 1:
-                    list_of_answers.append(sim_time)
-            """
             return list_of_answers
 
     def create_and_update(self, particles):
@@ -358,6 +303,7 @@ class ParticleFilter:
         #print("len of list_of_range_bearing ")
         #print(len(list_of_range_bearing))
         for i in range(len(list_of_range_bearing)):
+        
             for particle in particles:
                 particleAlpha = particle.calc_particle_alpha(self.auv_list[i].state.x, self.auv_list[i].state.y, self.auv_list[i].state.theta)
                 particleRange = particle.calc_particle_range(self.auv_list[i].state.x, self.auv_list[i].state.y)
