@@ -177,6 +177,8 @@ class Planner_RRT:
         # self.init_live_graph()
 
         step = 0
+
+        start_time = time.time()
     
         for _ in range(max_step):
 
@@ -194,8 +196,10 @@ class Planner_RRT:
 
             if done:
                 break
+        
+        actual_time_duration = time.time() - start_time
 
-        return path, step
+        return path, step, actual_time_duration
 
 
     def generate_one_node(self, grid_cell, step_num = None, min_length=250):
@@ -520,6 +524,9 @@ def main():
     step_array = []
     success_count = 0
 
+    path_length_array = []
+    actual_time_duration_array = []
+
     for _ in range(1000):
         obstacle_array = []
 
@@ -583,21 +590,21 @@ def main():
         shark_min_y = 35.0
         shark_max_y = 45.0
 
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
-        shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+        # auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+        # shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
 
-        # auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
-        # shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
+        auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
+        shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
         
-        # obstacle_array = [\
-        #     Motion_plan_state(x=12.0, y=38.0, size=4),\
-        #     Motion_plan_state(x=17.0, y=34.0, size=5),\
-        #     Motion_plan_state(x=20.0, y=29.0, size=4),\
-        #     Motion_plan_state(x=25.0, y=25.0, size=3),\
-        #     Motion_plan_state(x=29.0, y=20.0, size=4),\
-        #     Motion_plan_state(x=34.0, y=17.0, size=3),\
-        #     Motion_plan_state(x=37.0, y=8.0, size=5)\
-        # ]
+        obstacle_array = [\
+            Motion_plan_state(x=12.0, y=38.0, size=4),\
+            Motion_plan_state(x=17.0, y=34.0, size=5),\
+            Motion_plan_state(x=20.0, y=29.0, size=4),\
+            Motion_plan_state(x=25.0, y=25.0, size=3),\
+            Motion_plan_state(x=29.0, y=20.0, size=4),\
+            Motion_plan_state(x=34.0, y=17.0, size=3),\
+            Motion_plan_state(x=37.0, y=8.0, size=5)\
+        ]
 
         print("===============================")
         print("Starting Positions")
@@ -607,12 +614,17 @@ def main():
         print(obstacle_array)
         print("===============================")
 
-        rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=10, cell_side_length=5, subsections_in_cell = 4)
+        rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=10, cell_side_length=5, subsections_in_cell = 8)
         
-        path, step = rrt.planning(max_step=300)
+        path, step, actual_time_duration = rrt.planning(max_step=300)
+
         if path != [] and type(path) == list:
             success_count += 1
+            path_len = rrt.cal_length(path)
+            path_length_array.append(path_len)
+
         step_array.append(step)
+        actual_time_duration_array.append(actual_time_duration)
 
     rrt.init_live_graph()
     
@@ -629,7 +641,10 @@ def main():
     print(np.mean(step_array))
     print("success")
     print(success_count)
-    text = input("stop")
+    print("average path length")
+    print(np.mean(path_length_array))
+    print("actual time")
+    print(np.mean(actual_time_duration_array))
         
 
 

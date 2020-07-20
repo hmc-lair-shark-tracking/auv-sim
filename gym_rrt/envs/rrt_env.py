@@ -39,6 +39,7 @@ WALL_ZONE = 10.0
 R_FOUND_PATH = 300
 R_CREATE_NODE = 0
 R_INVALID_NODE = -1
+R_NO_PATH = -500
 
 # size of the observation space
 # the coordinates of the observation space will be based on 
@@ -179,12 +180,16 @@ class RRTEnv(gym.Env):
         
         return self.reset()
 
-    def step(self, chosen_grid_cell_idx, step_num):
+    def step(self, chosen_grid_cell_idx, step_num, max_step):
         """
         In each step, we will generate an additional node in the RRT tree.
 
         Parameter:
-            action - a tuple, representing the linear velocity and angular velocity of the auv
+            chosen_grid_cell_idx - int, an index to the 1D version of the grid cell
+                needs to be converted from 1D to 2D arrays
+            step_num - int, indicate which steps it is in the episode
+            max_step - int, maximum number of steps in an epsiode
+                allows us to determine which step is the final step
 
         Return:
             observation - a tuple of 2 np array, representing the auv and shark's new position
@@ -233,7 +238,27 @@ class RRTEnv(gym.Env):
         if path != None:
             self.state["path"] = path
 
-        # if the RRT planner has found a path in this step
+        # if done and path != None:
+        #     # if the RRT planner has found a path in this step
+        #     path_len = self.rrt_planner.cal_length(path)
+        #     # print("---")
+        #     # print("path length")
+        #     # print(path_len)
+        #     # text = input("stop")
+        #     reward = -path_len
+        # elif (step_num == max_step - 1) and (not done):
+        #     # if the RRT planner does not find any path in this episode
+        #     # print("---")
+        #     # print("no path found")
+        #     # text = input("stop")
+        #     reward = R_NO_PATH
+        # elif path != None:
+        #     # if the RRT planner adds a new node
+        #     reward = R_CREATE_NODE
+        # else:
+        #     # TODO: For now, the reward encourages using less time to plan the path
+        #     reward = R_INVALID_NODE
+
         if done and path != None:
             reward = R_FOUND_PATH
         elif path != None:

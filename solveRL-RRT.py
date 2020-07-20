@@ -66,13 +66,13 @@ ENV_GRID_CELL_SIDE_LENGTH = 5.0
 
 R_USEFUL_STATE = 10
 
-NUM_OF_SUBSECTIONS_IN_GRID_CELL = 4
+NUM_OF_SUBSECTIONS_IN_GRID_CELL = 1
 
 # the output size for the neural network
 NUM_OF_GRID_CELLS = int(((int(ENV_SIZE) / int(ENV_GRID_CELL_SIDE_LENGTH)) ** 2) * NUM_OF_SUBSECTIONS_IN_GRID_CELL)
 
 # the input size for the neural network
-STATE_SIZE = int(NUM_OF_GRID_CELLS * 4)
+STATE_SIZE = int(NUM_OF_GRID_CELLS)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -89,6 +89,8 @@ DEBUG = False
 
 RAND_PICK = False
 RAND_PICK_RATE = 0.75
+
+USE_MEMO_IN_TESTING = True
 
 # to limit the terminal output for training over high computing resources
 PLOT_INTERMEDIATE_TESTING = True
@@ -124,8 +126,8 @@ def process_state_for_nn(state):
     habitat_tensor = torch.flatten(habitat_tensor)"""
     
     # join tensors together
-    # return torch.cat((shark_tensor, rrt_grid_tensor)).float()
-    return rrt_grid_all_info_tensor.float()
+    # return torch.cat((auv_tensor, shark_tensor, obstacle_tensor, rrt_grid_tensor)).float()
+    return rrt_grid_tensor.float()
 
 
 def extract_tensors(experiences):
@@ -623,7 +625,7 @@ class AuvEnvManager():
             self.env.live_graph.ax_2D.clear()
 
 
-    def take_action(self, chosen_grid_cell_index, step_num):
+    def take_action(self, chosen_grid_cell_index, step_num, max_step):
         """
         Parameter: 
             action - tensor of the format: tensor([v_index, w_index])
@@ -634,7 +636,7 @@ class AuvEnvManager():
         chosen_grid_cell_index = chosen_grid_cell_index.item()
         # we only care about the reward and whether or not the episode has ended
         # action is a tensor, so item() returns the value of a tensor (which is just a number)
-        self.current_state, reward, self.done, _ = self.env.step(chosen_grid_cell_index, step_num)
+        self.current_state, reward, self.done, _ = self.env.step(chosen_grid_cell_index, step_num, max_step)
 
         if DEBUG:
             print("=========================")
@@ -829,6 +831,9 @@ class DQN():
         bad_choices_array = []
         bad_choices_over_total_choices_array = []
 
+        # for plot #4
+        path_length_array = []
+
         # generate array of data so it's easy to plot
         for result in result_array:
             # for plot #1 
@@ -842,6 +847,9 @@ class DQN():
             # for plot #3
             bad_choices_array.append(result["bad_choices"])
             bad_choices_over_total_choices_array.append(result["bad_choices_over_total_choices"])
+
+            # for plot #4
+            path_length_array.append(result["avg_path_len"])
 
         # print out the result so that we can save for later
         print("episode tested")
@@ -858,10 +866,14 @@ class DQN():
         print(success_rate_array)
         print(success_rate_array_norm)
 
-        # for plot #2
+        # for plot #3
         print("choice")
         print(bad_choices_array)
         print(bad_choices_over_total_choices_array)
+
+        # for plot #4
+        print("path length")
+        print(path_length_array)
 
         text = input("stop")
 
@@ -1103,7 +1115,7 @@ class DQN():
 
                 action_array.append(chosen_grid_cell_index)
 
-                score = self.em.take_action(chosen_grid_cell_index, t)
+                score = self.em.take_action(chosen_grid_cell_index, t, max_step)
                 eps_reward += score.item()
                 reward_array.append(score)
 
@@ -1225,12 +1237,16 @@ class DQN():
         bad_choices_array = []
         bad_choices_over_total_choices_array = []
 
+        path_length_array = []
+
+        episode_actual_time_durations = []
+
         success_count = 0
 
         self.load_trained_network()
         self.policy_net.eval()
         
-        for eps in range(num_episodes):
+        for eps in range(0, num_episodes):
             # initialize the starting point of the shark and the auv randomly
             # receive initial observation state s1 
             state = self.em.init_env_randomly()
@@ -1245,10 +1261,12 @@ class DQN():
             if live_graph_2D:
                 self.em.env.init_live_graph(live_graph_2D = live_graph_2D)
 
+            start_time = time.time()
+
             for t in range(1, max_step):
                 chosen_grid_cell_index = self.agent.select_action(state, self.policy_net)
 
-                reward = self.em.take_action(chosen_grid_cell_index, t)
+                reward = self.em.take_action(chosen_grid_cell_index, t, max_step)
 
                 eps_reward += reward.item()
 
@@ -1259,9 +1277,17 @@ class DQN():
                 if self.em.done:
                     # because the only way for an episode to terminate is when an rrt path is found
                     success_count += 1
+
+                    path_len = self.em.env.rrt_planner.cal_length(state["path"])
+
+                    path_length_array.append(path_len)
+
                     episode_durations[eps] = t
                     break
             
+            actual_time_duration = time.time() - start_time
+            episode_actual_time_durations.append(actual_time_duration)
+
             if live_graph_2D:
                 self.em.reset_render_graph(live_graph_2D = live_graph_2D)
             
@@ -1274,24 +1300,24 @@ class DQN():
 
         self.em.close()
 
-        print("final sums of time")
-        print(episode_durations)
         print("average time")
         print(np.mean(episode_durations))
         print("-----------------")
 
-        text = input("stop")
-
-        print("total reward")
-        print(total_reward_array)
-        print("average total reward")
-        print(np.mean(total_reward_array))
-        print("-----------------")
-
-        text = input("stop")
+        # print("total reward")
+        # print(total_reward_array)
+        # print("average total reward")
+        # print(np.mean(total_reward_array))
+        # print("-----------------")
 
         print("success count")
         print(success_count)
+        
+        print("path length")
+        print(np.mean(path_length_array))
+
+        print("actual time duration")
+        print(np.mean(episode_actual_time_durations))
 
 
 
@@ -1302,6 +1328,8 @@ class DQN():
 
         bad_choices_array = []
         bad_choices_over_total_choices_array = []
+
+        path_length_array = []
 
         success_count = 0
 
@@ -1323,7 +1351,7 @@ class DQN():
             for t in range(1, max_step):
                 chosen_grid_cell_index = self.agent.select_action(state, self.policy_net, testing = True)
 
-                reward = self.em.take_action(chosen_grid_cell_index, t)
+                reward = self.em.take_action(chosen_grid_cell_index, t, max_step)
 
                 eps_reward += reward.item()
 
@@ -1332,6 +1360,11 @@ class DQN():
                 if self.em.done:
                     # because the only way for an episode to terminate is when an rrt path is found
                     success_count += 1
+
+                    path_len = self.em.env.rrt_planner.cal_length(state["path"])
+
+                    path_length_array.append(path_len)
+
                     episode_durations[eps] = t
                     break
 
@@ -1365,7 +1398,8 @@ class DQN():
             "success_rate": success_rate,
             "success_rate_norm": success_rate_normalized,
             "bad_choices": np.mean(bad_choices_array),
-            "bad_choices_over_total_choices": np.mean(bad_choices_over_total_choices_array)
+            "bad_choices_over_total_choices": np.mean(bad_choices_over_total_choices_array),
+            "avg_path_len": np.mean(path_length_array)
         }
 
         return result
@@ -1374,8 +1408,8 @@ class DQN():
 def main():
     dqn = DQN()
    
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
-    # dqn.test(1000, MAX_STEP_TEST, live_graph_2D = True)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
+    dqn.test(1000, MAX_STEP_TEST, live_graph_2D = False)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 
