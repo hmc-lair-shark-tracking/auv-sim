@@ -178,7 +178,6 @@ class ParticleFilter:
         return xy_mean
 
     def meanError(self, x_mean, y_mean):
-        
         x_difference = x_mean - self.x_shark
         y_difference = y_mean - self.y_shark
         range_error = math.sqrt((x_difference**2) + (y_difference **2))
@@ -305,6 +304,7 @@ class ParticleFilter:
         #print(len(list_of_range_bearing))
         for i in range(len(list_of_range_bearing)):
             print("particleFilter", i, "x", self.auv_list[i].state.x)
+            
             for particle in particles:
                 particleAlpha = particle.calc_particle_alpha(self.auv_list[i].state.x, self.auv_list[i].state.y, self.auv_list[i].state.theta)
                 particleRange = particle.calc_particle_range(self.auv_list[i].state.x, self.auv_list[i].state.y)

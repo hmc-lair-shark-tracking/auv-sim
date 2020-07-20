@@ -671,14 +671,15 @@ class RobotSim:
                     print("auv", auv_index, "x",auv_list[auv_index].state.x)
                     auv_list[auv_index].state.y = test_auv.state.y 
                     auv_list[auv_index].state.theta = test_auv.state.theta
-                #print("measurement_dict_list", measurement_dict_list)
                 final_measurement_dict_list = []
                 # this makes sure that the particleFitler is only getting range and bearing information from the first shark
                 for measurement in measurement_dict_list:
                     final_measurement_dict_list.append(measurement[0])
                 # update particleFilter shark's x and y positions, will change this after, need shark coordinates to update in order to calculate range error 
+
                 for measurement in final_measurement_dict_list:
-                    measurement.x = test_particle.x_shark
+                    test_particle.x_shark = measurement.x 
+                    print("robotSim x", test_particle.x_shark)
                     measurement.y =  test_particle.y_shark
                     
                 particles = test_particle.update_weights(particles,final_measurement_dict_list)
