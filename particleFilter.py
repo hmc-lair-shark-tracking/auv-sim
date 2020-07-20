@@ -94,22 +94,23 @@ class Particle:
                 they are multiplied together to get the final weight
             """
             #alpha weight
-            SIGMA_ALPHA = .5
-            constant = 2.506628275
+            SIGMA_ALPHA = 0.5
+            constant = 1.2533141375
             MINIMUM_WEIGHT = .001
             if particleAlpha > 0:
-                function_alpha = .001 + (1/(SIGMA_ALPHA * constant)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha)**2))))/(2*(SIGMA_ALPHA)**2))))
+                function_alpha = .001 + (1/(constant)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha)**2))))/(0.5))))
                 self.weight_p = function_alpha
             elif particleAlpha == 0:
-                function_alpha = .001 + (1/(SIGMA_ALPHA * constant)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha)**2))))/(2*(SIGMA_ALPHA)**2))))
+                function_alpha = .001 + (1/(constant)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha)**2))))/(0.5))))
                 self.weight_p = function_alpha
             else:
-                function_alpha = .001 + (1/(SIGMA_ALPHA * constant)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha)**2))))/(2*(SIGMA_ALPHA)**2))))
+                function_alpha = .001 + (1/( constant)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha)**2))))/(0.5))))
                 self.weight_p = function_alpha
     
             #range weight
             SIGMA_RANGE = 100
-            function_weight =  MINIMUM_WEIGHT + (1/(SIGMA_RANGE * constant)* (math.e**(((-((particleRange - auv_range)**2)))/(2*(SIGMA_RANGE)**2))))
+
+            function_weight =  MINIMUM_WEIGHT + (1/(SIGMA_RANGE * constant)* (math.e**(((-((particleRange - auv_range)**2)))/(20000))))
             
             #multiply weights
             self.weight_p = function_weight * self.weight_p
@@ -182,8 +183,8 @@ class ParticleFilter:
         y_difference = y_mean - self.y_shark
         range_error = math.sqrt((x_difference**2) + (y_difference **2))
         #alpha_error = math.atan2(y_difference, x_difference)
-        #print("error")
-        #print(range_error)
+        print("error")
+        print(range_error)
         return (range_error)
 
     def correct(self, normalize_list, old_coordinates):
@@ -303,12 +304,11 @@ class ParticleFilter:
         #print("len of list_of_range_bearing ")
         #print(len(list_of_range_bearing))
         for i in range(len(list_of_range_bearing)):
-        
+            print("particleFilter", i, "x", self.auv_list[i].state.x)
             for particle in particles:
                 particleAlpha = particle.calc_particle_alpha(self.auv_list[i].state.x, self.auv_list[i].state.y, self.auv_list[i].state.theta)
                 particleRange = particle.calc_particle_range(self.auv_list[i].state.x, self.auv_list[i].state.y)
                 particle.weight(list_of_range_bearing[i].bearing, particleAlpha, list_of_range_bearing[i].range, particleRange)
-                #print("weight: ", particle.weight_p)
             list_of_weights = []
             for particle in particles: 
                 list_of_weights.append(particle.weight_p)

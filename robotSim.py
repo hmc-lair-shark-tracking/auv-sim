@@ -21,7 +21,7 @@ from path_planning.astar import astar
 from path_planning.sharkOccupancyGrid import SharkOccupancyGrid
 from path_planning.rrt_dubins import RRT
 from path_planning.cost import Cost
-from catalina import create_cartesian
+#from catalina import create_cartesian
 
 # keep all the constants in the constants.py file
 # to get access to a constant, eg:
@@ -656,10 +656,6 @@ class RobotSim:
                 particles = test_particle.create_and_update(particles)
                 shark_state_dict = self.get_all_sharks_state()
 
-                """
-                print("==================")
-                print("All the Shark States [x, y, ..., time_stamp]: " + str(shark_state_dict))
-                """
                 all_auvs_range_bearing_dict = []
                 measurement_dict_list = []
                 auv_index = -1
@@ -671,6 +667,8 @@ class RobotSim:
                     measurement_dict_list.append(test_auv.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data))
                     # updates the particleFitlers's auv x and y 
                     auv_list[auv_index].state.x = test_auv.state.x 
+                    print("robotSim")
+                    print("auv", auv_index, "x",auv_list[auv_index].state.x)
                     auv_list[auv_index].state.y = test_auv.state.y 
                     auv_list[auv_index].state.theta = test_auv.state.theta
                 #print("measurement_dict_list", measurement_dict_list)
@@ -678,14 +676,15 @@ class RobotSim:
                 # this makes sure that the particleFitler is only getting range and bearing information from the first shark
                 for measurement in measurement_dict_list:
                     final_measurement_dict_list.append(measurement[0])
-                # update particleFilter shark's x and y positions
+                # update particleFilter shark's x and y positions, will change this after, need shark coordinates to update in order to calculate range error 
                 for measurement in final_measurement_dict_list:
                     measurement.x = test_particle.x_shark
-                    print("x shark", test_particle.x_shark)
                     measurement.y =  test_particle.y_shark
                     
                 particles = test_particle.update_weights(particles,final_measurement_dict_list)
                 
+                xy_mean = test_particle.particleMean(particles)
+                range_error = test_particle.meanError(xy_mean[0], xy_mean[1])
 
                 for auv in sorted(self.auv_dict):
                     test_auv = self.auv_dict[auv]
@@ -793,7 +792,7 @@ class RobotSim:
 
 
 def main():
-    pos = create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
+    #pos = create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
     test_robot = RobotSim(5.0, 5.0, 0, 0.1, 0.5, 1, 3, 0)
     BOUNDARY_RANGE = 500
     """
@@ -824,7 +823,7 @@ def main():
     #list of auv objects 
     test_robot.filter_dict[0] = ParticleFilter(shark_state.x, shark_state.y, auv_state)
     
-    test_robot.main_navigation_loop()
+    test_robot.main_navigation_loop(False)
 
     # test_robot.display_auv_trajectory()
     
