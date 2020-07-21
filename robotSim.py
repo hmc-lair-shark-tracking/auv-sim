@@ -662,15 +662,9 @@ class RobotSim:
                 for auv in sorted(self.auv_dict):
                     auv_index += 1
                     test_auv = self.auv_dict[auv]
-                    auv_list = test_particle.auv_list
                     auv_sensor_data = self.auv_dict[auv].get_auv_sensor_measurements(self.curr_time)
                     measurement_dict_list.append(test_auv.get_all_sharks_sensor_measurements(shark_state_dict, auv_sensor_data))
                     # updates the particleFitlers's auv x and y 
-                    auv_list[auv_index].state.x = test_auv.state.x 
-                    print("robotSim")
-                    print("auv", auv_index, "x",auv_list[auv_index].state.x)
-                    auv_list[auv_index].state.y = test_auv.state.y 
-                    auv_list[auv_index].state.theta = test_auv.state.theta
                 final_measurement_dict_list = []
                 # this makes sure that the particleFitler is only getting range and bearing information from the first shark
                 for measurement in measurement_dict_list:
@@ -678,9 +672,8 @@ class RobotSim:
                 # update particleFilter shark's x and y positions, will change this after, need shark coordinates to update in order to calculate range error 
 
                 for measurement in final_measurement_dict_list:
-                    test_particle.x_shark = measurement.x 
-                    print("robotSim x", test_particle.x_shark)
-                    measurement.y =  test_particle.y_shark
+                    test_particle.x_shark = measurement[0]
+                    test_particle.y_shark = measurement[1]
                     
                 particles = test_particle.update_weights(particles,final_measurement_dict_list)
                 
@@ -824,7 +817,7 @@ def main():
     #list of auv objects 
     test_robot.filter_dict[0] = ParticleFilter(shark_state.x, shark_state.y, auv_state)
     
-    test_robot.main_navigation_loop(False)
+    test_robot.main_navigation_loop()
 
     # test_robot.display_auv_trajectory()
     

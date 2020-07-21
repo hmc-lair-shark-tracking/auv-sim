@@ -125,22 +125,12 @@ class ParticleFilter:
         self.y_shark = init_y_shark
         self.auv_list = init_auv_list
 
-    def updateShark(self, dt):
-        #v_x_shark = random.uniform(-5, 5)
-        #v_y_shark = random.uniform(-5, 5)
-        v_x_shark = 1
-        v_y_shark = 1
-        self.x_shark = self.x_shark + (v_x_shark * dt)
-        self.y_shark = self.y_shark + (v_y_shark * dt)
-        return [self.x_shark, self.y_shark]
-
     def normalize(self, weights_list):
         newlist = []
         final_list_of_weights = []
         # adds the weights of the lists after being individally normalized by its max denominator and then adds the weights of all the auvs together, then normalizes it
         final_newlist = []
-        print("len of input")
-        print(len(weights_list))
+
         for i in range(len(weights_list)):
             denominator = max(weights_list[i])
             newlist = []
@@ -300,15 +290,15 @@ class ParticleFilter:
 
     def update_weights(self,particles, list_of_range_bearing):
         final_list_of_weights = []
-        #print("len of list_of_range_bearing ")
-        #print(len(list_of_range_bearing))
+        # list_of_range_bearing = [shark_data.x, shark_data.y, shark_data.theta, Z_shark_range, Z_shark_bearing,  shark_id)]
+
         for i in range(len(list_of_range_bearing)):
-            print("particleFilter", i, "x", self.auv_list[i].state.x)
-            
+            print("measurement number in particleFilter ", list_of_range_bearing[i][5], " theta: ", list_of_range_bearing[i][2] )
+
             for particle in particles:
-                particleAlpha = particle.calc_particle_alpha(self.auv_list[i].state.x, self.auv_list[i].state.y, self.auv_list[i].state.theta)
-                particleRange = particle.calc_particle_range(self.auv_list[i].state.x, self.auv_list[i].state.y)
-                particle.weight(list_of_range_bearing[i].bearing, particleAlpha, list_of_range_bearing[i].range, particleRange)
+                particleAlpha = particle.calc_particle_alpha(list_of_range_bearing[i][0], list_of_range_bearing[i][1], list_of_range_bearing[i][2])
+                particleRange = particle.calc_particle_range(list_of_range_bearing[i][0], list_of_range_bearing[i][1])
+                particle.weight(list_of_range_bearing[i][3], particleAlpha, list_of_range_bearing[i][4], particleRange)
             list_of_weights = []
             for particle in particles: 
                 list_of_weights.append(particle.weight_p)
