@@ -33,10 +33,10 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 DIST = 20.0
 
 NUM_OF_EPISODES = 1000
-MAX_STEP = 300
+MAX_STEP = 1000
 
 NUM_OF_EPISODES_TEST =  50
-MAX_STEP_TEST = 300
+MAX_STEP_TEST = 2000
 
 N_V = 7
 N_W = 7
@@ -66,13 +66,13 @@ ENV_GRID_CELL_SIDE_LENGTH = 5.0
 
 R_USEFUL_STATE = 10
 
-NUM_OF_SUBSECTIONS_IN_GRID_CELL = 4
+NUM_OF_SUBSECTIONS_IN_GRID_CELL = 1
 
 # the output size for the neural network
 NUM_OF_GRID_CELLS = int(((int(ENV_SIZE) / int(ENV_GRID_CELL_SIDE_LENGTH)) ** 2) * NUM_OF_SUBSECTIONS_IN_GRID_CELL)
 
 # the input size for the neural network
-STATE_SIZE = int(NUM_OF_GRID_CELLS * 4)
+STATE_SIZE = int(NUM_OF_GRID_CELLS)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -87,12 +87,17 @@ FILTER_IN_UPDATING_NN = True
 
 DEBUG = False
 
-RAND_PICK = False
-RAND_PICK_RATE = 0.75
+RAND_PICK = True
+RAND_PICK_RATE = 0.5
 
 # to limit the terminal output for training over high computing resources
 PLOT_INTERMEDIATE_TESTING = True
 LIMIT_TERMINAL_OUTPUT = False
+
+duration_for_memo = []
+duration_for_nn = []
+duration_for_check_key_in_dict = []
+duration_convert_to_str = []
 
 """
 ============================================================================
@@ -108,24 +113,24 @@ def process_state_for_nn(state):
     Parameter:
         state - a direction of two np arrays
     """
-    auv_tensor = torch.from_numpy(state['auv_pos']).float()
-    shark_tensor = torch.from_numpy(state['shark_pos']).float()
+    # auv_tensor = torch.from_numpy(state['auv_pos']).float()
+    # shark_tensor = torch.from_numpy(state['shark_pos']).float()
 
-    obstacle_tensor = torch.from_numpy(state['obstacles_pos'])
-    obstacle_tensor = torch.flatten(obstacle_tensor).float()
+    # obstacle_tensor = torch.from_numpy(state['obstacles_pos'])
+    # obstacle_tensor = torch.flatten(obstacle_tensor).float()
 
     rrt_grid_tensor = torch.from_numpy(state['rrt_grid_num_of_nodes_only']).float()
     # rrt_grid_tensor = torch.flatten(rrt_grid_tensor)
 
-    rrt_grid_all_info_tensor = torch.from_numpy(state['rrt_grid']).float()
-    rrt_grid_all_info_tensor = torch.flatten(rrt_grid_all_info_tensor)
+    # rrt_grid_all_info_tensor = torch.from_numpy(state['rrt_grid']).float()
+    # rrt_grid_all_info_tensor = torch.flatten(rrt_grid_all_info_tensor)
 
     """habitat_tensor = torch.from_numpy(state['habitats_pos'])
     habitat_tensor = torch.flatten(habitat_tensor)"""
     
     # join tensors together
-    # return torch.cat((shark_tensor, rrt_grid_tensor)).float()
-    return rrt_grid_all_info_tensor.float()
+    # return torch.cat((obstacle_tensor, rrt_grid_tensor)).float()
+    return rrt_grid_tensor.float()
 
 
 def extract_tensors(experiences):
@@ -274,7 +279,7 @@ def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
 Class for building policy and target neural network
 """
 class Neural_network(nn.Module):
-    def __init__(self, input_size, output_size, hidden_layer_1_in = 600, hidden_layer_1_out = 400, hidden_layer_2_out = 300, hidden_layer_3_out = 200):
+    def __init__(self, input_size, output_size, hidden_layer_1_in = 1200, hidden_layer_1_out = 800, hidden_layer_2_out = 600, hidden_layer_3_out = 400):
         """
         Initialize the Q neural network with input
 
@@ -436,6 +441,8 @@ class Agent():
 
         self.neural_net_choice = 0
 
+        self.memo = {}
+
     
     def generate_index_to_pick (self, has_node_array):
         """
@@ -454,11 +461,9 @@ class Agent():
     def select_action(self, state, policy_net, testing = False):
         """
         Pick an action (index to select from array of options for v and from array of options for w)
-
         Parameters:
             state - tuples for auv position, shark (goal) position, and obstacles position
             policy_net - the neural network to determine the action
-
         Returns:
             a tensor representing the index for v action and the index for w action
                 format: tensor([v_index, w_index])
@@ -482,45 +487,78 @@ class Agent():
             
             grid_cell_index = random.choice(index_to_pick)
 
-            return torch.tensor([grid_cell_index]).to(self.device) # explore
+            return torch.tensor([grid_cell_index]).to(self.device)
 
         else:
-            # turn off gradient tracking bc we are using the model for inference instead of training
-            # we don't need to keep track the gradient because we are not doing backpropagation to figure out the weight 
-            # of each node yet
-            with torch.no_grad():
-                # convert the state to a flat tensor to prepare for passing into the neural network
-                input_state = process_state_for_nn(state)
+            if random.random() < RAND_PICK_RATE and RAND_PICK:
+                grid_cell_index = random.choice(index_to_pick)
 
-                # for the given "state"，the output will be Q values for each possible action (index for a grid cell)
-                #   from the policy net
-                q_values_all_grid_cells = policy_net(input_state).to(self.device)
+                return torch.tensor([grid_cell_index]).to(self.device)
+            else:
+                # turn off gradient tracking bc we are using the model for inference instead of training
+                # we don't need to keep track the gradient because we are not doing backpropagation to figure out the weight 
+                # of each node yet
+                with torch.no_grad():
+                    # convert the state to a flat tensor to prepare for passing into the neural network
+                    input_state = process_state_for_nn(state)  # when there's only rrt_grid cell, 3.933906555175781e-05
+                    # when we are processing all the states, 0.00022411346435546875
+                    # so best to only convert what is needed
 
-                # tensor of 0s and 1s, 1 indicating that a grid cell is valid (has nodes in it)
-                has_node_tensor = torch.from_numpy(state["has_node"])
+                    start_time = time.time()
+                    memo_key = str(state['rrt_grid_num_of_nodes_only'].tolist())  # convert only number of nodes, 0.00118, this is pretty high when a tensor is converted to numpy array then to str
+                    # problem with trying to make an object memo key
+                    # it's using that specific memory reference of the tensor as the key
+                    convert_time = time.time() - start_time
+                    duration_convert_to_str.append(convert_time)
+                    
+                    start_time = time.time()
 
-                # filter out the grid cell without any node
-                processed_q_values_all_grid_cells = q_values_all_grid_cells+ (1 - has_node_tensor) * NEGATIVE_OFFSET
-                
-                # pick the grid cell with the largest q value
-                grid_cell_index = torch.argmax(processed_q_values_all_grid_cells).item()
+                    if memo_key in self.memo:
+                        duration_if = time.time() - start_time
+                        duration_for_check_key_in_dict.append(duration_if)
 
-                if random.random() < RAND_PICK_RATE and RAND_PICK:
-                    grid_cell_index = random.choice(index_to_pick)
+                        start_time_memo = time.time()
 
-                if DEBUG:
-                    print("-----")
-                    print("exploiting")
+                        result = self.memo[memo_key]
 
-                # if state["has_node"][grid_cell_index] == 0:
-                #     if DEBUG:
-                #         print("has to randomly pick")
-                #     self.neural_net_bad_choice += 1
-                #     grid_cell_index = random.choice(index_to_pick)
+                        duration = time.time() - start_time_memo
 
-                self.neural_net_choice += 1
+                        duration_for_memo.append(duration)
 
-                return torch.tensor([grid_cell_index]).to(self.device) # explore  
+                        return result
+                    else:
+                        duration_if = time.time() - start_time
+                        duration_for_check_key_in_dict.append(duration_if)
+
+                        start_time_nn = time.time()
+
+                        # for the given "state"，the output will be Q values for each possible action (index for a grid cell)
+                        #   from the policy net
+                        q_values_all_grid_cells = policy_net(input_state).to(self.device)
+
+                        # tensor of 0s and 1s, 1 indicating that a grid cell is valid (has nodes in it)
+                        has_node_tensor = torch.from_numpy(state["has_node"])
+
+                        # filter out the grid cell without any node
+                        processed_q_values_all_grid_cells = q_values_all_grid_cells+ (1 - has_node_tensor) * NEGATIVE_OFFSET
+                        
+                        # pick the grid cell with the largest q value
+                        grid_cell_index = torch.argmax(processed_q_values_all_grid_cells).item()
+
+                        if DEBUG:
+                            print("-----")
+                            print("exploiting")
+
+                        self.neural_net_choice += 1
+
+                        nn_action = torch.tensor([grid_cell_index]).to(self.device)
+
+                        self.memo[memo_key] =  nn_action
+
+                        duration = time.time() - start_time_nn
+                        duration_for_nn.append(duration)
+
+                        return nn_action  
 
 
 
@@ -561,18 +599,54 @@ class AuvEnvManager():
         # shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
 
         auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
-        shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
+        shark_init_pos = Motion_plan_state(x = 35.0, y = 45.0, z = -5.0, theta = 0.0)
         # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
 
-        obstacle_array = [\
-            Motion_plan_state(x=12.0, y=38.0, size=4),\
-            Motion_plan_state(x=17.0, y=34.0, size=5),\
-            Motion_plan_state(x=20.0, y=29.0, size=4),\
-            Motion_plan_state(x=25.0, y=25.0, size=3),\
-            Motion_plan_state(x=29.0, y=20.0, size=4),\
-            Motion_plan_state(x=34.0, y=17.0, size=3),\
-            Motion_plan_state(x=37.0, y=8.0, size=5)\
-        ]
+        # obstacle_array = [\
+        #     Motion_plan_state(x=15.0, y=15.0, size=3),\
+            
+        #     Motion_plan_state(x=3.0, y=25.0, size=3),\
+
+        #     Motion_plan_state(x=25.0, y=25.0, size=3),\
+
+        #     Motion_plan_state(x=40.0, y=3.0, size=3),\
+
+        #     Motion_plan_state(x=30.0, y=40.0, size=3),\
+        # ]
+        obstacle_array = []
+        x = 15.0
+        y = 15.0
+
+        for _ in range(5):
+            obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
+            x -= 3.0
+            y += 3.0
+        
+        x = 3.0
+        y = 33.0
+        for _ in range(2):
+            obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
+            y += 6.0
+
+        x = 9.0
+        y = 39.0
+        for _ in range(4):
+            obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
+            x += 6.0
+
+        x = 25.0
+        y = 24.0
+        for _ in range(8):
+            obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
+            x += 3.0
+            y -= 3.0
+
+        x = 33.0
+        y = 39.0
+        for _ in range(4):
+            obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
+            x += 3.0
+            y -= 3.0
 
         boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = ENV_SIZE, y = ENV_SIZE)]
 
@@ -775,8 +849,8 @@ class DQN():
         """
         print("Loading previously trained neural network...")
         self.agent.strategy.start = EPS_END
-        self.policy_net.load_state_dict(torch.load('checkpoint_policy.pth'))
-        self.target_net.load_state_dict(torch.load('checkpoint_target.pth'))
+        self.policy_net.load_state_dict(torch.load('checkpoint_policy.pth', map_location = DEVICE))
+        self.target_net.load_state_dict(torch.load('checkpoint_target.pth', map_location = DEVICE))
 
 
     def plot_summary_graph (self, episode_array, upper_plot_y_data, upper_plot_ylabel, upper_plot_title, lower_plot_y_data, lower_plot_ylabel, lower_plot_title):
@@ -1225,12 +1299,16 @@ class DQN():
         bad_choices_array = []
         bad_choices_over_total_choices_array = []
 
+        path_length_array = []
+
+        episode_actual_time_durations = []
+
         success_count = 0
 
         self.load_trained_network()
         self.policy_net.eval()
         
-        for eps in range(num_episodes):
+        for eps in range(0, num_episodes):
             # initialize the starting point of the shark and the auv randomly
             # receive initial observation state s1 
             state = self.em.init_env_randomly()
@@ -1244,6 +1322,8 @@ class DQN():
 
             if live_graph_2D:
                 self.em.env.init_live_graph(live_graph_2D = live_graph_2D)
+
+            start_time = time.time()
 
             for t in range(1, max_step):
                 chosen_grid_cell_index = self.agent.select_action(state, self.policy_net)
@@ -1259,9 +1339,17 @@ class DQN():
                 if self.em.done:
                     # because the only way for an episode to terminate is when an rrt path is found
                     success_count += 1
+
+                    path_len = self.em.env.rrt_planner.cal_length(state["path"])
+
+                    path_length_array.append(path_len)
+
                     episode_durations[eps] = t
                     break
             
+            actual_time_duration = time.time() - start_time
+            episode_actual_time_durations.append(actual_time_duration)
+
             if live_graph_2D:
                 self.em.reset_render_graph(live_graph_2D = live_graph_2D)
             
@@ -1274,25 +1362,26 @@ class DQN():
 
         self.em.close()
 
-        print("final sums of time")
-        print(episode_durations)
         print("average time")
         print(np.mean(episode_durations))
-        print("-----------------")
-
-        text = input("stop")
-
-        print("total reward")
-        print(total_reward_array)
-        print("average total reward")
-        print(np.mean(total_reward_array))
-        print("-----------------")
-
-        text = input("stop")
 
         print("success count")
         print(success_count)
+        
+        print("path length")
+        print(np.mean(path_length_array))
 
+        print("actual time duration")
+        print(np.mean(episode_actual_time_durations))
+
+        print("average duration for memo")
+        print(np.mean(duration_for_memo))
+        print("average duration for nn")
+        print(np.mean(duration_for_nn))
+        print("average duration for if")
+        print(np.mean(duration_for_check_key_in_dict))
+        print("average duration for convert to string")
+        print(np.mean(duration_convert_to_str))
 
 
     def test_model_during_training (self, num_episodes, max_step, starting_dist):
@@ -1374,8 +1463,8 @@ class DQN():
 def main():
     dqn = DQN()
    
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
-    # dqn.test(1000, MAX_STEP_TEST, live_graph_2D = True)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
+    dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 
