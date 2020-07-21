@@ -491,11 +491,13 @@ class Agent():
             
             grid_cell_index = random.choice(index_to_pick)
 
-            return torch.tensor([grid_cell_index]).to(self.device) # explore
+            return torch.tensor([grid_cell_index]).to(self.device)
 
         else:
             if random.random() < RAND_PICK_RATE and RAND_PICK:
                 grid_cell_index = random.choice(index_to_pick)
+
+                return torch.tensor([grid_cell_index]).to(self.device)
             else:
                 # turn off gradient tracking bc we are using the model for inference instead of training
                 # we don't need to keep track the gradient because we are not doing backpropagation to figure out the weight 
@@ -553,14 +555,14 @@ class Agent():
 
                         self.neural_net_choice += 1
 
-                        nn_action = torch.tensor([grid_cell_index]).to(self.device) # explore  
+                        nn_action = torch.tensor([grid_cell_index]).to(self.device)
 
                         self.memo[memo_key] =  nn_action
 
                         duration = time.time() - start_time_nn
                         duration_for_nn.append(duration)
 
-            return torch.tensor([grid_cell_index]).to(self.device) # explore  
+                        return nn_action
 
 
 
