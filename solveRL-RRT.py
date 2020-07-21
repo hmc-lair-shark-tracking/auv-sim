@@ -494,79 +494,73 @@ class Agent():
             return torch.tensor([grid_cell_index]).to(self.device) # explore
 
         else:
-            # turn off gradient tracking bc we are using the model for inference instead of training
-            # we don't need to keep track the gradient because we are not doing backpropagation to figure out the weight 
-            # of each node yet
-            with torch.no_grad():
-                # convert the state to a flat tensor to prepare for passing into the neural network
-                input_state = process_state_for_nn(state)  # when there's only rrt_grid cell, 3.933906555175781e-05
-                # when we are processing all the states, 0.00022411346435546875
-                # so best to only convert what is needed
+            if random.random() < RAND_PICK_RATE and RAND_PICK:
+                grid_cell_index = random.choice(index_to_pick)
+            else:
+                # turn off gradient tracking bc we are using the model for inference instead of training
+                # we don't need to keep track the gradient because we are not doing backpropagation to figure out the weight 
+                # of each node yet
+                with torch.no_grad():
+                    # convert the state to a flat tensor to prepare for passing into the neural network
+                    input_state = process_state_for_nn(state)  # when there's only rrt_grid cell, 3.933906555175781e-05
+                    # when we are processing all the states, 0.00022411346435546875
+                    # so best to only convert what is needed
 
-                start_time = time.time()
-                memo_key = str(input_state.numpy())  # convert only number of nodes, 0.00118, this is pretty high when a tensor is converted to numpy array then to str
-                # problem with trying to make an object memo key
-                # it's using that specific memory reference of the tensor as the key
-                convert_time = time.time() - start_time
-                duration_convert_to_str.append(convert_time)
-                
-                start_time = time.time()
-
-                if memo_key in self.memo:
-                    duration_if = time.time() - start_time
-                    duration_for_check_key_in_dict.append(duration_if)
-
-                    start_time_memo = time.time()
-
-                    result = self.memo[memo_key]
-
-                    duration = time.time() - start_time_memo
-
-                    duration_for_memo.append(duration)
-
-                    return result
-                else:
-                    duration_if = time.time() - start_time
-                    duration_for_check_key_in_dict.append(duration_if)
-
-                    start_time_nn = time.time()
-
-                    # for the given "state"，the output will be Q values for each possible action (index for a grid cell)
-                    #   from the policy net
-                    q_values_all_grid_cells = policy_net(input_state).to(self.device)
-
-                    # tensor of 0s and 1s, 1 indicating that a grid cell is valid (has nodes in it)
-                    has_node_tensor = torch.from_numpy(state["has_node"])
-
-                    # filter out the grid cell without any node
-                    processed_q_values_all_grid_cells = q_values_all_grid_cells+ (1 - has_node_tensor) * NEGATIVE_OFFSET
+                    start_time = time.time()
+                    memo_key = str(state['rrt_grid_num_of_nodes_only'].tolist())  # convert only number of nodes, 0.00118, this is pretty high when a tensor is converted to numpy array then to str
+                    # problem with trying to make an object memo key
+                    # it's using that specific memory reference of the tensor as the key
+                    convert_time = time.time() - start_time
+                    duration_convert_to_str.append(convert_time)
                     
-                    # pick the grid cell with the largest q value
-                    grid_cell_index = torch.argmax(processed_q_values_all_grid_cells).item()
+                    start_time = time.time()
 
-                    if random.random() < RAND_PICK_RATE and RAND_PICK:
-                        grid_cell_index = random.choice(index_to_pick)
+                    if memo_key in self.memo:
+                        duration_if = time.time() - start_time
+                        duration_for_check_key_in_dict.append(duration_if)
 
-                    if DEBUG:
-                        print("-----")
-                        print("exploiting")
+                        start_time_memo = time.time()
 
-                    # if state["has_node"][grid_cell_index] == 0:
-                    #     if DEBUG:
-                    #         print("has to randomly pick")
-                    #     self.neural_net_bad_choice += 1
-                    #     grid_cell_index = random.choice(index_to_pick)
+                        result = self.memo[memo_key]
 
-                    self.neural_net_choice += 1
+                        duration = time.time() - start_time_memo
 
-                    nn_action = torch.tensor([grid_cell_index]).to(self.device) # explore  
+                        duration_for_memo.append(duration)
 
-                    self.memo[memo_key] =  nn_action
+                        return result
+                    else:
+                        duration_if = time.time() - start_time
+                        duration_for_check_key_in_dict.append(duration_if)
 
-                    duration = time.time() - start_time_nn
-                    duration_for_nn.append(duration)
+                        start_time_nn = time.time()
 
-                    return torch.tensor([grid_cell_index]).to(self.device) # explore  
+                        # for the given "state"，the output will be Q values for each possible action (index for a grid cell)
+                        #   from the policy net
+                        q_values_all_grid_cells = policy_net(input_state).to(self.device)
+
+                        # tensor of 0s and 1s, 1 indicating that a grid cell is valid (has nodes in it)
+                        has_node_tensor = torch.from_numpy(state["has_node"])
+
+                        # filter out the grid cell without any node
+                        processed_q_values_all_grid_cells = q_values_all_grid_cells+ (1 - has_node_tensor) * NEGATIVE_OFFSET
+                        
+                        # pick the grid cell with the largest q value
+                        grid_cell_index = torch.argmax(processed_q_values_all_grid_cells).item()
+
+                        if DEBUG:
+                            print("-----")
+                            print("exploiting")
+
+                        self.neural_net_choice += 1
+
+                        nn_action = torch.tensor([grid_cell_index]).to(self.device) # explore  
+
+                        self.memo[memo_key] =  nn_action
+
+                        duration = time.time() - start_time_nn
+                        duration_for_nn.append(duration)
+
+            return torch.tensor([grid_cell_index]).to(self.device) # explore  
 
 
 
@@ -1346,13 +1340,6 @@ class DQN():
 
         print("average time")
         print(np.mean(episode_durations))
-        print("-----------------")
-
-        # print("total reward")
-        # print(total_reward_array)
-        # print("average total reward")
-        # print(np.mean(total_reward_array))
-        # print("-----------------")
 
         print("success count")
         print(success_count)
@@ -1362,9 +1349,6 @@ class DQN():
 
         print("actual time duration")
         print(np.mean(episode_actual_time_durations))
-
-        print("final dictionary size")
-        print(len(self.agent.memo))
 
         print("average duration for memo")
         print(np.mean(duration_for_memo))
