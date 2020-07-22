@@ -3,100 +3,77 @@ import time
 import statistics
 import matplotlib.pyplot as plt
 import numpy as np
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon, Point
+import random
 
 from rrt_dubins import RRT, createSharkGrid
 from motion_plan_state import Motion_plan_state
 import catalina
 from sharkOccupancyGrid import SharkOccupancyGrid, splitCell
 
-def summary_1(cost_funcs, num_habitats=10, test_num=100):
+def summary_1(weight, obstacles, boundary, habitats, shark_dict, sharkGrid, test_num=100):
     '''
         generate a summary about each term of one specific cost function, given randomly chosen environment
     
         cost_func: a list of lists of weights assigned to each term in the cost function
         test_num: the number of tests to run under a specific cost function
-        num_habitats: the number of randomly generated habitats
 
         output:
         cost_avr: a dictionary summarizing the result of each term of the cost function, 
             key will be weight i.e. w1, w2, ...
             value will be the average cost of each term
     '''
+    testing = RRT(boundary, obstacles, shark_dict, sharkGrid)
+
+    cost_summary_ex = [[] for _ in range(len(weight))]
+    cost_summary_rp = [[] for _ in range(len(weight))]
+
+    for _ in range(test_num):
+        initial_x = random.uniform(-300, -100)
+        initial_y = random.uniform(-100, 100)
+        initial = Point(initial_x, initial_y)
+        while not initial.within(boundary_poly):
+            initial_x = random.uniform(-300, -100)
+            initial_y = random.uniform(-100, 100)
+            initial = Point(initial_x, initial_y)
+        initial = Motion_plan_state(initial_x, initial_y)
+
+        res1 = testing.exploring(initial, habitats, 0.5, 5, 1, 50, True, 20.0, 500.0, weights=weight)
+        print(res1["cost"])
+        for i in range(len(res1["cost"][1])):
+            cost_summary_ex[i].append(res1["cost"][1][i])
+
+        res2 = testing.replanning(initial, habitats, 10.0, 100.0, 0.1)
+        print(res2[2])
+        for i in range(len(res2[2][1])):
+            cost_summary_rp[i].append(res2[2][1][i])
+
+    #calculate average cost for each term
+    result1 = []
+    for cost in cost_summary_ex:
+        result1.append(statistics.mean(cost))
+    result2 = []
+    for cost in cost_summary_rp:
+        result2.append(statistics.mean(cost))
     
-    start = Motion_plan_state(730, 280)
-    goal = Motion_plan_state(900, 350)
-    obstacle_array = [Motion_plan_state(757,243, size=10),Motion_plan_state(763,226, size=5)]
-    boundary = [Motion_plan_state(700,200), Motion_plan_state(950,400)]
-    testing = RRT(start, goal, boundary, obstacle_array, habitat)
+    return [result2, result1]
 
-    #inner list is the average cost of different environment for each weight 
-    avr_list = [[] for _ in range(len(cost_funcs[0]))]
-    #generate summary over different weights
-    for cost_func in cost_funcs:
-
-        count_list = []
-
-        # a list of cost for each term of the optimal path for each environment
-        cost_summary = [[] for _ in range(len(cost_func))]
-
-        for i in range(test_num):
-
-            count = 0
-            
-            #build random habitats
-            habitats = []
-            for _ in range(num_habitats):
-                habitats.append(testing.get_random_mps(size_max=15))
-            
-            #find optimal path
-            t_end = time.time() + 20.0
-            cost_min = float("inf")
-            cost_list = []  
-
-            while time.time() < t_end:
-                result = testing.exploring(habitats, 0.5, 5, 1)
-                count += 1
-                if result is not None:
-                    cost = result["cost"]
-                    if cost[0] < cost_min:
-                        cost_min = cost[0]
-                        cost_list = cost[1]
-            
-            count_list.append(count)
-
-            #append cost for each term to cost_summary list
-            for i in range(len(cost_list)):
-                cost_summary[i].append(cost_list[i])
-        
-        print(count_list)
-
-        #calculate average cost for each term
-        result = []
-        for cost in cost_summary:
-            result.append(statistics.mean(cost))
-        
-        for i in range(len(result)):
-            avr_list[i].append(float("{:.3f}".format(result[i]/cost_func[i])))#normalize the result
-    
-    return avr_list
-
-def plot_summary_1(labels, summary):
+def plot_summary_1(labels, summarys):
     x = np.arange(len(labels))  # the label locations
-    width = 0.25  # the width of the bars
-
-    weight1 = summary[0]
-    weight2 = summary[1]
-    weight3 = summary[2]
+    width = 0.2  # the width of the bars
+    weight1 = summarys[0]
+    weight2 = summarys[1]
+    weight3 = summarys[2]
+    weight4 = summarys[3]
 
     fig, ax = plt.subplots()
-    rects1 = ax.bar(x - width, weight1, width, label='weight1')
-    rects2 = ax.bar(x, weight2, width, label="weight2")
-    rects3 = ax.bar(x + width, weight3, width, label='weight3')
+    rects1 = ax.bar(x - 1.5 * width, weight1, width, label='weight1')
+    rects2 = ax.bar(x - 0.5 * width, weight2, width, label="weight2")
+    rects3 = ax.bar(x + 0.5 * width, weight3, width, label='weight3')
+    rects4 = ax.bar(x + 1.5 * width, weight4, width, label='weight4')
 
     # Add some text for labels, title and custom x-axis tick labels, etc.
     ax.set_ylabel('average cost')
-    ax.set_title('average cost in different weight schemes with randomly generated habitats')
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
     ax.legend()
@@ -116,6 +93,7 @@ def plot_summary_1(labels, summary):
     autolabel(rects1)
     autolabel(rects2)
     autolabel(rects3)
+    autolabel(rects4)
 
     fig.tight_layout()
 
@@ -234,6 +212,9 @@ obstacles = []
 for ob in catalina.OBSTACLES:
     pos = catalina.create_cartesian((ob.x, ob.y), catalina.ORIGIN_BOUND)
     obstacles.append(Motion_plan_state(pos[0], pos[1], size=ob.size))
+for boat in catalina.BOATS:
+    pos = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
+    obstacles.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
         
 boundary = []
 boundary_poly = []
@@ -243,25 +224,36 @@ for b in catalina.BOUNDARIES:
     boundary_poly.append((pos[0],pos[1]))
 boundary_poly = Polygon(boundary_poly)
         
-for boat in catalina.BOATS:
-    pos = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
-    obstacles.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
-        
-# testing data for habitats
+#testing data for habitats
 habitats = []
 for habitat in catalina.HABITATS:
     pos = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
     habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
     
-# #testing data for shark trajectories
-shark_dict = shark_dict = {1: [Motion_plan_state(-120 + (0.3 * i), -60 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
-2: [Motion_plan_state(-65 - (0.3 * i), -50 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
-3: [Motion_plan_state(-110 + (0.3 * i), -40 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
-4: [Motion_plan_state(-105 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
-5: [Motion_plan_state(-120 + (0.3 * i), -50 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
-6: [Motion_plan_state(-85 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
-7: [Motion_plan_state(-270 + (0.3 * i), 50 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
-8: [Motion_plan_state(-250 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
-9: [Motion_plan_state(-260 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
-10: [Motion_plan_state(-275 + (0.3 * i), 80 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)]}
-summary_3(Motion_plan_state(-200, 0), goal, boundary, boundary_poly, obstacles, habitats, shark_dict, 5, 10, 0.5)
+# testing data for shark trajectories
+shark_dict1 = {1: [Motion_plan_state(-120 + (0.2 * i), -60 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
+    2: [Motion_plan_state(-65 - (0.2 * i), -50 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
+    3: [Motion_plan_state(-110 + (0.2 * i), -40 - (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
+    4: [Motion_plan_state(-105 - (0.2 * i), -55 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
+    5: [Motion_plan_state(-120 + (0.2 * i), -50 - (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
+    6: [Motion_plan_state(-85 - (0.2 * i), -55 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
+    7: [Motion_plan_state(-270 + (0.2 * i), 50 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
+    8: [Motion_plan_state(-250 - (0.2 * i), 75 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
+    9: [Motion_plan_state(-260 - (0.2 * i), 75 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
+    10: [Motion_plan_state(-275 + (0.2 * i), 80 - (0.2 * i), traj_time_stamp=i) for i in range(1,501)]}
+
+shark_dict2 = {1: [Motion_plan_state(-120 + (0.1 * i), -60 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-90 - (0.1 * i), -30 + (0.15 * i), traj_time_stamp=i) for i in range(302,501)], 
+    2: [Motion_plan_state(-65 - (0.1 * i), -50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-95 + (0.15 * i), -20 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)],
+    3: [Motion_plan_state(-110 + (0.1 * i), -40 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-80 + (0.15 * i), -70 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)], 
+    4: [Motion_plan_state(-105 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-135 + (0.12 * i), -25 + (0.07 * i), traj_time_stamp=i) for i in range(302,501)],
+    5: [Motion_plan_state(-120 + (0.1 * i), -50 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-90 + (0.11 * i), -80 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)], 
+    6: [Motion_plan_state(-85 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-115 - (0.09 * i), -25 - (0.1 * i), traj_time_stamp=i) for i in range(302,501)],
+    7: [Motion_plan_state(-270 + (0.1 * i), 50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-240 - (0.08 * i), 80 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)], 
+    8: [Motion_plan_state(-250 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-280 - (0.1 * i), 105 - (0.1 * i), traj_time_stamp=i) for i in range(302,501)],
+    9: [Motion_plan_state(-260 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-290 + (0.08 * i), 105 + (0.07 * i), traj_time_stamp=i) for i in range(302,501)], 
+    10: [Motion_plan_state(-275 + (0.1 * i), 80 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-245 - (0.13 * i), 50 - (0.12 * i), traj_time_stamp=i) for i in range(302,501)]}
+# sharkGrid1 = createSharkGrid('path_planning/AUVGrid_prob_500_straight.csv', splitCell(boundary_poly,10))
+# sharkGrid2 = createSharkGrid('path_planning/AUVGrid_prob_500_turn.csv', splitCell(boundary_poly,10))
+
+res = summary_1([1, -3, -1, -5], obstacles, boundary, habitats, shark_dict1, sharkGrid1, test_num=10)
+plot_summary_1(["replaning", "one-time planning"], res)

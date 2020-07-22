@@ -362,8 +362,36 @@ def splitCell(polygon, cell_size):
         result = MultiPolygon(split(result, splitter))
         
     return result
-        
 
+def getGridByTime(time, gridDict):
+    '''
+    Given a specific time stamp, find the corresponding shark occupancy grid / AUV detecting grid in the dictionary
+
+    parameters:
+        time: time stamp
+        gridDict: a dictionary, whose key is time bin and value is the corresponding grid during this time bin
+    '''
+    for timebin, grid in gridDict.items():
+        if time >= timebin[0] and time <= timebin[1]:
+            return grid
+
+def getGridByInterval(interval, gridDict):
+    '''
+    Given a time interval, find all shark occupancy grids / AUV detecting grids within this time interval
+
+    parameters:
+        interval: time interval
+        gridDict: a dictionary, whose key is time bin and value is the corresponding grid during this time bin
+    
+    output:
+        res: a distionary consisting of all grids in this interval
+    '''
+    res = {}    
+    for time_bin in gridDict:
+        if (interval[0] >= time_bin[0] and interval[0] <= time_bin[1]) or (time_bin[0] >= interval[0] and time_bin[1] <= interval[1]) or(interval[1] >= time_bin[0] and interval[1] <= time_bin[1]):
+            res[time_bin] = gridDict[time_bin]
+    
+    return res
 
 # boundary_poly = []
 # for b in catalina.BOUNDARIES:
