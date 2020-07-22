@@ -70,7 +70,7 @@ class SharkUpdate:
         for cell in self.cell_list:
             row, col = self.cellToIndex(cell)
             #likelihood P(z|x) = number of particles in a cell / total number of particles
-            likelihood = particles[row][col] / NUMBER_OF_PARTICLES
+            likelihood = particles[row][col] / 1000
             #prior P(x')
             prior = prediction[row][col]
             #P(x|z) = P(z|x) * P(x')
