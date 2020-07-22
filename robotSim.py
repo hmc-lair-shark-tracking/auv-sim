@@ -670,39 +670,13 @@ class RobotSim:
                 for measurement in measurement_dict_list:
                     final_measurement_dict_list.append(measurement[0])
                 # update particleFilter shark's x and y positions, will change this after, need shark coordinates to update in order to calculate range error 
-
-                for measurement in final_measurement_dict_list:
-                    test_particle.x_shark = measurement[0]
-                    test_particle.y_shark = measurement[1]
                     
                 particles = test_particle.update_weights(particles,final_measurement_dict_list)
                 
-                xy_mean = test_particle.particleMean(particles)
-                range_error = test_particle.meanError(xy_mean[0], xy_mean[1])
 
                 for auv in sorted(self.auv_dict):
                     test_auv = self.auv_dict[auv]
-                    
-                    # have to store the information from all the AUVS Range and bearings 
-                    
-                    # in "measurement_dict[2].range", I have to add the measurement_dict[1].range of the other AUVs information... 
-
-                    # need suggestions on how to store this information...
-                    """
-                    #boolean  (new data)and dictionary (data) of True and False and Updates Shark Dictionary--> stores range and bearing of the auv
-                    if has_new_data == True:
-                        print("======NEW DATA=======")
-                        print("All The Shark Sensor Measurements [range, bearing]: " +\
-                            str(self.shark_sensor_data_dict))
-                        for shark in sorted(self.shark_sensor_data_dict):
-                            test_shark = self.shark_sensor_data_dict[shark]
-                            measurement_dict[shark] = [test_shark.range, test_shark.bearing]
-                    else:
-                        for shark in sorted(self.shark_sensor_data_dict):
-                            test_shark = self.shark_sensor_data_dict[shark]
-                            measurement_dict[shark] = [test_shark.range, test_shark.bearing]
-                        #print("measurement dict", measurement_dict)
-                    """
+    
                     # example of how to indicate the obstacles and plot them
 
                     obstacle_array = [Motion_plan_state(757,243, size=2),Motion_plan_state(763,226, size=5)]
@@ -712,14 +686,7 @@ class RobotSim:
                     habitats = [Motion_plan_state(63,23, size=5), Motion_plan_state(12,45,size=7), Motion_plan_state(51,36,size=5), Motion_plan_state(45,82,size=5),\
                         Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
                     #condition to replan trajectory
-                    """
-                    if self.curr_time == 0 or self.curr_time - t_start >= self.replan_time:
-                        RRT_traj = self.replan_trajectory("RRT", auv_sensor_data, shark_state_dict[1], obstacle_array, boundary, habitats)
-                        new_trajectory = True
-                        t_start = self.curr_time
-                    else:
-                        new_trajectory = False
-                    """
+          
                     RRT_traj = [Motion_plan_state(0.0, 0.0)]
                     RRT_traj += [Motion_plan_state(i, i) for i in range(50)]
                     new_trajectory = False
@@ -789,7 +756,7 @@ def main():
     #pos = create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
     test_robot = RobotSim(5.0, 5.0, 0, 0.1, 0.5, 1, 3, 0)
     BOUNDARY_RANGE = 500
-    """
+    
     for i in range(test_robot.num_of_auv - 1):
         x = random.uniform(- BOUNDARY_RANGE, BOUNDARY_RANGE)
         y = random.uniform(- BOUNDARY_RANGE, BOUNDARY_RANGE)
@@ -800,13 +767,7 @@ def main():
         w_1 = random.uniform(-math.pi/2, math.pi/2)
     
         test_robot.auv_dict[i + 1] = Auv(x,y,z, theta, velocity, w_1, curr_traj_pt_index, i)
-    """
-    theta = 0
-    velocity = 1/2
-    w_1 = random.uniform(-math.pi/2, math.pi/2)
-    curr_traj_pt_index = 0
-    test_robot.auv_dict[1] = Auv(100,0,10, theta, velocity, w_1, curr_traj_pt_index, 1)
-    test_robot.auv_dict[2] = Auv(0,150,10, theta, velocity, w_1, curr_traj_pt_index, 2)
+ 
     # load shark trajectories from csv file
     # the second parameter specify the ids of sharks that we want to track
     test_robot.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1,2])

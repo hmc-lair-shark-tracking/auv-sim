@@ -52,8 +52,8 @@ class Auv:
         # change to return Motionplanstate
         self.state.x = self.state.x + self.velocity_1 * math.cos(self.state.theta)*delta_t
         self.state.y = self.state.y + self.velocity_1 * math.sin(self.state.theta)*delta_t
-        #self.state.theta = angle_wrap(self.state.theta + self.w_1 * delta_t)
-        self.state.theta = 0
+        self.state.theta = angle_wrap(self.state.theta + self.w_1 * delta_t)
+    
         
         self.x_list += [self.state.x]
         self.y_list += [self.state.y]
@@ -74,8 +74,7 @@ class Auv:
         x = self.state.x + np.random.normal(0,1)
         y = self.state.y + np.random.normal(0,1)
         z = self.state.z + np.random.normal(0,1)
-        #theta = angle_wrap(self.state.theta + np.random.normal(0,0.05))
-        theta = 0
+        theta = angle_wrap(self.state.theta + np.random.normal(0,0.05))
         
         return Motion_plan_state(x, y, z, theta, curr_time)
 
@@ -113,21 +112,7 @@ class Auv:
         
         return self.velocity_1, self.w_1
     
-    def send_range(self, x_shark, y_shark):
-        #calculates current range and bearing and x,y, position
-        delta_x = x_shark - self.state.x
-        delta_y = y_shark - self.state.y 
-        range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
-        Z_shark_range = math.sqrt(delta_x**2 + delta_y**2) + range_random
-        return Z_shark_range
-       
 
-    def send_bearing(self, x_shark, y_shark):
-        delta_x = x_shark - self.state.x
-        delta_y = y_shark - self.state.y 
-        bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
-        Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) - self.state.theta + bearing_random)
-        return Z_shark_bearing
 
     def get_all_sharks_sensor_measurements(self, shark_state_dict, auv_sensor_data):
         """
@@ -154,17 +139,16 @@ class Auv:
                 delta_x = shark_data.x - self.state.x
                 delta_y = shark_data.y - self.state.y
 
-                #range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
+                range_random = np.random.normal(0,5) #Gaussian noise with 0 mean and standard deviation 5
                 
-                #bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
-                range_random = 0
-                bearing_random = 0
+                bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
+    
 
                 Z_shark_range = math.sqrt(delta_x**2 + delta_y**2) + range_random
                 Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) - self.state.theta + bearing_random)
                 # updates new x, y here 
-                print("theta in auv", self.state.theta)
-                self.shark_sensor_data_list.append([shark_data.x, shark_data.y, self.state.theta, Z_shark_range, Z_shark_bearing,  shark_id])
+                #print("auv file bearing and range ",  Z_shark_bearing, Z_shark_range)
+                self.shark_sensor_data_list.append([self.state.x, self.state.y, self.state.theta, Z_shark_range, Z_shark_bearing,  shark_id])
             
             # reset the 2 sec time counter
             self.sensor_time = 0

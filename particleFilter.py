@@ -61,7 +61,7 @@ class Particle:
 
             """
             #random_v and random_theta are values to be added to the velocity and theta for randomization
-            RANDOM_VELOCITY = 5
+            RANDOM_VELOCITY = 25
             RANDOM_THETA = math.pi/2
             #change velocity & pass through velocity_wrap
             self.v_p += random.uniform(0, RANDOM_VELOCITY)
@@ -78,6 +78,7 @@ class Particle:
             """
                 calculates the alpha value of a particle
             """
+            
             particleAlpha = angle_wrap(math.atan2((-y_auv + self.y_p), (self.x_p + -x_auv)) - theta_auv)
             return particleAlpha
 
@@ -95,22 +96,20 @@ class Particle:
             """
             #alpha weight
             SIGMA_ALPHA = 0.5
-            constant = 1.2533141375
+            E = 2.71828
+            DENOMINATOR = (2*(SIGMA_ALPHA)**2)
+            # constant =  sqrt of 2PI
+            constant = 2.506628
             MINIMUM_WEIGHT = .001
-            if particleAlpha > 0:
-                function_alpha = .001 + (1/(constant)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha)**2))))/(0.5))))
-                self.weight_p = function_alpha
-            elif particleAlpha == 0:
-                function_alpha = .001 + (1/(constant)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha)**2))))/(0.5))))
-                self.weight_p = function_alpha
-            else:
-                function_alpha = .001 + (1/( constant)* (math.e**(((-((angle_wrap(float(particleAlpha) - auv_alpha)**2))))/(0.5))))
-                self.weight_p = function_alpha
+            
+            function_alpha = .001 + (1/(SIGMA_ALPHA * constant )* (E **(((-((angle_wrap(float(particleAlpha) - auv_alpha)**2))))/ DENOMINATOR)))
+            self.weight_p = function_alpha
     
             #range weight
-            SIGMA_RANGE = 100
-
-            function_weight =  MINIMUM_WEIGHT + (1/(SIGMA_RANGE * constant)* (math.e**(((-((particleRange - auv_range)**2)))/(20000))))
+            #print("auv alpha", auv_alpha)
+            SIGMA_RANGE = 10
+            denominator2 =  (2*(SIGMA_RANGE)**2)
+            function_weight =  .001 + (1/(SIGMA_RANGE * constant)* ( E **(((-((particleRange - auv_range)**2)))/ denominator2)))
             
             #multiply weights
             self.weight_p = function_weight * self.weight_p
@@ -293,12 +292,11 @@ class ParticleFilter:
         # list_of_range_bearing = [shark_data.x, shark_data.y, shark_data.theta, Z_shark_range, Z_shark_bearing,  shark_id)]
 
         for i in range(len(list_of_range_bearing)):
-            print("measurement number in particleFilter ", list_of_range_bearing[i][5], " theta: ", list_of_range_bearing[i][2] )
 
             for particle in particles:
                 particleAlpha = particle.calc_particle_alpha(list_of_range_bearing[i][0], list_of_range_bearing[i][1], list_of_range_bearing[i][2])
                 particleRange = particle.calc_particle_range(list_of_range_bearing[i][0], list_of_range_bearing[i][1])
-                particle.weight(list_of_range_bearing[i][3], particleAlpha, list_of_range_bearing[i][4], particleRange)
+                particle.weight(list_of_range_bearing[i][4], particleAlpha, list_of_range_bearing[i][3], particleRange)
             list_of_weights = []
             for particle in particles: 
                 list_of_weights.append(particle.weight_p)
