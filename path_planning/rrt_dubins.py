@@ -85,7 +85,7 @@ class RRT:
         while (traj[-1].traj_time_stamp + plan_time) < final_traj_time:
             if traj_time_length + traj[-1].traj_time_stamp > final_traj_time:
                 traj_time_length = final_traj_time - traj[-1].traj_time_stamp
-            temp = self.exploring(traj[-1], habitats, 0.5, 5, 2, plan_time, traj_time_stamp=True, max_plan_time=plan_time_budget, max_traj_time=(traj_time_length + traj[-1].traj_time_stamp), plan_time=True)
+            temp = self.exploring(traj[-1], habitats, 0.5, 5, 2, plan_time, traj_time_stamp=True, max_plan_time=plan_time_budget, max_traj_time=(traj_time_length + traj[-1].traj_time_stamp), plan_time=True, weights=[1, -3, -1, -5])
             temp_path = temp["path"][1][list(temp["path"][1].keys())[0]]
             temp_path.reverse()
             traj.extend(temp_path)
@@ -642,67 +642,65 @@ def createSharkGrid(filepath, cell_list):
             test[(key[0],key[1])] = val
     return test
 
-start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
-start = Motion_plan_state(start[0], start[1])
+# start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
+# start = Motion_plan_state(start[0], start[1])
 
-goal = catalina.create_cartesian(catalina.GOAL, catalina.ORIGIN_BOUND)
-goal = Motion_plan_state(goal[0], goal[1])
+# goal = catalina.create_cartesian(catalina.GOAL, catalina.ORIGIN_BOUND)
+# goal = Motion_plan_state(goal[0], goal[1])
 
-obstacles = []
-for ob in catalina.OBSTACLES:
-    pos = catalina.create_cartesian((ob.x, ob.y), catalina.ORIGIN_BOUND)
-    obstacles.append(Motion_plan_state(pos[0], pos[1], size=ob.size))
+# obstacles = []
+# for ob in catalina.OBSTACLES:
+#     pos = catalina.create_cartesian((ob.x, ob.y), catalina.ORIGIN_BOUND)
+#     obstacles.append(Motion_plan_state(pos[0], pos[1], size=ob.size))
+# for boat in catalina.BOATS:
+#     pos = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
+#     obstacles.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
         
-boundary = []
-boundary_poly = []
-for b in catalina.BOUNDARIES:
-    pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
-    boundary.append(Motion_plan_state(pos[0], pos[1]))
-    boundary_poly.append((pos[0],pos[1]))
-boundary_poly = Polygon(boundary_poly)
-        
-boat_list = []
-for boat in catalina.BOATS:
-    pos = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
-    boat_list.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
+# boundary = []
+# boundary_poly = []
+# for b in catalina.BOUNDARIES:
+#     pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
+#     boundary.append(Motion_plan_state(pos[0], pos[1]))
+#     boundary_poly.append((pos[0],pos[1]))
+# boundary_poly = Polygon(boundary_poly)
         
 #testing data for habitats
-habitats = []
-for habitat in catalina.HABITATS:
-    pos = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
-    habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
+# habitats = []
+# for habitat in catalina.HABITATS:
+#     pos = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
+#     habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
     
 # testing data for shark trajectories
-shark_dict1 = {1: [Motion_plan_state(-120 + (0.2 * i), -60 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
-    2: [Motion_plan_state(-65 - (0.2 * i), -50 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
-    3: [Motion_plan_state(-110 + (0.2 * i), -40 - (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
-    4: [Motion_plan_state(-105 - (0.2 * i), -55 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
-    5: [Motion_plan_state(-120 + (0.2 * i), -50 - (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
-    6: [Motion_plan_state(-85 - (0.2 * i), -55 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
-    7: [Motion_plan_state(-270 + (0.2 * i), 50 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
-    8: [Motion_plan_state(-250 - (0.2 * i), 75 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
-    9: [Motion_plan_state(-260 - (0.2 * i), 75 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
-    10: [Motion_plan_state(-275 + (0.2 * i), 80 - (0.2 * i), traj_time_stamp=i) for i in range(1,501)]}
+# shark_dict1 = {1: [Motion_plan_state(-120 + (0.2 * i), -60 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
+#     2: [Motion_plan_state(-65 - (0.2 * i), -50 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
+#     3: [Motion_plan_state(-110 + (0.2 * i), -40 - (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
+#     4: [Motion_plan_state(-105 - (0.2 * i), -55 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
+#     5: [Motion_plan_state(-120 + (0.2 * i), -50 - (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
+#     6: [Motion_plan_state(-85 - (0.2 * i), -55 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
+#     7: [Motion_plan_state(-270 + (0.2 * i), 50 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
+#     8: [Motion_plan_state(-250 - (0.2 * i), 75 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
+#     9: [Motion_plan_state(-260 - (0.2 * i), 75 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
+#     10: [Motion_plan_state(-275 + (0.2 * i), 80 - (0.2 * i), traj_time_stamp=i) for i in range(1,501)]}
 
-shark_dict2 = {1: [Motion_plan_state(-120 + (0.1 * i), -60 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-90 - (0.1 * i), -30 + (0.15 * i), traj_time_stamp=i) for i in range(302,501)], 
-    2: [Motion_plan_state(-65 - (0.1 * i), -50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-95 + (0.15 * i), -20 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)],
-    3: [Motion_plan_state(-110 + (0.1 * i), -40 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-80 + (0.15 * i), -70 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)], 
-    4: [Motion_plan_state(-105 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-135 + (0.12 * i), -25 + (0.07 * i), traj_time_stamp=i) for i in range(302,501)],
-    5: [Motion_plan_state(-120 + (0.1 * i), -50 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-90 + (0.11 * i), -80 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)], 
-    6: [Motion_plan_state(-85 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-115 - (0.09 * i), -25 - (0.1 * i), traj_time_stamp=i) for i in range(302,501)],
-    7: [Motion_plan_state(-270 + (0.1 * i), 50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-240 - (0.08 * i), 80 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)], 
-    8: [Motion_plan_state(-250 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-280 - (0.1 * i), 105 - (0.1 * i), traj_time_stamp=i) for i in range(302,501)],
-    9: [Motion_plan_state(-260 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-290 + (0.08 * i), 105 + (0.07 * i), traj_time_stamp=i) for i in range(302,501)], 
-    10: [Motion_plan_state(-275 + (0.1 * i), 80 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-245 - (0.13 * i), 50 - (0.12 * i), traj_time_stamp=i) for i in range(302,501)]}
+# shark_dict2 = {1: [Motion_plan_state(-120 + (0.1 * i), -60 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-90 - (0.1 * i), -30 + (0.15 * i), traj_time_stamp=i) for i in range(302,501)], 
+#     2: [Motion_plan_state(-65 - (0.1 * i), -50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-95 + (0.15 * i), -20 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)],
+#     3: [Motion_plan_state(-110 + (0.1 * i), -40 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-80 + (0.15 * i), -70 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)], 
+#     4: [Motion_plan_state(-105 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-135 + (0.12 * i), -25 + (0.07 * i), traj_time_stamp=i) for i in range(302,501)],
+#     5: [Motion_plan_state(-120 + (0.1 * i), -50 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-90 + (0.11 * i), -80 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)], 
+#     6: [Motion_plan_state(-85 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-115 - (0.09 * i), -25 - (0.1 * i), traj_time_stamp=i) for i in range(302,501)],
+#     7: [Motion_plan_state(-270 + (0.1 * i), 50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-240 - (0.08 * i), 80 + (0.1 * i), traj_time_stamp=i) for i in range(302,501)], 
+#     8: [Motion_plan_state(-250 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-280 - (0.1 * i), 105 - (0.1 * i), traj_time_stamp=i) for i in range(302,501)],
+#     9: [Motion_plan_state(-260 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-290 + (0.08 * i), 105 + (0.07 * i), traj_time_stamp=i) for i in range(302,501)], 
+#     10: [Motion_plan_state(-275 + (0.1 * i), 80 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-245 - (0.13 * i), 50 - (0.12 * i), traj_time_stamp=i) for i in range(302,501)]}
 # sharkGrid1 = createSharkGrid('path_planning/AUVGrid_prob_500_straight.csv', splitCell(boundary_poly,10))
-sharkGrid2 = createSharkGrid('path_planning/AUVGrid_prob_500_turn.csv', splitCell(boundary_poly,10))
+# sharkGrid2 = createSharkGrid('path_planning/AUVGrid_prob_500_turn.csv', splitCell(boundary_poly,10))
 
-rrt = RRT(boundary, obstacles, shark_dict2, sharkGrid2)
-path = rrt.replanning(Motion_plan_state(-200, 0), habitats, 10.0, 100.0, 20.0)
-print(path[2])
+# rrt = RRT(boundary, obstacles, shark_dict2, sharkGrid2)
+# path = rrt.replanning(Motion_plan_state(-200, 0), habitats, 10.0, 100.0, 20.0)
+# print(path[2])
 # path = rrt.exploring(Motion_plan_state(-200, 0), habitats, 0.5, 5, 2, 50, traj_time_stamp=True, max_plan_time=10, max_traj_time=500, plan_time=True, weights=[1, -3, -1, -5])
 # print(path["cost"])
 
 # Draw final path
 # rrt.draw_graph_explore(habitats, path['path'])
-rrt.draw_graph_replan(path)
+# rrt.draw_graph_replan(path)

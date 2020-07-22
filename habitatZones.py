@@ -10,10 +10,12 @@ import matplotlib.pyplot as plt
 from numpy.random import uniform 
 from numpy.random import randn
 import threading
+from shapely.geometry import box, Polygon, MultiPolygon, GeometryCollection, Point, LinearRing, LineString, MultiPolygon
 #from particle import Particle
 from live3DGraph import Live3DGraph
-from twoDfigure import Figure
+#from twoDfigure import Figure
 from motion_plan_state import Motion_plan_state
+#from robotSim import robotSim
 
 def angle_wrap(ang):
     """
@@ -115,11 +117,12 @@ class Particle:
             #multiply weights
             self.weight_p = function_weight * self.weight_p
 
+        
+
 class Shark: 
     def __init__(self, x_shark, y_shark):
         #set L (side length of square that the random particles are in) and N (number of particles)
         INITIAL_SHARK_RANGE = 150
-        #particle has 5 properties: x, y, velocity, theta, weight (starts at 1/N)
         self.x_shark = x_shark
         self.y_shark = y_shark
         self.v_shark = random.uniform(0, 5)
@@ -368,9 +371,9 @@ class ParticleFilter:
             return list_of_answers
     
     def create_and_update(self, particles):
-            for particle in particles: 
-                particle.update_particle(.1)
-            print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
+        for particle in particles: 
+            particle.update_particle(.1)
+            #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
 
     def update_weights(self, particles, auv_alpha, auv_range, auv_alpha_2, auv_range_2):
         #print("auv range and alpha", auv_alpha, auv_range)
@@ -399,25 +402,135 @@ class ParticleFilter:
         
     def final_weight_correct(self, particles, normalized_weights1, normalized_weights2):
         final_normalized_weights = []
-        for i in normalized_weights1:
-            for j in normalized_weights2:
-                if i >= j: 
-                    final_normalized_weights.append(i)
-                elif j > i: 
-                    final_normalized_weights.append(j)
-        
+        for x in range(len(normalized_weights1)):
+            if normalized_weights1[x] >= normalized_weights2[x]: 
+                    final_normalized_weights.append(normalized_weights1[x])
+            if normalized_weights1[x] < normalized_weights2[x]: 
+                    final_normalized_weights.append(normalized_weights2[x])
+
         count = 0
         for particle in particles: 
             particle.weight_p = final_normalized_weights[count]
             #print("new normalized particle weight: ", particle.weight_p, "aka i work")
             count += 1
         new_particles = self.correct(final_normalized_weights, particles)
+        
         particles = new_particles
         #for particle in particles: 
             #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
+        
         return particles
 
-NUMBER_OF_PARTICLES = 1000
+    
+
+class HabitatZones: 
+    def __init__(self, grid_range, cell_size):
+        # grid range is 150 m
+        # boundary is the boundary of area that must be split into cells, has a min x/y and max x/y
+        # cell size is 10m (length of each size)
+        self.grid_range = grid_range
+        self.cell_size = cell_size
+        
+        NUMBER_OF_ZONES = (self.grid_range/10)**2
+    
+    def create_zones(self, zone_width):
+        NUMBER_OF_PARTICLES = 1000
+        label = 0
+        #label should go from top left to top right and then down a row to repeat
+        minx = -self.grid_range
+        maxx = -self.grid_range + self.cell_size
+        miny = self.grid_range - self.cell_size
+        maxy = self.grid_range
+        probability = 1/NUMBER_OF_PARTICLES
+        zones = []
+        
+        zones = [[0 for x in range(int(math.ceil(self.grid_range * 2) / self.cell_size))] for y in range(int(math.ceil(self.grid_range * 2) / self.cell_size))]
+
+        for i in range(len(zones)):
+            for j in range(len(zones[0])):
+                zones[i][j] = [(minx, maxx), (miny, maxy), label, probability]
+                minx += 10
+                maxx += 10
+                if maxx >= int(self.grid_range +1):
+                    maxx = -self.grid_range + 10
+                    minx = -self.grid_range
+                #print(zones[i][j])
+                label += 1
+               
+            maxy += -10
+            miny += -10
+        return zones
+
+    def indexToCell(self, x_p, y_p, zones):
+        #round x_p and y_p up to the nearest 10
+        if x_p > self.grid_range:
+            x_p = self.grid_range
+        if x_p < -self.grid_range:
+            x_p = -self.grid_range
+        if y_p > self.grid_range:
+            y_p = self.grid_range
+        if y_p < -self.grid_range:
+            y_p = -self.grid_range
+        NUMBER_OF_CELLS = (self.grid_range * 2) **2
+        maxx = int(math.ceil(x_p / 10.0)) * 10
+        maxy = int(math.ceil(y_p / 10.0)) * 10
+        maxx += self.grid_range
+        maxx = (maxx/self.cell_size) -1
+        maxy += -self.grid_range
+        maxy = (maxy/-self.cell_size) 
+        
+        #print(int(maxy), int(maxx))
+        return zones[int(maxy)][int(maxx)]
+
+    def update_probability(self, particles, zones):
+        NUMBER_OF_PARTICLES = 1000
+        count = 0
+        for particle in particles: 
+            zone_number = self.indexToCell(particle.x_p, particle.y_p, zones)
+            zone_number[3] += 1/NUMBER_OF_PARTICLES
+            count +=1
+            #print(count)
+        
+        return zones
+    
+    def normalize_probability(self, zones):
+        denominator = 0
+        NUMBER_OF_ZONES = (self.grid_range/10)**2
+        for zone in zones: 
+            for cell in zone:
+                denominator += cell[3]
+        for zone in zones: 
+            for cell in zone:
+                cell[3] = cell[3]/denominator
+        return zones
+
+    def devalue_probability(self, zones):
+        #print(zones)
+        for zone in zones: 
+            for cell in zone:
+                if float(cell[3]) < .1: 
+                    cell[3] += -.005
+                elif float(cell[3]) < .5: 
+                    cell[3] += -.01
+                elif float(cell[3]) < 1: 
+                    cell[3] += -.05
+                if float(cell[3]) < 0: 
+                    cell[3] = 0
+        return zones
+
+    def main_zone_function(self, particles, zones):
+        self.devalue_probability(zones)
+        #print("is anything happening")
+        
+        self.update_probability(particles, zones)
+        
+        self.normalize_probability(zones)
+        #print("did i work")
+        return zones
+
+
+
+
 
 def main(): 
     x_mean_over_time = []
@@ -426,13 +539,14 @@ def main():
     num_of_inner_loops = 400
     final_time_list = []
     for i in range(num_of_loops):
+        NUMBER_OF_PARTICLES = 1000
         #change this constant ^^ in the particle class too!
         particles = []
         #test_grapher = Live3DGraph()
-        test_grapher_shark = Figure()
+        #test_grapher_shark = Figure()
         #shark's initial x, y, z, theta
-        test_shark = RobotSim(740, 280, -5, 0.1)
-        test_shark.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1,2])
+        #test_shark = RobotSim(740, 280, -5, 0.1)
+        #test_shark.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1,2])
         x_auv = 0
         y_auv = 0
         theta = 0 
@@ -440,7 +554,7 @@ def main():
         y_auv_2 = 10
         theta_2 = 0
         # for now, since the auv is stationary, we can just set it like this
-        auv_pos = Motion_plan_state(x_auv, y_auv, theta)
+        #auv_pos = Motion_plan_state(x_auv, y_auv, theta)
         # example of how to get the shark x position and y position
         """
         shark_list = test_shark.live_graph.shark_array
@@ -450,6 +564,8 @@ def main():
         """
         shark_1 = Shark(5, 5)
         shark_2 = Shark(20, 10)
+        test_list_shark1 = []
+        test_list_shark2 = []
         
 
         test_particle = ParticleFilter(theta, x_auv ,y_auv, x_auv_2, y_auv_2, theta_2)
@@ -467,18 +583,24 @@ def main():
         final_new_shark_coordinate_y.append(test_particle.y_shark)
         """
         
-
+        #CREATE HABITAT ZONES, measurements in meters
+        grid_range = 150
+        cell_size = 10 
+        habitat_grid = HabitatZones(grid_range, cell_size)
+        zones = habitat_grid.create_zones(cell_size)
+        
+        
         for x in range(0, NUMBER_OF_PARTICLES):
-                new_particle = Particle(shark_1.x_shark, shark_1.y_shark)
-                particles.append(new_particle)
-
+            new_particle = Particle(shark_1.x_shark, shark_1.y_shark)
+            particles.append(new_particle)
+        
         test_particle.create_and_update(particles)
-
+        
         shark1_auv_alpha = test_particle.auv_to_alpha(shark_1.x_shark, shark_1.y_shark)
         shark1_auv_alpha_2 = test_particle.auv_to_alpha_2(shark_1.x_shark, shark_1.y_shark)
         shark1_auv_range = test_particle.range_auv(shark_1.x_shark, shark_1.y_shark)
         shark1_auv_range_2 = test_particle.range_auv_2(shark_1.x_shark, shark_1.y_shark)
-
+        
         shark2_auv_alpha = test_particle.auv_to_alpha(shark_2.x_shark, shark_2.y_shark)
         shark2_auv_alpha_2 = test_particle.auv_to_alpha_2(shark_2.x_shark, shark_2.y_shark)
         shark2_auv_range = test_particle.range_auv(shark_2.x_shark, shark_2.y_shark)
@@ -488,20 +610,28 @@ def main():
         shark2_normalized_weights = test_particle.update_weights(particles, shark2_auv_alpha, shark2_auv_range, shark2_auv_alpha_2, shark2_auv_range_2)
         
         particles = test_particle.final_weight_correct(particles, shark1_normalized_weights, shark2_normalized_weights)
-
+        
+        #update habitat zone
+        zones = habitat_grid.main_zone_function(particles, zones)
+        
+        
         particle_coordinates = test_particle.particle_coordinates(particles)
         loops = 0
         sim_time = 0.0
         sim_time_list = []
         index_number_of_particles = 0
         sim_time_list.append(sim_time)
+        
         for j in range(num_of_inner_loops):
+            
             time.sleep(.1)
+            
                 #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
             #print("updated particles after", .1, "seconds of random movement")
             # update the shark position (do this in your main loop)
             for particle in particles: 
                 particle.update_particle(.1)
+
 
             shark_1.update_shark(.1)
             shark_2.update_shark(.1)
@@ -538,12 +668,19 @@ def main():
             
             particles = test_particle.final_weight_correct(particles, shark1_normalized_weights, shark2_normalized_weights)
 
+            zones = habitat_grid.main_zone_function(particles, zones)
+            print(loops)
+
             if loops%20 == 0:
                 print("==============================")
-                test_list_shark = test_particle.updateShark(1)
-                test_particle.x_shark = test_list_shark[0]
-                test_particle.y_shark = test_list_shark[1]
-                print("new shark coordinates", test_list_shark)
+                test_list_shark1 = shark_1.update_shark(.1)
+                shark_1.x_shark = test_list_shark1[0]
+                shark_1.y_shark = test_list_shark1[1]
+                print("new shark 1 coordinates", test_list_shark1)
+                test_list_shark2 = shark_2.update_shark(.1)
+                shark_2.x_shark = test_list_shark2[0]
+                shark_2.y_shark = test_list_shark2[1]
+                print("new shark 2 coordinates", test_list_shark2)
                 test_list = test_particle.update_auv(1)
                 test_particle.x_auv = test_list[0]
                 test_particle.y_auv = test_list[1]
@@ -554,14 +691,12 @@ def main():
                 print("auv 2 coordinates ", test_list_2)
 
                 print("---------------------------------")
-                xy_mean = test_particle.particleMean(particles)
-                range_error = test_particle.meanError(xy_mean[0],xy_mean[1])
-                print("range error ", range_error)
+                
             #print("mean of all particles (x, y): ", xy_mean)
-            x_mean_over_time.append(xy_mean[0])
-            y_mean_over_time.append(xy_mean[1])
-            final_new_shark_coordinate_x.append(test_particle.x_shark)
-            final_new_shark_coordinate_y.append(test_particle.y_shark)
+            #x_mean_over_time.append(xy_mean[0])
+            #y_mean_over_time.append(xy_mean[1])
+            #final_new_shark_coordinate_x.append(test_particle.x_shark)
+            #final_new_shark_coordinate_y.append(test_particle.y_shark)
             sim_time_list.append(sim_time)
             #test_particle.x_shark = test_shark.shark_sensor_data_dict[1].x
             #test_particle.y_shark = test_shark.shark_sensor_data_dict[1].y
@@ -571,12 +706,12 @@ def main():
             particle_coordinates = test_particle.particle_coordinates(particles)
             #print("+++++++++++++++++++++++++++++++")
 
-            
+            """
             test_shark.live_graph.plot_particles(particle_coordinates, final_new_shark_coordinate_x, final_new_shark_coordinate_y, actual_shark_coordinate_x, actual_shark_coordinate_y)
             plt.draw()
             plt.pause(.1)
             test_shark.live_graph.ax.clear()
-            """
+            
             
 
         
