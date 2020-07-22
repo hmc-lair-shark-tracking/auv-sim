@@ -4,7 +4,6 @@ import math
 from path_planning.sharkOccupancyGrid import SharkOccupancyGrid, splitCell
 import path_planning.catalina as catalina
 from motion_plan_state import Motion_plan_state
-from habitatZones import Particle, ParticleFilter, NUMBER_OF_PARTICLES
 
 class SharkUpdate:
     '''
