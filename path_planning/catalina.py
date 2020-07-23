@@ -10,6 +10,7 @@ def create_cartesian(pos, origin):
     """
     convert a position expressed by latitude and longtitude to a position in cartesian coordinates 
     given a defined origin point 
+
     Parameter: 
         pos - a tuple of two elements (x,y): x represents latitude; y represents longtitude 
         origin - a tuple of two elements (x,y): x represents latitude; y represents longtitude 
@@ -23,15 +24,23 @@ def create_cartesian(pos, origin):
     sign_long = np.sign([longtitude-longitude_origin])
     sign_lat = np.sign([latitude-latitude_origin])
     
-    x = sign_long * geopy.distance.great_circle((latitude_origin, longtitude), (latitude_origin, longitude_origin)).m
-    y = sign_lat * geopy.distance.great_circle((latitude, longitude_origin), (latitude_origin, longitude_origin)).m
+    x = sign_long * geopy.distance.vincenty((latitude_origin, longtitude), (latitude_origin, longitude_origin)).m
+    y = sign_lat * geopy.distance.vincenty((latitude, longitude_origin), (latitude_origin, longitude_origin)).m
 
     return (x[0], y[0])
 
 def create_environs(obstacles, boundaries, boats, habitats):
     """
-    
+    Given the obstacles, boundaries, boats, and habitats in a system of longtitudes and latitudes
+    this function converts them into positions of Cartesian coordinates
+
+    Parameter:
+        obstacles: a list of Motion_plan_state objects 
+        boundaries: a list of Motion_plan_state objects
+        boats: a list of Motion_plan_state objects
+        habitats: a list of Motion_plan_state objects
     """
+
     obstacle_list = []
     boundary_list = []
     boat_list = []
@@ -79,7 +88,6 @@ BOATS = [Motion_plan_state(33.445425, -118.486314, size=5),
         Motion_plan_state(33.444596, -118.485285, size=5),
         Motion_plan_state(33.444412, -118.485508, size=5),
         Motion_plan_state(33.443940, -118.485384, size=5)]  
-
 
 HABITATS = [Motion_plan_state(33.445733, -118.487789, size=45),
     Motion_plan_state(33.446198, -118.486652, size=32),
