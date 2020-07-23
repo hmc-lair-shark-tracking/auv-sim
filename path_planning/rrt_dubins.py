@@ -7,10 +7,11 @@ import matplotlib.pyplot as plt
 from matplotlib import cm, patches, collections
 import numpy as np
 from shapely.geometry import Polygon, Point
-
+from path_planning.sharkOccupancyGrid import SharkOccupancyGrid
 from motion_plan_state import Motion_plan_state
 from cost import habitat_shark_cost_func
 import catalina
+
 from sharkOccupancyGrid import SharkOccupancyGrid, splitCell
 #from shortest_rrt import Shrt_path
 

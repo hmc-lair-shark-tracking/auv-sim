@@ -12,6 +12,7 @@ import matplotlib.path as mpath
 import matplotlib.patches as mpatches
 import catalina
 
+
 """
 Uses matplotlib to generate live 3D Graph while the simulator is running
 
@@ -20,14 +21,13 @@ Able to draw the auv as well as multiple sharks
 class Live3DGraph:
     def __init__(self):
         self.shark_array = []
-
         # array of pre-defined colors, 
         # so we can draw sharks with different colors
         self.colors = ['b', 'g', 'c', 'm', 'y', 'k']
 
         # initialize the 3d scatter position plot for the auv and shark
         self.fig = plt.figure(figsize = [13, 10])
-        self.ax = self.fig.add_subplot(111, projection='3d')
+        self.ax = self.fig.add_subplot( 111, projection='3d')
 
         self.ax.set_xlabel('X')
         self.ax.set_ylabel('Y')
@@ -42,7 +42,7 @@ class Live3DGraph:
         #   2. the CheckButtons object
         #   3. color of the plot
         self.traj_checkbox_dict = {}
-        
+        # initialize the A * button
         # initialize the A * button
         self.traj_checkbox_dict["A *"] = [False,\
             CheckButtons(plt.axes([0.7, 0.10, 0.15, 0.05]), ["A* Trajectory"]), '#9933ff']
@@ -52,7 +52,6 @@ class Live3DGraph:
         self.traj_checkbox_dict["RRT"] = [False,\
             CheckButtons(plt.axes([0.7, 0.05, 0.15, 0.05]),["RRT Trajectory"]), '#043d10']
         # when the RRT checkbox is checked, it should call self.enable_traj_plot
-
         self.particle_checkbox = CheckButtons(plt.axes([0.1, 0.10, 0.15, 0.05]),["Display Particles"])
         self.display_particles = False
         self.particle_checkbox.on_clicked(self.particle_checkbox_clicked)
@@ -64,7 +63,7 @@ class Live3DGraph:
 
         # an array of the labels that will appear in the legend
         # TODO: labels and legends still have minor bugs
-        self.labels = ["auv"]
+        self.labels = []
 
 
     def scale_quiver_arrow(self):
@@ -97,19 +96,25 @@ class Live3DGraph:
             y_pos_array - an array of floats indicating the auv's past y-position
             z_pos_array - an array of floats indicating the auv's past z-position
         """
-        # calculate the orientation of directino vector
-        x_orient = x_pos_array[-1]-x_pos_array[-2]
-        y_orient = y_pos_array[-1]-y_pos_array[-2]
-        z_orient = z_pos_array[-1]-z_pos_array[-2]
+        if len(x_pos_array) != 0:         
+            for i in range(len(x_pos_array)):
+                # determine the color of this shark's trajectory
+                c = self.colors[i % len(self.colors) + 2]
+                
+                # calculate orientation by: current coordinate - previous coordinate
+                # these 3 variables will help us indicate the direction of the trajectory
+                x_orient = x_pos_array[i][-1]- x_pos_array[i][-2]
+                y_orient = y_pos_array[i][-1]- y_pos_array[i][-2]
+                z_orient = z_pos_array[i][-1]- z_pos_array[i][-2]
+                
+                # plot the trajectory of the shark
+                self.ax.plot(x_pos_array[i], y_pos_array[i], z_pos_array[i], marker = ",", color = c, label = "auv #" + str(i))
 
-        # plot the trajectory line
-        self.ax.plot(x_pos_array, y_pos_array, z_pos_array,\
-            marker = ',', linestyle = '-', color = 'red', label='auv')
-        
-        # use quiver plot to draw an arrow indicating the auv's direction
-        self.ax.quiver(x_pos_array[-1], y_pos_array[-1], z_pos_array[-1],\
+                # plot the direction vectors for the shark
+                self.ax.quiver(x_pos_array[i][-1], y_pos_array[i][-1], z_pos_array[i][-1],\
             x_orient, y_orient, z_orient,\
-            color = 'red', pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
+            color = c, pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
+        
 
 
     def load_shark_labels(self):
@@ -121,6 +126,17 @@ class Live3DGraph:
         if len(self.shark_array) != 0:
              # create legend with the auv and all the sharks
             self.labels += list(map(lambda s: "shark #" + str(s.id), self.shark_array))
+
+
+    def load_auv_labels(self, num_of_auv):
+        """
+        Add all the auvs to the legend
+        
+        Should be called in __init__ in robotSim after we create live3DGraph object
+        """
+        for i in range(1, num_of_auv):
+             # create legend with auvs
+            self.labels += ["auv #" + str(i)]
     
 
     def plot_sharks(self, sim_time):
@@ -136,7 +152,7 @@ class Live3DGraph:
                     # determine the color of this shark's trajectory
                     c = self.colors[i % len(self.colors)]
                     shark = self.shark_array[i]
-                    
+
                     self.update_shark_location(shark, sim_time)
                     
                     # calculate orientation by: current coordinate - previous coordinate
@@ -144,13 +160,13 @@ class Live3DGraph:
                     x_orient = shark.x_pos_array[-1]-shark.x_pos_array[-2]
                     y_orient = shark.y_pos_array[-1]-shark.y_pos_array[-2]
                     z_orient = shark.z_pos_array[-1]-shark.z_pos_array[-2]
-                    
+
                     # plot the trajectory of the shark
                     self.ax.plot(shark.x_pos_array, shark.y_pos_array, shark.z_pos_array, marker = ",", color = c, label = "shark #" + str(shark.id))
 
                     # plot the direction vectors for the shark
                     self.ax.quiver3D(shark.x_pos_array[-1], shark.y_pos_array[-1], shark.z_pos_array[-1], x_orient, y_orient, z_orient, color = c, pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
-
+                   
 
     def update_shark_location(self, shark, sim_time):
         """
@@ -165,10 +181,12 @@ class Live3DGraph:
             #   but the simulator time interval might be diffent.
             # So we need to increment the index properly so that the newest shark trajectory point is close
             #   to the simulator's current time
+            #print("shark traj pts array", shark.traj_pts_array)
+            #print("sim_time", sim_time)
             while shark.index < len(shark.traj_pts_array)-1 and\
                 abs(shark.traj_pts_array[shark.index].traj_time_stamp - sim_time) > (const.SIM_TIME_INTERVAL + 0.1):
                 shark.index += 1
-
+                
             # update the shark's position arrays to help us update the graph
             shark.store_positions(shark.traj_pts_array[shark.index].x, shark.traj_pts_array[shark.index].y, shark.traj_pts_array[shark.index].z)
 
@@ -244,7 +262,7 @@ class Live3DGraph:
         self.display_particles = not self.display_particles
     
     
-    def plot_particles(self, particle_array):
+    def plot_particles(self, particle_coordinates):
         """
         Plot the particles if the the particle checkbox is checked
 
@@ -255,13 +273,69 @@ class Live3DGraph:
         if self.display_particles:
             particle_x_array = []
             particle_y_array = []
+            particle_color_array = []
             # create two arrays for plotting x and y positions
-            for particle in particle_array:
-                particle_x_array.append(particle[0])
-                particle_y_array.append(particle[1])
-            
+            for particle in particle_coordinates:
+                particle_x_array.append(particle.x_p)
+                particle_y_array.append(particle.y_p)
+                # particle[4] specify the weight of the points
+                # the color of particles based on high weight to low weight:
+                #   red -> orange -> purple -> blue
+                if particle.weight_p > 0.75 and particle.weight_p <= 1.0:
+                    # red
+                    particle_color_array.append('#e31263')
+                elif particle.weight_p > 0.5 and particle.weight_p <= 0.75:
+                    # orange
+                    particle_color_array.append('#912951')
+                elif particle.weight_p > 0.25 and particle.weight_p <= 0.5:
+                    # purple
+                    particle_color_array.append('#7a5b67')
+                else:
+                    # blue
+                    particle_color_array.append('#786b70')
+
             # TODO: for now, we set the z position of the trajectory to be -10
-            self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = '#069ecc')
+
+            self.ax.scatter(particle_x_array, particle_y_array, -10, marker = 'o', color = particle_color_array)
+            """
+            self.ax.set_xlim3d(-75,75)
+            self.ax.set_ylim3d(-175,175)
+            self.ax.set_zlim3d(-75,75)
+            
+            self.ax.set_xlabel('X (meters)')
+            self.ax.set_ylabel('Y (meters)')
+            self.ax.set_zlabel('Z (meters)')
+            
+            """
+            self.ax.autoscale(False)
+
+    def shark_plotter_pf(self,new_mean_x, new_mean_y, new_coordinate_x, new_coordinate_y):
+        # plots trajectory of shark next to pf
+        # plot limits
+        self.ax.set_xlabel('X')
+        self.ax.set_ylabel('Y')
+        self.ax.set_zlabel('Z')
+        """
+        self.ax.set_xlim3d(-10,10)
+        self.ax.set_ylim3d(-10,10)
+        self.ax.set_zlim3d(-15,15)
+        """
+        # my try
+        color_list = []
+        colors = ['red', 'orange', 'gold', 'lawngreen', 'lightseagreen', 'royalblue','blueviolet']
+        index = -1
+        for coordinate in new_coordinate_x:
+            index += 1 
+            if index == 6:
+                index = -1
+            color_list.append(colors[index])
+            # particles
+        self.ax.scatter(new_mean_x, new_mean_y, -15, marker = 'o', color = color_list)
+        self.ax.scatter(new_coordinate_x, new_coordinate_y, -15, marker = 'o', color = color_list)
+        self.ax.plot(new_mean_x, new_mean_y, -15, marker = 'o', color = '#286330')
+        self.ax.plot(new_coordinate_x, new_coordinate_y, -15, marker = 'o', color = '#1b1c1b')
+        #mean particles --> green
+        # shark position --> blue
 
     
     def plot_obstacles(self, obstacle_array, color='#000000'):
@@ -333,31 +407,32 @@ class Live3DGraph:
         fig, ax = plt.subplots()
         
         # plot the auv overall trajectory
-        plt.plot(auv_x_array, auv_y_array, marker = ',', color = 'r', label='auv')
+        
         
         # calculate the orientation of direction vector for the auv
-        x_orient = auv_x_array[-1]-auv_x_array[-2]
-        y_orient = auv_y_array[-1]-auv_y_array[-2]
-
-        # plot an arrow indicating the auv direction
-        plt.quiver(auv_x_array[-1], auv_y_array[-1], x_orient, y_orient, color = 'r', pivot="tail")
+        for i in range(len(auv_x_array)):
+            x_orient = auv_x_array[i][-1]-auv_x_array[i][-2]
+            y_orient = auv_y_array[i][-1]-auv_y_array[i][-2]
+            plt.plot(auv_x_array[i], auv_y_array[i], marker = ',', color = 'r', label='auv')
+            # plot an arrow indicating the auv direction
+            plt.quiver(auv_x_array[i][-1], auv_y_array[i][-1], x_orient, y_orient, color = 'r', pivot="tail")
 
         # plot all the sharks
         if len(self.shark_array) != 0:         
             for i in range(len(self.shark_array)):
+                
                     # determine the color of this shark's trajectory
-                    c = self.colors[i % len(self.colors)]
+                c = self.colors[i % len(self.colors)]
 
-                    shark = self.shark_array[i]
+                shark = self.shark_array[i]
+                plt.plot(shark.x_pos_array, shark.y_pos_array, marker = ",", color = c, label = "shark #" + str(shark.id))
 
-                    plt.plot(shark.x_pos_array, shark.y_pos_array, marker = ",", color = c, label = "shark #" + str(shark.id))
+                # calculate orientation by: current coordinate - previous coordinate
+                # these 3 variables will help us indicate the direction of the trajectory
+                x_orient = shark.x_pos_array[-1]-shark.x_pos_array[-2]
+                y_orient = shark.y_pos_array[-1]-shark.y_pos_array[-2]
 
-                    # calculate orientation by: current coordinate - previous coordinate
-                    # these 3 variables will help us indicate the direction of the trajectory
-                    x_orient = shark.x_pos_array[-1]-shark.x_pos_array[-2]
-                    y_orient = shark.y_pos_array[-1]-shark.y_pos_array[-2]
-
-                    plt.quiver(shark.x_pos_array[-1], shark.y_pos_array[-1], x_orient, y_orient, color = c, pivot="tail")
+                plt.quiver(shark.x_pos_array[-1], shark.y_pos_array[-1], x_orient, y_orient, color = c, pivot="tail")
 
         # plot all the obstacles
         for obs in obstacle_array:
