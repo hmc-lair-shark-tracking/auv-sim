@@ -40,6 +40,8 @@ R_FOUND_PATH = 300
 R_CREATE_NODE = 0
 R_INVALID_NODE = -1
 
+REMOVE_CELL_WITH_MANY_NODES = False
+
 # size of the observation space
 # the coordinates of the observation space will be based on 
 #   the ENV_SIZE and the inital position of auv and the shark
@@ -219,16 +221,15 @@ class RRTEnv(gym.Env):
 
         # text = input("stop")
 
-        chosen_grid_cell = self.rrt_planner.env_grid[chosen_grid_cell_row_idx][chosen_grid_cell_col_idx].subsection_cells[subsection_index]
+        # chosen_grid_cell = self.rrt_planner.env_grid[chosen_grid_cell_row_idx][chosen_grid_cell_col_idx].subsection_cells[subsection_index]
 
-        done, path = self.rrt_planner.generate_one_node(chosen_grid_cell, step_num)
+        done, path = self.rrt_planner.generate_one_node((chosen_grid_cell_row_idx, chosen_grid_cell_col_idx, subsection_index), step_num, remove_cell_with_many_nodes=REMOVE_CELL_WITH_MANY_NODES)
 
         # TODO: how we are updating the grid's info and the has node array is very inefficient
-        self.state["rrt_grid"] = self.convert_rrt_grid_to_1D(self.rrt_planner.env_grid)
 
-        self.state["has_node"] = self.generate_rrt_grid_has_node_array(self.rrt_planner.env_grid)
+        self.state["has_node"] = np.array(self.rrt_planner.has_node_array)
 
-        self.state["rrt_grid_num_of_nodes_only"] = self.convert_rrt_grid_to_1D_num_of_nodes_only(self.rrt_planner.env_grid)
+        self.state["rrt_grid_num_of_nodes_only"] = np.array(self.rrt_planner.rrt_grid_1D_array_num_of_nodes_only)
 
         if path != None:
             self.state["path"] = path
@@ -434,19 +435,28 @@ class RRTEnv(gym.Env):
         # initialize the RRT planner
         self.rrt_planner = Planner_RRT(self.auv_init_pos, self.shark_init_pos, self.boundary_array, self.obstacle_array_for_rendering, self.habitats_array_for_rendering, cell_side_length = self.cell_side_length, freq=RRT_PLANNER_FREQ, subsections_in_cell = self.num_of_subsections)
 
-        rrt_grid_1D_array = self.convert_rrt_grid_to_1D(self.rrt_planner.env_grid)
-        rrt_grid_1D_array_num_of_nodes_only = self.convert_rrt_grid_to_1D_num_of_nodes_only(self.rrt_planner.env_grid)
-        has_node_array = self.generate_rrt_grid_has_node_array(self.rrt_planner.env_grid)
+        # rrt_grid_1D_array = self.convert_rrt_grid_to_1D(self.rrt_planner.env_grid)
+        # rrt_grid_1D_array_num_of_nodes_only = self.convert_rrt_grid_to_1D_num_of_nodes_only(self.rrt_planner.env_grid)
+        # has_node_array = self.generate_rrt_grid_has_node_array(self.rrt_planner.env_grid)
 
         self.state = {
             'auv_pos': auv_init_pos,\
             'shark_pos': shark_init_pos,\
             'obstacles_pos': self.obstacle_array,\
-            'rrt_grid': rrt_grid_1D_array,\
-            'has_node': has_node_array,\
+            'has_node': np.array(self.rrt_planner.has_node_array),\
             'path': None,\
-            'rrt_grid_num_of_nodes_only': rrt_grid_1D_array_num_of_nodes_only,\
+            'rrt_grid_num_of_nodes_only': np.array(self.rrt_planner.rrt_grid_1D_array_num_of_nodes_only),\
         }
+
+        # print("initial state")
+        # print(has_node_array)
+        # print(self.state["has_node"])
+        # print(has_node_array == self.state["has_node"])
+        # print("---")
+        # print(rrt_grid_1D_array_num_of_nodes_only)
+        # print(self.state["rrt_grid_num_of_nodes_only"])
+        # print(rrt_grid_1D_array_num_of_nodes_only == self.state["rrt_grid_num_of_nodes_only"])
+        # text = input("stop")
 
         return self.state
 

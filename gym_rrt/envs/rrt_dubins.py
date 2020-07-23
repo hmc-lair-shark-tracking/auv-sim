@@ -26,12 +26,15 @@ from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
 
 show_animation = True
 
+NODE_THRESHOLD = 30
+
+duration_each_expansion = []
 
 class Planner_RRT:
     """
     Class for RRT planning
     """
-    def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 50, cell_side_length = 2, subsections_in_cell = 8):
+    def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 50, cell_side_length = 2, subsections_in_cell = 4):
         '''
         Parameters:
             start - initial Motion_plan_state of AUV, [x, y, z, theta, v, w, time_stamp]
@@ -46,6 +49,14 @@ class Planner_RRT:
         self.boundary_point = boundary
         self.cell_side_length = cell_side_length
         self.subsections_in_cell = subsections_in_cell
+
+        # has node array
+        # an 1D array determining whether a grid cell has any nodes
+        # 0 = there isn't any nodes, 1 = there is at least 1 node
+        self.has_node_array = []
+        
+        # a 1D array representing the number of nodes in each grid cell
+        self.rrt_grid_1D_array_num_of_nodes_only = []
 
         # discretize the environment into grids
         self.discretize_env(self.cell_side_length, self.subsections_in_cell)
@@ -85,12 +96,18 @@ class Planner_RRT:
 
         self.env_grid = []
 
-        for row in range(int(env_height) // int(cell_side_length)):
+        self.size_of_row = int(env_height) // int(cell_side_length)
+        self.size_of_col = int(env_width) // int(cell_side_length)
+
+        for row in range(self.size_of_row):
             self.env_grid.append([])
-            for col in range(int(env_width) // int(cell_side_length)):
+            for col in range(self.size_of_col):
                 env_cell_x = env_btm_left_corner.x + col * cell_side_length
                 env_cell_y = env_btm_left_corner.y + row * cell_side_length
                 self.env_grid[row].append(Grid_cell_RRT(env_cell_x, env_cell_y, side_length = cell_side_length, num_of_subsections=subsections_in_cell))
+                # initialize the has_node_array and rrt_grid_1D_array_num_of_nodes_only
+                self.has_node_array += [0] * self.subsections_in_cell
+                self.rrt_grid_1D_array_num_of_nodes_only += [0] * self.subsections_in_cell
 
 
     def print_env_grid(self):
@@ -105,7 +122,7 @@ class Planner_RRT:
             print("----")
 
     
-    def add_node_to_grid(self, mps):
+    def add_node_to_grid(self, mps, remove_cell_with_many_nodes = False):
         """
 
         Parameter:
@@ -138,7 +155,7 @@ class Planner_RRT:
             print("why invalid subsection ;-;")
             print(mps)
             print("found roow and col")
-            print(hab_index_col)
+            print(hab_index_row)
             print(hab_index_col)
             print("all cells")
             print(self.env_grid[hab_index_row][hab_index_col])
@@ -153,10 +170,22 @@ class Planner_RRT:
             hab_index_subsection -= 1
 
         self.env_grid[hab_index_row][hab_index_col].subsection_cells[hab_index_subsection].node_array.append(mps)
+        
+        index_in_1D_array = hab_index_row * self.size_of_col * self.subsections_in_cell + hab_index_col * self.subsections_in_cell + hab_index_subsection
+
+        # increase the counter for the number of nodes in the grid cell
+        self.rrt_grid_1D_array_num_of_nodes_only[index_in_1D_array] += 1
 
         # add the grid cell into the occupied grid cell array if it hasn't been added
         if len(self.env_grid[hab_index_row][hab_index_col].subsection_cells[hab_index_subsection].node_array) == 1:
             self.occupied_grid_cells_array.append((hab_index_row, hab_index_col, hab_index_subsection))
+
+            self.has_node_array[index_in_1D_array] += 1
+
+        if remove_cell_with_many_nodes and self.rrt_grid_1D_array_num_of_nodes_only[index_in_1D_array] > NODE_THRESHOLD:
+            return True
+        else:
+            return False
 
 
     def planning(self, max_step = 200, min_length = 250, plan_time=True):
@@ -181,11 +210,11 @@ class Planner_RRT:
         start_time = time.time()
     
         for _ in range(max_step):
-
+            start_time_each_expansion = time.time()
             # pick the row index and col index for the grid cell where the tree will get expanded
             grid_cell_row, grid_cell_col, grid_cell_subsection = random.choice(self.occupied_grid_cells_array)
 
-            done, path = self.generate_one_node(self.env_grid[grid_cell_row][grid_cell_col].subsection_cells[grid_cell_subsection])
+            done, path = self.generate_one_node((grid_cell_row, grid_cell_col, grid_cell_subsection))
 
             # if (not done) and path != None:
             #     self.draw_graph(path)
@@ -194,6 +223,8 @@ class Planner_RRT:
 
             step += 1
 
+            duration = time.time() - start_time_each_expansion
+            duration_each_expansion.append(duration)
             if done:
                 break
         
@@ -202,7 +233,7 @@ class Planner_RRT:
         return path, step, actual_time_duration
 
 
-    def generate_one_node(self, grid_cell, step_num = None, min_length=250):
+    def generate_one_node(self, grid_cell_index, step_num = None, min_length=250, remove_cell_with_many_nodes = False):
         """
         Based on the grid cell, randomly pick a node to expand the tree from from
 
@@ -211,6 +242,10 @@ class Planner_RRT:
             path - the collision-free path if there is one, otherwise it's null
             new_node
         """
+        grid_cell_row, grid_cell_col, grid_cell_subsection = grid_cell_index
+
+        grid_cell = self.env_grid[grid_cell_row][grid_cell_col].subsection_cells[grid_cell_subsection]
+
         if grid_cell.node_array == []:
             print("hmmmm invalid grid cell pick")     
             print(grid_cell)
@@ -231,8 +266,14 @@ class Planner_RRT:
             new_node.parent = rand_node
             new_node.length += rand_node.length
             self.mps_list.append(new_node)
-            self.add_node_to_grid(new_node)
             valid_new_node = True
+
+            remove_the_chosen_grid_cell = self.add_node_to_grid(new_node, remove_cell_with_many_nodes=remove_cell_with_many_nodes)
+
+            if remove_cell_with_many_nodes and remove_the_chosen_grid_cell:
+                index_in_1D_array = grid_cell_row * self.size_of_col * self.subsections_in_cell + grid_cell_col * self.subsections_in_cell + grid_cell_subsection
+                print("too many nodes generated from this grid cell")
+                self.has_node_array[index_in_1D_array] = 0
 
         final_node = self.connect_to_goal_curve_alt(self.mps_list[-1], self.exp_rate, step_num=step_num)
 
@@ -653,7 +694,7 @@ def main():
 
         rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=10, cell_side_length=5, subsections_in_cell = 1)
         
-        path, step, actual_time_duration = rrt.planning(max_step=2000)
+        path, step, actual_time_duration = rrt.planning(max_step=500)
 
         if path != [] and type(path) == list:
             success_count += 1
@@ -684,6 +725,8 @@ def main():
     print(np.mean(path_length_array))
     print("actual time")
     print(np.mean(actual_time_duration_array))
+    print("average time for each expansion")
+    print(np.mean(duration_each_expansion))
         
 
 

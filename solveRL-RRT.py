@@ -13,6 +13,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torchvision.transforms as T  
 import copy
+import csv
 
 from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
 
@@ -36,7 +37,7 @@ NUM_OF_EPISODES = 1000
 MAX_STEP = 1000
 
 NUM_OF_EPISODES_TEST =  50
-MAX_STEP_TEST = 2000
+MAX_STEP_TEST = 500
 
 N_V = 7
 N_W = 7
@@ -75,6 +76,7 @@ NUM_OF_GRID_CELLS = int(((int(ENV_SIZE) / int(ENV_GRID_CELL_SIDE_LENGTH)) ** 2) 
 STATE_SIZE = int(NUM_OF_GRID_CELLS)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(DEVICE)
 
 # how many episode should we save the model
 SAVE_EVERY = 10
@@ -87,8 +89,11 @@ FILTER_IN_UPDATING_NN = True
 
 DEBUG = False
 
-RAND_PICK = True
-RAND_PICK_RATE = 0.5
+RAND_PICK = False
+RAND_PICK_RATE = 0.25
+
+USE_MEMO = True
+COMPLETELY_USE_MEMO = True
 
 # to limit the terminal output for training over high computing resources
 PLOT_INTERMEDIATE_TESTING = True
@@ -98,6 +103,7 @@ duration_for_memo = []
 duration_for_nn = []
 duration_for_check_key_in_dict = []
 duration_convert_to_str = []
+
 
 """
 ============================================================================
@@ -279,7 +285,7 @@ def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
 Class for building policy and target neural network
 """
 class Neural_network(nn.Module):
-    def __init__(self, input_size, output_size, hidden_layer_1_in = 1200, hidden_layer_1_out = 800, hidden_layer_2_out = 600, hidden_layer_3_out = 400):
+    def __init__(self, input_size, output_size, hidden_layer_1_in = 600, hidden_layer_1_out = 400, hidden_layer_2_out = 300, hidden_layer_3_out = 200):
         """
         Initialize the Q neural network with input
 
@@ -504,62 +510,66 @@ class Agent():
                     # when we are processing all the states, 0.00022411346435546875
                     # so best to only convert what is needed
 
-                    start_time = time.time()
-                    memo_key = str(state['rrt_grid_num_of_nodes_only'].tolist())  # convert only number of nodes, 0.00118, this is pretty high when a tensor is converted to numpy array then to str
-                    # problem with trying to make an object memo key
-                    # it's using that specific memory reference of the tensor as the key
-                    convert_time = time.time() - start_time
-                    duration_convert_to_str.append(convert_time)
-                    
-                    start_time = time.time()
-
-                    if memo_key in self.memo:
-                        duration_if = time.time() - start_time
-                        duration_for_check_key_in_dict.append(duration_if)
-
-                        start_time_memo = time.time()
-
-                        result = self.memo[memo_key]
-
-                        duration = time.time() - start_time_memo
-
-                        duration_for_memo.append(duration)
-
-                        return result
-                    else:
-                        duration_if = time.time() - start_time
-                        duration_for_check_key_in_dict.append(duration_if)
-
-                        start_time_nn = time.time()
-
-                        # for the given "state"，the output will be Q values for each possible action (index for a grid cell)
-                        #   from the policy net
-                        q_values_all_grid_cells = policy_net(input_state).to(self.device)
-
-                        # tensor of 0s and 1s, 1 indicating that a grid cell is valid (has nodes in it)
-                        has_node_tensor = torch.from_numpy(state["has_node"])
-
-                        # filter out the grid cell without any node
-                        processed_q_values_all_grid_cells = q_values_all_grid_cells+ (1 - has_node_tensor) * NEGATIVE_OFFSET
+                    if USE_MEMO: 
+                        start_time_key = time.time()
+                        memo_key = str(state['rrt_grid_num_of_nodes_only'].tolist())  # convert only number of nodes, 0.00118, this is pretty high when a tensor is converted to numpy array then to str
+                        # problem with trying to make an object memo key
+                        # it's using that specific memory reference of the tensor as the key
+                        convert_time = time.time() - start_time_key
+                        duration_convert_to_str.append(convert_time)
                         
-                        # pick the grid cell with the largest q value
-                        grid_cell_index = torch.argmax(processed_q_values_all_grid_cells).item()
+                        start_time_if = time.time()
 
-                        if DEBUG:
-                            print("-----")
-                            print("exploiting")
+                        if memo_key in self.memo:
+                            duration_if = time.time() - start_time_if
+                            duration_for_check_key_in_dict.append(duration_if)
 
-                        self.neural_net_choice += 1
+                            start_time_memo = time.time()
 
-                        nn_action = torch.tensor([grid_cell_index]).to(self.device)
+                            result = self.memo[memo_key]
 
+                            duration = time.time() - start_time_memo
+
+                            duration_for_memo.append(duration)
+
+                            return result
+                        elif COMPLETELY_USE_MEMO:
+                            # if we decide to not use the neural network at all when we test:
+                            # if the memo does not 
+                            grid_cell_index = random.choice(index_to_pick)
+                            
+                            return torch.tensor([grid_cell_index]).to(self.device)
+                    
+                    start_time_nn = time.time()
+
+                    # for the given "state"，the output will be Q values for each possible action (index for a grid cell)
+                    #   from the policy net
+                    q_values_all_grid_cells = policy_net(input_state).to(self.device)
+
+                    # tensor of 0s and 1s, 1 indicating that a grid cell is valid (has nodes in it)
+                    has_node_tensor = torch.from_numpy(state["has_node"]).to(self.device)
+
+                    # filter out the grid cell without any node
+                    processed_q_values_all_grid_cells = q_values_all_grid_cells+ (1 - has_node_tensor) * NEGATIVE_OFFSET
+                    
+                    # pick the grid cell with the largest q value
+                    grid_cell_index = torch.argmax(processed_q_values_all_grid_cells).item()
+
+                    if DEBUG:
+                        print("-----")
+                        print("exploiting")
+
+                    self.neural_net_choice += 1
+
+                    nn_action = torch.tensor([grid_cell_index]).to(self.device)
+
+                    if USE_MEMO:
                         self.memo[memo_key] =  nn_action
 
-                        duration = time.time() - start_time_nn
-                        duration_for_nn.append(duration)
+                    duration = time.time() - start_time_nn
+                    duration_for_nn.append(duration)
 
-                        return nn_action  
-
+                    return nn_action  
 
 
 """
@@ -852,6 +862,17 @@ class DQN():
         self.policy_net.load_state_dict(torch.load('checkpoint_policy.pth', map_location = DEVICE))
         self.target_net.load_state_dict(torch.load('checkpoint_target.pth', map_location = DEVICE))
 
+    
+    def store_agent_dictionary_in_csv(self, filename):
+        """
+        Warning:
+            Should only run this after the agent's data member is populated
+        """
+        w = csv.writer(open(filename, "w"))
+        for key, val in self.agent.memo.items():
+            w.writerow([key, val])
+        print("Finish storing the agent's dictionary")
+    
 
     def plot_summary_graph (self, episode_array, upper_plot_y_data, upper_plot_ylabel, upper_plot_title, lower_plot_y_data, lower_plot_ylabel, lower_plot_title):
         # close plot if there is any
@@ -1039,10 +1060,10 @@ class DQN():
         self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"])))
 
         # if reward.item() == 10.0 or reward.item() == 300.0:
-        #     print("**********************")
-        #     print("real experience")
-        #     print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"])))
-        #     text = input("stop")
+        # print("**********************")
+        # print("real experience")
+        # print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"])))
+        # text = input("stop")
 
     
     def generate_extra_goals(self, time_step, next_state_array):
@@ -1239,9 +1260,9 @@ class DQN():
                         print("UPDATE TARGET NETWORK")
                     self.target_net.load_state_dict(self.policy_net.state_dict())
 
-            # print("*********************************")
-            # print("final state")
-            # print(state)
+            print("*********************************")
+            print("final state")
+            print(state)
             if not LIMIT_TERMINAL_OUTPUT:
                 if self.loss_in_eps != []:
                     avg_loss = np.mean(self.loss_in_eps)
@@ -1254,6 +1275,7 @@ class DQN():
                     print("Episode # ", eps, "end with reward: ", score, "total reward: ", eps_reward, "average loss nan", " used time: ", iteration)
                     print("+++++++++++++++++++++++++++++")
 
+            # text = input("stop")
             # if eps % TARGET_UPDATE == 0:
             #     print("UPDATE TARGET NETWORK")
             #     self.target_net.load_state_dict(self.policy_net.state_dict())
@@ -1275,20 +1297,20 @@ class DQN():
 
         self.plot_intermediate_testing_result(DIST, episodes_that_got_tested, testing_result_array)
 
-        print("exploration rate")
-        print(self.agent.rate)
-        text = input("stop")
+        # print("exploration rate")
+        # print(self.agent.rate)
+        # text = input("stop")
 
-        print("episode duration")
-        print(episode_durations)
-        text = input("stop")
+        # print("episode duration")
+        # print(episode_durations)
+        # text = input("stop")
 
-        print("average loss")
-        print(avg_loss_in_training)
-        text = input("stop")
+        # print("average loss")
+        # print(avg_loss_in_training)
+        # text = input("stop")
 
-        print("total reward in training")
-        print(total_reward_in_training)
+        # print("total reward in training")
+        # print(total_reward_in_training)
 
     
     def test(self, num_episodes, max_step, live_graph_2D = False):
@@ -1302,6 +1324,8 @@ class DQN():
         path_length_array = []
 
         episode_actual_time_durations = []
+
+        each_expansion_time_durations = []
 
         success_count = 0
 
@@ -1326,6 +1350,9 @@ class DQN():
             start_time = time.time()
 
             for t in range(1, max_step):
+
+                start_time_each_expansion = time.time()
+
                 chosen_grid_cell_index = self.agent.select_action(state, self.policy_net)
 
                 reward = self.em.take_action(chosen_grid_cell_index, t)
@@ -1345,7 +1372,14 @@ class DQN():
                     path_length_array.append(path_len)
 
                     episode_durations[eps] = t
+
+                    duration_each_expansion = time.time() - start_time_each_expansion
+                    each_expansion_time_durations.append(duration_each_expansion)
+
                     break
+                    
+                duration_each_expansion = time.time() - start_time_each_expansion
+                each_expansion_time_durations.append(duration_each_expansion)
             
             actual_time_duration = time.time() - start_time
             episode_actual_time_durations.append(actual_time_duration)
@@ -1374,14 +1408,20 @@ class DQN():
         print("actual time duration")
         print(np.mean(episode_actual_time_durations))
 
-        print("average duration for memo")
-        print(np.mean(duration_for_memo))
         print("average duration for nn")
         print(np.mean(duration_for_nn))
-        print("average duration for if")
-        print(np.mean(duration_for_check_key_in_dict))
-        print("average duration for convert to string")
-        print(np.mean(duration_convert_to_str))
+        print("each node expansion time")
+        print(np.mean(each_expansion_time_durations))
+        
+        if USE_MEMO:
+            print("average duration for memo")
+            print(np.mean(duration_for_memo))
+            print("average duration for if")
+            print(np.mean(duration_for_check_key_in_dict))
+            print("average duration for convert to string")
+            print(np.mean(duration_convert_to_str))
+
+            
 
 
     def test_model_during_training (self, num_episodes, max_step, starting_dist):
@@ -1463,10 +1503,35 @@ class DQN():
 def main():
     dqn = DQN()
    
-    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
-    dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = True, live_graph_2D = True, use_HER = False)
+    dqn.test(100, MAX_STEP_TEST, live_graph_2D = False)
+    dqn.store_agent_dictionary_in_csv("7-23_sub=1_og-nn_max-step=500.csv")
     # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
 
 
 if __name__ == "__main__":
     main()
+
+# start_time = time.time()
+# t = []
+# for i in range(len(l)):
+#    t.append(l[i])
+# end_time = time.time() - start_time
+# print(end_time)
+
+
+# for i in range(len(test)): 
+#     if int(test[i]) == 0 and int(has_node[i]) == 1: 
+#         print("should not have any node") 
+#         print(i)
+#         print(test[i])
+#     elif int(test[i]) != 0 and int(has_node[i]) == 0: 
+#         print("this might be because this is causing many nodes being generated?")
+#         print(i)
+#         print(test[i])
+
+# for i in range(len(t1)): 
+#     if t1[i] != t2[i]:
+#         print(t1[i])
+#         print(t2[i])
+#         print(i)
