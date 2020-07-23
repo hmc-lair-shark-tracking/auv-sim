@@ -19,35 +19,38 @@ class Motion_plan_state:
         self.cost = []
 
     def __repr__(self):
-        #goal location in 2D
-        if self.z == 0 and self.theta == 0 and self.v == 0 and self.w == 0 and self.traj_time_stamp == 0:
-            return ("[" + str(self.x) + ", "  + str(self.y) + "]")
-        #goal location in 3D
-        elif self.theta == 0 and self.v == 0 and self.w == 0 and self.traj_time_stamp == 0:
-            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + "]"
-        #obstacle location in 3D
-        elif self.size != 0 and self.traj_time_stamp == 0:
-            return "[" + str(self.x) + ", " + str(self.y) + ", " + str(self.z) + ", " + str(self.size) + "]"
-        #location for Dubins Path in 2D
+        # goal location in 2D
+        if self.z == 0 and self.theta == 0 and self.v == 0 and self.w == 0 and self.traj_time_stamp == 0 and self.plan_time_stamp == 0:
+            return ("MPS: [x=" + str(self.x) + ", y="  + str(self.y) + "]")
+        # goal location in 3D
+        elif self.theta == 0 and self.v == 0 and self.w == 0 and self.size == 0 and self.traj_time_stamp == 0 and self.plan_time_stamp == 0:
+            return "MPS: [x=" + str(self.x) + ", y="  + str(self.y) + ", z=" + str(self.z) + "]"
+        # obstable location in 3D
+        elif self.size != 0 and self.traj_time_stamp == 0 and self.plan_time_stamp == 0:
+            return "MPS: [x=" + str(self.x) + ", y=" + str(self.y) + ", z=" + str(self.z) + ", size=" + str(self.size) + "]"
+        # location for Dubins Path in 2D
         elif self.z ==0 and self.v == 0 and self.w == 0:
-            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.theta) + "," + str(self.traj_time_stamp) + ", " + str(self.plan_time_stamp) + "]"
+            return "MPS: [x=" + str(self.x) + ", y="  + str(self.y) + ", theta=" + str(self.theta) + ", trag_time=" + str(self.traj_time_stamp) + ", plan_time=" + str(self.plan_time_stamp) + "]"
         else: 
-            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + ", " +\
-                str(self.theta)  + ", " + str(self.v) + ", " + str(self.w) + ", "+  str(self.traj_time_stamp) + ", " + str(self.plan_time_stamp) + "]"
+            return "MPS: [x=" + str(self.x) + ", y="  + str(self.y) + ", z=" + str(self.z) +\
+                ", theta=" + str(self.theta)  + ", v=" + str(self.v) + ", w=" + str(self.w) +\
+                ", trag_time=" + str(self.traj_time_stamp) +  ", plan_time="+  str(self.plan_time_stamp) + "]"
+
 
     def __str__(self):
-        #goal location in 2D
-        if self.z == 0 and self.theta == 0 and self.v == 0 and self.w == 0 and self.traj_time_stamp == 0:
-            return "[" + str(self.x) + ", "  + str(self.y) + "]"
-        #goal location in 3D
-        elif self.theta == 0 and self.v == 0 and self.w == 0 and self.traj_time_stamp == 0:
-            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + "]"
-        #obstacle location in 3D
-        elif self.size != 0 and self.traj_time_stamp == 0:
-            return "[" + str(self.x) + ", " + str(self.y) + ", " + str(self.z) + ", " + str(self.size) + "]"
-        #location for Dubins Path in 2D
+        # goal location in 2D
+        if self.z == 0 and self.theta == 0 and self.v == 0 and self.w == 0 and self.traj_time_stamp == 0 and self.plan_time_stamp == 0:
+            return ("MPS: [x=" + str(self.x) + ", y="  + str(self.y) + "]")
+        # goal location in 3D
+        elif self.theta == 0 and self.v == 0 and self.w == 0 and self.size == 0 and self.traj_time_stamp == 0 and self.plan_time_stamp == 0:
+            return "MPS: [x=" + str(self.x) + ", y="  + str(self.y) + ", z=" + str(self.z) + "]"
+        # obstable location in 3D
+        elif self.size != 0 and self.traj_time_stamp == 0 and self.plan_time_stamp == 0:
+            return "MPS: [x=" + str(self.x) + ", y=" + str(self.y) + ", z=" + str(self.z) + ", size=" + str(self.size) + "]"
+        # location for Dubins Path in 2D
         elif self.z ==0 and self.v == 0 and self.w == 0:
-            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.theta) + "," + str(self.traj_time_stamp) + ", " + str(self.plan_time_stamp) + "]"
+            return "MPS: [x=" + str(self.x) + ", y="  + str(self.y) + ", theta=" + str(self.theta) + ", trag_time=" + str(self.traj_time_stamp) + ", plan_time=" + str(self.plan_time_stamp) + "]"
         else: 
-            return "[" + str(self.x) + ", "  + str(self.y) + ", " + str(self.z) + ", " +\
-                str(self.theta)  + ", " + str(self.v) + ", " + str(self.w) + ", "+  str(self.traj_time_stamp) + ", " + str(self.plan_time_stamp) + "]"
+            return "MPS: [x=" + str(self.x) + ", y="  + str(self.y) + ", z=" + str(self.z) +\
+                ", theta=" + str(self.theta)  + ", v=" + str(self.v) + ", w=" + str(self.w) +\
+                ", trag_time=" + str(self.traj_time_stamp) +  ", plan_time="+  str(self.plan_time_stamp) + "]"

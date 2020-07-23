@@ -87,7 +87,7 @@ class Live3DGraph:
             self.arrow_length_ratio = range * 0.1
 
 
-    def plot_auv(self, x_pos_array, y_pos_array, z_pos_array):
+    def plot_entity(self, x_pos_array, y_pos_array, z_pos_array, label = 'auv', color = 'red', marker = ','):
         """
         Plot the auv trajectory as well as its direction
 
@@ -96,25 +96,20 @@ class Live3DGraph:
             y_pos_array - an array of floats indicating the auv's past y-position
             z_pos_array - an array of floats indicating the auv's past z-position
         """
-        if len(x_pos_array) != 0:         
-            for i in range(len(x_pos_array)):
-                # determine the color of this shark's trajectory
-                c = self.colors[i % len(self.colors) + 2]
-                
-                # calculate orientation by: current coordinate - previous coordinate
-                # these 3 variables will help us indicate the direction of the trajectory
-                x_orient = x_pos_array[i][-1]- x_pos_array[i][-2]
-                y_orient = y_pos_array[i][-1]- y_pos_array[i][-2]
-                z_orient = z_pos_array[i][-1]- z_pos_array[i][-2]
-                
-                # plot the trajectory of the shark
-                self.ax.plot(x_pos_array[i], y_pos_array[i], z_pos_array[i], marker = ",", color = c, label = "auv #" + str(i))
 
-                # plot the direction vectors for the shark
-                self.ax.quiver(x_pos_array[i][-1], y_pos_array[i][-1], z_pos_array[i][-1],\
-            x_orient, y_orient, z_orient,\
-            color = c, pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
+        # calculate the orientation of directino vector
+        x_orient = x_pos_array[-1]-x_pos_array[-2]
+        y_orient = y_pos_array[-1]-y_pos_array[-2]
+        z_orient = z_pos_array[-1]-z_pos_array[-2]
+
+        # plot the trajectory line
+        self.ax.plot(x_pos_array, y_pos_array, z_pos_array,\
+            marker = marker, linestyle = '-', color = color, label = label)
         
+        # use quiver plot to draw an arrow indicating the auv's direction
+        self.ax.quiver(x_pos_array[-1], y_pos_array[-1], z_pos_array[-1],\
+            x_orient, y_orient, z_orient,\
+            color = color, pivot="tip", normalize = True, arrow_length_ratio = self.arrow_length_ratio)
 
 
     def load_shark_labels(self):

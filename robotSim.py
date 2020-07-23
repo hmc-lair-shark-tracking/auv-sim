@@ -3,12 +3,14 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import csv
+
+import gym
+
 import time
 import timeit
 import random
 import numpy
 
-# import 3 data representation class
 from sharkState import SharkState
 from sharkTrajectory import SharkTrajectory
 from live3DGraph import Live3DGraph
@@ -28,6 +30,7 @@ from path_planning.cost import Cost
 #   const.SIM_TIME_INTERVAL
 import constants as const
 import catalina 
+
 
 def angle_wrap(ang):
     """
@@ -88,19 +91,9 @@ class RobotSim:
         #time interval to replan trajectory
         self.replan_time = 0.5
         #time limit for path planning algorithm to find the shortest path
-        self.planning_time = 1.0
-        self.auv_dict = {}
-        self.filter_dict = {}
-        #dictionary that stores all the bearing and range of auv to shark
-        self.measurement_dict =  {}
+        self.planning_time = planning_time
 
-        #initialize environments 
-        obstacle_array = [Motion_plan_state(757,243, size=2),Motion_plan_state(763,226, size=5)]
-        boundary = [Motion_plan_state(-500, -500), Motion_plan_state(500,500)]
-        BOUNDARY_RANGE = 500 
-        habitats = [Motion_plan_state(63,23, size=5), Motion_plan_state(12,45,size=7), Motion_plan_state(51,36,size=5), Motion_plan_state(45,82,size=5),\
-                Motion_plan_state(60,65,size=10), Motion_plan_state(80,79,size=5),Motion_plan_state(85,25,size=6)]
-        
+
     def get_auv_state(self):
         """
         Return a Motion_plan_state representing the orientation and the time stamp
@@ -226,6 +219,7 @@ class RobotSim:
 
             return False
         
+        
     def get_habitats(self):
         '''
         get the location of all habitats within the boundary, represented as a list of motion_plan_states
@@ -240,6 +234,7 @@ class RobotSim:
             Motion_plan_state(825, 330, size=6), Motion_plan_state(830, 335, size=5)]
         
         return habitats
+
 
     def track_trajectory(self, trajectory, new_trajectory):
         """
@@ -297,9 +292,9 @@ class RobotSim:
         if planner == "RRT":
             path_planning = RRT(auv_pos, shark_pos, boundary, obstacle, habitats)
 
-        result = path_planning.exploring(habitats, 0.5, 5, 1)
-        
-        return result["path"]
+            result = path_planning.exploring(habitats, 0.5, 5, 1)
+            
+            return result["path"]
     
     def create_trajectory_list(self, traj_list):
         """
@@ -404,9 +399,11 @@ class RobotSim:
         """
         # scale the arrow for the auv and the sharks properly for graph
         self.live_graph.scale_quiver_arrow()
-        
-        self.live_graph.plot_auv(x_list, y_list, z_list)
-        
+
+        # plot the auv
+        self.live_graph.plot_entity(self.x_list, self.y_list, self.z_list)
+
+
         # plot the new positions for all the sharks that the robot is tracking
         self.live_graph.plot_sharks(self.curr_time)
         
@@ -467,6 +464,29 @@ class RobotSim:
         self.live_graph.plot_distance(auv_all_sharks_dist_dict, self.time_array)
 
         plt.show()
+
+
+    def render_for_rl_env(self, auv_pos, shark_pos):
+        self.auv_x_array_rl.append(auv_pos[0])
+        self.auv_y_array_rl.append(auv_pos[1])
+        self.auv_z_array_rl.append(auv_pos[2])
+
+        self.shark_x_array_rl.append(shark_pos[0])
+        self.shark_y_array_rl.append(shark_pos[1])
+        self.shark_z_array_rl.append(shark_pos[2])
+
+        self.live_graph.plot_entity(self.auv_x_array_rl, self.auv_y_array_rl, self.auv_z_array_rl, label = 'auv', color = 'r', marker = ',')
+
+        self.live_graph.plot_entity(self.shark_x_array_rl, self.shark_y_array_rl, self.shark_z_array_rl, label = 'shark', color = 'b', marker = 'o')
+
+        self.live_graph.ax.legend()
+        
+        plt.draw()
+
+        # pause so the plot can be updated
+        plt.pause(0.5)
+
+        self.live_graph.ax.clear()
 
 
     def track_way_point(self, way_point):
@@ -822,8 +842,7 @@ def main():
     # test_robot.display_auv_trajectory()
     
     # to not show that live_graph, you can pass in "False"
-
-    #test_robot.main_navigation_loop(True)
+    test_robot.main_navigation_loop(True)
 
 
 if __name__ == "__main__":
