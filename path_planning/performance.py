@@ -10,6 +10,7 @@ from rrt_dubins import RRT, createSharkGrid
 from motion_plan_state import Motion_plan_state
 import catalina
 from sharkOccupancyGrid import SharkOccupancyGrid, splitCell
+from cost import habitat_shark_cost_func
 
 def summary_1(weight, obstacles, boundary, habitats, shark_dict, sharkGrid, test_num=100):
     '''
@@ -200,6 +201,22 @@ def plot_time_stamp(start, goal, boundary, obstacle_array, habitats):
     plt.bar(bin_list, num_time_list, color="g")
     
     plt.show()
+
+def summary_4(traj, habitats, shark_dict):
+    '''
+        
+    '''
+    #initialize
+    total_cost = 0
+    num_steps = 0
+    
+    for i in range(len(traj)):
+        #update habitats
+        #current shark_dict
+        total_cost += habitat_shark_cost_func(traj[:i], traj[i].length, peri, traj[i].traj_time_stamp, habitats, shark_dict, [1,-3,-1,-5])
+        num_steps += 1
+    
+    return total_cost / num_steps
 
 #initialize start, goal, obstacle, boundary, habitats for path planning
 start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
