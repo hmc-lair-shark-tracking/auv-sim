@@ -89,11 +89,11 @@ FILTER_IN_UPDATING_NN = True
 
 DEBUG = False
 
-RAND_PICK = False
-RAND_PICK_RATE = 0.25
+RAND_PICK = True
+RAND_PICK_RATE = 0.75
 
 USE_MEMO = True
-COMPLETELY_USE_MEMO = True
+COMPLETELY_USE_MEMO = False
 
 # to limit the terminal output for training over high computing resources
 PLOT_INTERMEDIATE_TESTING = True
@@ -104,6 +104,7 @@ duration_for_nn = []
 duration_for_check_key_in_dict = []
 duration_convert_to_str = []
 
+ratio_in_an_ep_for_memo = []
 
 """
 ============================================================================
@@ -447,6 +448,8 @@ class Agent():
 
         self.neural_net_choice = 0
 
+        self.count_for_using_memo = 0
+
         self.memo = {}
 
     
@@ -510,6 +513,8 @@ class Agent():
                     # when we are processing all the states, 0.00022411346435546875
                     # so best to only convert what is needed
 
+                    self.neural_net_choice += 1
+
                     if USE_MEMO: 
                         start_time_key = time.time()
                         memo_key = str(state['rrt_grid_num_of_nodes_only'].tolist())  # convert only number of nodes, 0.00118, this is pretty high when a tensor is converted to numpy array then to str
@@ -521,6 +526,9 @@ class Agent():
                         start_time_if = time.time()
 
                         if memo_key in self.memo:
+                            # print("using memo")
+                            self.count_for_using_memo += 1
+
                             duration_if = time.time() - start_time_if
                             duration_for_check_key_in_dict.append(duration_if)
 
@@ -537,7 +545,7 @@ class Agent():
                             # if we decide to not use the neural network at all when we test:
                             # if the memo does not 
                             grid_cell_index = random.choice(index_to_pick)
-                            
+                            # print("it's completedly using the memo")
                             return torch.tensor([grid_cell_index]).to(self.device)
                     
                     start_time_nn = time.time()
@@ -863,16 +871,28 @@ class DQN():
         self.target_net.load_state_dict(torch.load('checkpoint_target.pth', map_location = DEVICE))
 
     
-    def store_agent_dictionary_in_csv(self, filename):
+    def store_agent_dictionary(self, filename):
         """
         Warning:
             Should only run this after the agent's data member is populated
         """
         w = csv.writer(open(filename, "w"))
         for key, val in self.agent.memo.items():
-            w.writerow([key, val])
+            w.writerow([key, val.item()])
         print("Finish storing the agent's dictionary")
-    
+        print("Agent's dictionary size: ", len(self.agent.memo))
+
+    def load_agent_dictionary(self, filename):
+        # store the x position for all the sharks
+        with open(filename, newline='') as csvfile:
+            data_reader = csv.reader(csvfile, delimiter=',') 
+
+            for row in data_reader:
+                self.agent.memo[row[0]] = torch.tensor(int(row[1])).to(DEVICE)
+
+        print("Finish loading the agent's dictionary")
+        print("Agent's dictionary size: ", len(self.agent.memo))
+        
 
     def plot_summary_graph (self, episode_array, upper_plot_y_data, upper_plot_ylabel, upper_plot_title, lower_plot_y_data, lower_plot_ylabel, lower_plot_title):
         # close plot if there is any
@@ -1343,6 +1363,7 @@ class DQN():
 
             self.agent.neural_net_bad_choice = 0
             self.agent.neural_net_choice = 0
+            self.agent.count_for_using_memo = 0
 
             if live_graph_2D:
                 self.em.env.init_live_graph(live_graph_2D = live_graph_2D)
@@ -1380,9 +1401,12 @@ class DQN():
                     
                 duration_each_expansion = time.time() - start_time_each_expansion
                 each_expansion_time_durations.append(duration_each_expansion)
-            
+
             actual_time_duration = time.time() - start_time
             episode_actual_time_durations.append(actual_time_duration)
+
+            if self.agent.neural_net_choice != 0:
+                ratio_in_an_ep_for_memo.append(float(self.agent.count_for_using_memo) / float(self.agent.neural_net_choice))
 
             if live_graph_2D:
                 self.em.reset_render_graph(live_graph_2D = live_graph_2D)
@@ -1408,8 +1432,9 @@ class DQN():
         print("actual time duration")
         print(np.mean(episode_actual_time_durations))
 
-        print("average duration for nn")
-        print(np.mean(duration_for_nn))
+        if not COMPLETELY_USE_MEMO:
+            print("average duration for nn")
+            print(np.mean(duration_for_nn))
         print("each node expansion time")
         print(np.mean(each_expansion_time_durations))
         
@@ -1420,6 +1445,8 @@ class DQN():
             print(np.mean(duration_for_check_key_in_dict))
             print("average duration for convert to string")
             print(np.mean(duration_convert_to_str))
+            print("average rate of using memo")
+            print(np.mean(ratio_in_an_ep_for_memo))
 
             
 
@@ -1504,9 +1531,15 @@ def main():
     dqn = DQN()
    
     # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = True, live_graph_2D = True, use_HER = False)
-    dqn.test(100, MAX_STEP_TEST, live_graph_2D = False)
-    dqn.store_agent_dictionary_in_csv("7-23_sub=1_og-nn_max-step=500.csv")
-    # dqn.test_q_value_control_auv(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, live_graph_3D = False, live_graph_2D = True)
+    filename = "7-23_sub=1_og-nn_max-step=500_eps=1000_75rand.csv"
+    dqn.test(1000, MAX_STEP_TEST, live_graph_2D = False)
+    dqn.store_agent_dictionary(filename)
+
+    # if COMPLETELY_USE_MEMO:
+    #     dqn.load_agent_dictionary(filename)
+    # dqn.test(100, MAX_STEP_TEST, live_graph_2D = False)
+    # dqn.load_agent_dictionary("7-23_sub=1_og-nn_max-step=500.csv")
+    
 
 
 if __name__ == "__main__":
