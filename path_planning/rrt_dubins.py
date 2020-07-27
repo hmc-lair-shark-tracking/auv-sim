@@ -69,16 +69,15 @@ class RRT:
             i.e. how long the AUV will drive around for
         replan_time_interval: Replan time interval i.e. the time between each query to the planner to construct a new traj
         '''
+        self.sharkEstimate = SharkUpdate(self.boundary_poly, 10, self.cell_list)
+        self.sharkOccupancyGrid = SharkOccupancyGrid({}, 10, self.boundary_poly, 50, 50, self.cell_list)
+
         traj = [start]
         time_dict = {}
-        #for testing
-        final_traj_time = 500
+        final_traj_time = list(self.sharkGrid.keys())[-1][1]
         plan_time = (plan_time_budget + replan_time_interval)
         count = 1
         oriHabitats = habitats.copy()
-
-        self.sharkEstimate = SharkUpdate(self.boundary_poly, 10, self.cell_list)
-        self.sharkOccupancyGrid = SharkOccupancyGrid({}, 10, self.boundary_poly, plan_time, 50, self.cell_list)
 
         while (traj[-1].traj_time_stamp + plan_time) < final_traj_time:
             if traj_time_length + traj[-1].traj_time_stamp > final_traj_time:
@@ -89,8 +88,6 @@ class RRT:
             time_dict[count] = [temp_path, habitats.copy()]
             habitats = self.removeHabitat(habitats, temp_path)
             count += 1
-
-
 
             time.sleep(replan_time_interval)
 
@@ -693,7 +690,7 @@ def createSharkGrid(filepath, cell_list):
 # sharkGrid1 = createSharkGrid('path_planning/AUVGrid_prob_500_straight.csv', splitCell(boundary_poly,10))
 # sharkGrid2 = createSharkGrid('path_planning/shark_data/AUVGrid_prob_500_turn.csv', splitCell(boundary_poly,10))
 
-# rrt = RRT(boundary, obstacles, sharkGrid2)
+# rrt = RRT(boundary, obstacles, shark_dict2, sharkGrid2)
 # path = rrt.replanning(Motion_plan_state(-200, 0), habitats, 10.0, 100.0, 0.1)
 # print(path[2])
 # path = rrt.exploring(Motion_plan_state(-200, 0), habitats, 0.5, 5, 2, 50, traj_time_stamp=True, max_plan_time=10, max_traj_time=500, plan_time=True, weights=[-3, -3, -4])

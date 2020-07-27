@@ -203,44 +203,43 @@ def plot_time_stamp(start, goal, boundary, obstacle_array, habitats):
     plt.show()
 
 def summary_4(rrt, habitats, shark_dict, weight):
-    res = rrt.exploring(Motion_plan_state(-200, 0), habitats, 0.5, 5, 2, 50, traj_time_stamp=True, max_plan_time=10, max_traj_time=500, plan_time=True, weights=weight)
-    traj = res["path"][0]
-    print(traj, res['cost'])
+    # res = rrt.exploring(Motion_plan_state(-200, 0), habitats, 0.5, 5, 2, 50, traj_time_stamp=True, max_plan_time=10, max_traj_time=500, plan_time=True, weights=weight)
+    # traj = res["path"][0]
+    # print(traj, res['cost'])
 
-    # res = rrt.replanning(Motion_plan_state(-200, 0), habitats, 10.0, 500.0, 0.1)
-    # traj = res[0]
+    res = rrt.replanning(Motion_plan_state(-200, 0), habitats, 10.0, 500.0, 0.1)
+    traj = res[0]
     # print(traj, res[2])
 
     #initialize
     total_cost = 0
     # num_steps = 0
-    # t = 1
+    t = 1
     visited = [False for _ in range(len(habitats))]
 
     #helper
-    # curr = 0
-    # time_diff = float("inf")
+    curr = 0
+    time_diff = float("inf")
     bin_list = list(shark_dict.keys())
     curr_time = 0
     
-    # while t <= (traj[-1].traj_time_stamp//1):
-    #     diff = abs(traj[curr].traj_time_stamp - t)
-    #     while diff <= time_diff:
-    #         time_diff = diff
-    #         curr += 1
-    #         if curr == len(traj) -1:
-    #             break
-    #         diff = abs(traj[curr].traj_time_stamp - t)
-    #     curr = curr - 1
-    #     time_diff = float("inf")
-    for i in range(1, len(traj)):
-        if traj[i].traj_time_stamp > bin_list[curr_time][1]:
+    while t <= (traj[-1].traj_time_stamp//1):
+        diff = abs(traj[curr].traj_time_stamp - t)
+        while diff <= time_diff:
+            time_diff = diff
+            curr += 1
+            if curr == len(traj) -1:
+                break
+            diff = abs(traj[curr].traj_time_stamp - t)
+        curr = curr - 1
+        time_diff = float("inf")
+        if traj[curr].traj_time_stamp > bin_list[curr_time][1]:
             curr_time += 1
         AUVGrid = shark_dict[bin_list[curr_time]]
 
-        cost, visited = habitat_shark_cost_point(traj[i], habitats, visited, AUVGrid, weight)
-        total_cost += cost * (traj[i].traj_time_stamp - traj[i-1].traj_time_stamp)
-        # t += 1
+        cost, visited = habitat_shark_cost_point(traj[curr], habitats, visited, AUVGrid, weight)
+        total_cost += cost
+        t += 1
         # num_steps += 1
     
     return total_cost / traj[-1].traj_time_stamp
@@ -301,5 +300,5 @@ sharkGrid2 = createSharkGrid('path_planning/shark_data/AUVGrid_prob_500_turn.csv
 
 # res = summary_1([1, -3, -1, -5], obstacles, boundary, habitats, shark_dict1, sharkGrid1, test_num=10)
 # plot_summary_1(["replaning", "one-time planning"], res)
-rrt = RRT(boundary, obstacles, shark_dict2, sharkGrid2)
+rrt = RRT(boundary, obstacles, sharkGrid2)
 print(summary_4(rrt, habitats, sharkGrid2, [-3, -3, -4]))
