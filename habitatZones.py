@@ -15,7 +15,7 @@ from shapely.geometry import box, Polygon, MultiPolygon, GeometryCollection, Poi
 from live3DGraph import Live3DGraph
 #from twoDfigure import Figure
 from motion_plan_state import Motion_plan_state
-#from robotSim import robotSim
+import robotSim
 
 def angle_wrap(ang):
     """
@@ -129,12 +129,14 @@ class Shark:
         self.theta_shark = random.uniform(-math.pi, math.pi)
 
     def update_shark(self, dt): 
-        #v_x_shark = random.uniform(-5, 5)
-        #v_y_shark = random.uniform(-5, 5)
-        v_x_shark = 1
-        v_y_shark = 1
-        self.x_shark = self.x_shark + (v_x_shark * dt)
-        self.y_shark = self.y_shark + (v_y_shark * dt)
+        #updates shark position and randomly changes velocity and theta
+        
+        self.x_shark = self.x_shark + dt * (v_shark * cos(theta_t))
+        self.y_shark = self.y_shark + sin(v_shark * dt)
+        self.v_shark += random.uniform(-2, 2)
+        self.v_shark = velocity_wrap(self.v_shark)
+        self.theta_shark += random.uniform(-math.pi/4, math.pi/4)
+        self.theta_shark = angle_wrap(self.theta_shark)
         return [self.x_shark, self.y_shark]
 
 
@@ -482,6 +484,8 @@ class HabitatZones:
         #print(int(maxy), int(maxx))
         return zones[int(maxy)][int(maxx)]
 
+
+
     def update_probability(self, particles, zones):
         NUMBER_OF_PARTICLES = 1000
         count = 0
@@ -527,6 +531,47 @@ class HabitatZones:
         self.normalize_probability(zones)
         #print("did i work")
         return zones
+
+class Histogram: 
+    def __init__(self, boundary_size, number_of_sharks):
+        self.boundary_size = boundary_size
+        #length of half of one side of the boundary "square", so that the origin is in the middle
+        #generally 150meters
+        self.number_of_sharks = number_of_sharks
+
+    def create_zones(self, cell_size):
+        habitat_zone = HabitatZones((self.boundary_size), cell_size)
+        zones = habitat_zone.create_zones(cell_size)
+        for zone in zones:
+            for cell in zones: 
+                cell[2] = 0
+                #number of times the shark leaves
+                cell[3] = 0
+                #number of times that the shark stays
+        return zones
+
+    def create_robotsim_sharks(self):
+        shark_number = 0
+        for s in range(len(number_of_sharks)):
+
+
+
+    def create_random_sharks(self):
+        shark_number = 0
+        sharks = []
+        for s in range(len(number_of_sharks)):
+            x_shark = random.uniform(-self.boundary_size, self.boundary_size)
+            y_shark = random.uniform(-self.boundary_size, self.boundary_size)
+            shark_s = Shark(x_shark, y_shark)
+            shark_s.v_shark = random.uniform(0, 5)
+            shark_s.theta_shark = random.uniform(-math.pi, math.pi)
+            sharks.append(shark_s)
+            shark_number += 1
+        return sharks
+            
+
+
+
 
 
 
