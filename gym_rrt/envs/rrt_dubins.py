@@ -564,62 +564,68 @@ def main():
 
     step_array = []
     success_count = 0
+    num_of_trails = 0
 
     path_length_array = []
     actual_time_duration_array = []
 
-    for _ in range(100):
+    total_start_time = time.time()
+
+    # time budget is 1 sec
+    time_budget = 5.0
+
+    while True:
         obstacle_array = []
 
         # hard-code random obstacles
         # obstacle # 1
-        obs_x = np.random.uniform(12, 17)
-        obs_y = np.random.uniform(34, 41)
-        obs_size = np.random.randint(4,6)
+        # obs_x = np.random.uniform(12, 17)
+        # obs_y = np.random.uniform(34, 41)
+        # obs_size = np.random.randint(4,6)
 
-        obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+        # obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
-        # obstacle # 2
-        obs_x = np.random.uniform(17, 21)
-        obs_y = np.random.uniform(29, 36)
-        obs_size = np.random.randint(5,7)
+        # # obstacle # 2
+        # obs_x = np.random.uniform(17, 21)
+        # obs_y = np.random.uniform(29, 36)
+        # obs_size = np.random.randint(5,7)
 
-        obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+        # obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
-        # obstacle # 3
-        obs_x = np.random.uniform(20, 25)
-        obs_y = np.random.uniform(23, 30)
-        obs_size = np.random.randint(6,8)
+        # # obstacle # 3
+        # obs_x = np.random.uniform(20, 25)
+        # obs_y = np.random.uniform(23, 30)
+        # obs_size = np.random.randint(6,8)
 
-        obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+        # obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
-        # obstacle # 4
-        obs_x = np.random.uniform(24, 29)
-        obs_y = np.random.uniform(19, 25)
-        obs_size = np.random.randint(4,6)
+        # # obstacle # 4
+        # obs_x = np.random.uniform(24, 29)
+        # obs_y = np.random.uniform(19, 25)
+        # obs_size = np.random.randint(4,6)
 
-        obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+        # obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
-        # obstacle # 5
-        obs_x = np.random.uniform(27, 33)
-        obs_y = np.random.uniform(17, 24)
-        obs_size = np.random.randint(4,6)
+        # # obstacle # 5
+        # obs_x = np.random.uniform(27, 33)
+        # obs_y = np.random.uniform(17, 24)
+        # obs_size = np.random.randint(4,6)
 
-        obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+        # obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
-        # obstacle # 6
-        obs_x = np.random.uniform(32, 36)
-        obs_y = np.random.uniform(14, 19)
-        obs_size = np.random.randint(6,8)
+        # # obstacle # 6
+        # obs_x = np.random.uniform(32, 36)
+        # obs_y = np.random.uniform(14, 19)
+        # obs_size = np.random.randint(6,8)
 
-        obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+        # obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
-        # obstacle # 7
-        obs_x = np.random.uniform(36, 40)
-        obs_y = np.random.uniform(7, 10)
-        obs_size = np.random.randint(3,6)
+        # # obstacle # 7
+        # obs_x = np.random.uniform(36, 40)
+        # obs_y = np.random.uniform(7, 10)
+        # obs_size = np.random.randint(3,6)
 
-        obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+        # obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
 
         auv_min_x = 5.0
         auv_max_x = 15.0
@@ -684,13 +690,13 @@ def main():
             x += 3.0
             y -= 3.0
 
-        print("===============================")
-        print("Starting Positions")
-        print(auv_init_pos)
-        print(shark_init_pos)
-        print("-")
-        print(obstacle_array)
-        print("===============================")
+        # print("===============================")
+        # print("Starting Positions")
+        # print(auv_init_pos)
+        # print(shark_init_pos)
+        # print("-")
+        # print(obstacle_array)
+        # print("===============================")
 
         rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=10, cell_side_length=5, subsections_in_cell = 1)
         
@@ -703,6 +709,12 @@ def main():
 
         step_array.append(step)
         actual_time_duration_array.append(actual_time_duration)
+
+        num_of_trails += 1
+
+        total_duration = time.time() - total_start_time
+        if total_duration > time_budget:
+            break
 
     rrt.init_live_graph()
     
@@ -721,6 +733,10 @@ def main():
     print(np.mean(step_array))
     print("success")
     print(success_count)
+    print("number of trails")
+    print(num_of_trails)
+    print("success rate")
+    print(float(success_count)/float(num_of_trails)*100.0)
     print("average path length")
     print(np.mean(path_length_array))
     print("actual time")

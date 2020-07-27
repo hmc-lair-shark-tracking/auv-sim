@@ -67,7 +67,7 @@ ENV_GRID_CELL_SIDE_LENGTH = 5.0
 
 R_USEFUL_STATE = 10
 
-NUM_OF_SUBSECTIONS_IN_GRID_CELL = 1
+NUM_OF_SUBSECTIONS_IN_GRID_CELL = 4
 
 # the output size for the neural network
 NUM_OF_GRID_CELLS = int(((int(ENV_SIZE) / int(ENV_GRID_CELL_SIDE_LENGTH)) ** 2) * NUM_OF_SUBSECTIONS_IN_GRID_CELL)
@@ -97,7 +97,7 @@ COMPLETELY_USE_MEMO = False
 
 # to limit the terminal output for training over high computing resources
 PLOT_INTERMEDIATE_TESTING = True
-LIMIT_TERMINAL_OUTPUT = False
+LIMIT_TERMINAL_OUTPUT = True
 
 duration_for_memo = []
 duration_for_nn = []
@@ -286,7 +286,7 @@ def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
 Class for building policy and target neural network
 """
 class Neural_network(nn.Module):
-    def __init__(self, input_size, output_size, hidden_layer_1_in = 600, hidden_layer_1_out = 400, hidden_layer_2_out = 300, hidden_layer_3_out = 200):
+    def __init__(self, input_size, output_size, hidden_layer_1_in = 300, hidden_layer_1_out = 200, hidden_layer_2_out = 150, hidden_layer_3_out = 100):
         """
         Initialize the Q neural network with input
 
@@ -1417,6 +1417,10 @@ class DQN():
                 print("+++++++++++++++++++++++++++++")
 
             total_reward_array.append(eps_reward)
+            print("final state")
+            
+            print(self.em.env.rrt_planner.env_grid)
+            text = input("stop")
 
         self.em.close()
 
@@ -1448,8 +1452,139 @@ class DQN():
             print("average rate of using memo")
             print(np.mean(ratio_in_an_ep_for_memo))
 
-            
 
+    def test_with_time_budget(self, num_of_runs, time_budget, max_step, live_graph_2D = False):
+        # modify the starting distance betweeen the auv and the shark to prepare for testing
+        episode_durations = []
+
+        path_length_array = []
+
+        episode_actual_time_durations = []
+
+        each_expansion_time_durations = []
+
+        self.load_trained_network()
+        self.policy_net.eval()
+        
+        total_start_time = time.time()
+
+        total_num_of_trails_array = []
+
+        total_success_count_array = []
+
+        total_success_rate_array = []
+
+        for _ in range(num_of_runs):
+            num_of_trails = 0
+            success_count = 0
+            
+            while True:
+                # initialize the starting point of the shark and the auv randomly
+                # receive initial observation state s1 
+                state = self.em.init_env_randomly()
+
+                eps_reward = 0.0
+
+                self.agent.neural_net_bad_choice = 0
+                self.agent.neural_net_choice = 0
+                self.agent.count_for_using_memo = 0
+
+                if live_graph_2D:
+                    self.em.env.init_live_graph(live_graph_2D = live_graph_2D)
+
+                start_time = time.time()
+
+                for t in range(1, max_step):
+
+                    start_time_each_expansion = time.time()
+
+                    chosen_grid_cell_index = self.agent.select_action(state, self.policy_net)
+
+                    reward = self.em.take_action(chosen_grid_cell_index, t)
+
+                    eps_reward += reward.item()
+
+                    self.em.render(print_state = False, live_graph_2D = live_graph_2D)
+
+                    state = self.em.get_state()
+
+                    if self.em.done:
+                        # because the only way for an episode to terminate is when an rrt path is found
+                        success_count += 1
+
+                        path_len = self.em.env.rrt_planner.cal_length(state["path"])
+
+                        path_length_array.append(path_len)
+
+                        episode_durations.append(t)
+
+                        duration_each_expansion = time.time() - start_time_each_expansion
+                        each_expansion_time_durations.append(duration_each_expansion)
+
+                        break
+                
+                    duration_each_expansion = time.time() - start_time_each_expansion
+                    each_expansion_time_durations.append(duration_each_expansion)
+
+                if not self.em.done:
+                    episode_durations.append(max_step)
+
+                actual_time_duration = time.time() - start_time
+                episode_actual_time_durations.append(actual_time_duration)
+
+                if self.agent.neural_net_choice != 0:
+                    ratio_in_an_ep_for_memo.append(float(self.agent.count_for_using_memo) / float(self.agent.neural_net_choice))
+
+                if live_graph_2D:
+                    self.em.reset_render_graph(live_graph_2D = live_graph_2D)
+
+                num_of_trails += 1
+
+                total_duration = time.time() - total_start_time
+
+                if total_duration > time_budget:
+                    break
+
+            total_num_of_trails_array.append(num_of_trails)
+            total_success_count_array.append(success_count)
+            total_success_rate_array.append(float(success_count) / float(num_of_trails) * 100)
+
+        self.em.close()
+
+        print("average time")
+        print(np.mean(episode_durations))
+
+        print("average success count")
+        print(np.mean(total_success_count_array))
+        print("number of trails")
+        print(np.mean(total_num_of_trails_array))
+        print("success rate")
+        print(np.mean(total_success_rate_array))
+
+        print("actual time duration")
+        print(np.mean(episode_actual_time_durations))
+        
+        print("==")
+
+        print("path length")
+        print(np.mean(path_length_array))
+
+        if not COMPLETELY_USE_MEMO:
+            print("average duration for nn")
+            print(np.mean(duration_for_nn))
+        print("each node expansion time")
+        print(np.mean(each_expansion_time_durations))
+        
+        if USE_MEMO:
+            print("average duration for memo")
+            print(np.mean(duration_for_memo))
+            print("average duration for if")
+            print(np.mean(duration_for_check_key_in_dict))
+            print("average duration for convert to string")
+            print(np.mean(duration_convert_to_str))
+            print("average rate of using memo")
+            print(np.mean(ratio_in_an_ep_for_memo))
+            
 
     def test_model_during_training (self, num_episodes, max_step, starting_dist):
         # modify the starting distance betweeen the auv and the shark to prepare for testing
@@ -1532,12 +1667,23 @@ def main():
    
     # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = True, live_graph_2D = True, use_HER = False)
     filename = "7-23_sub=1_og-nn_max-step=500_eps=1000_75rand.csv"
-    dqn.test(1000, MAX_STEP_TEST, live_graph_2D = False)
-    dqn.store_agent_dictionary(filename)
+    # dqn.test(100, MAX_STEP_TEST, live_graph_2D = False)
+    # dqn.store_agent_dictionary(filename)
 
     # if COMPLETELY_USE_MEMO:
-    #     dqn.load_agent_dictionary(filename)
-    # dqn.test(100, MAX_STEP_TEST, live_graph_2D = False)
+    # dqn.load_agent_dictionary(filename)
+    # dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
+    print("seconds: 2")
+    dqn.test_with_time_budget(100, 2.0, MAX_STEP_TEST, live_graph_2D = False)
+    text = input("stop")
+    print("seconds: 3")
+    dqn.test_with_time_budget(100, 3.0, MAX_STEP_TEST, live_graph_2D = False)
+    text = input("stop")
+    print("seconds: 4")
+    dqn.test_with_time_budget(100, 4.0, MAX_STEP_TEST, live_graph_2D = False)
+    text = input("stop")
+    print("seconds: 5")
+    dqn.test_with_time_budget(100, 5.0, MAX_STEP_TEST, live_graph_2D = False)
     # dqn.load_agent_dictionary("7-23_sub=1_og-nn_max-step=500.csv")
     
 
