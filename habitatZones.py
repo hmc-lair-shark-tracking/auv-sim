@@ -132,7 +132,7 @@ class Shark:
         #updates shark position and randomly changes velocity and theta
         
         self.x_shark = self.x_shark + dt * (v_shark * cos(theta_t))
-        self.y_shark = self.y_shark + sin(v_shark * dt)
+        self.y_shark = self.y_shark + dt * (v_shark * sin(theta_t))
         self.v_shark += random.uniform(-2, 2)
         self.v_shark = velocity_wrap(self.v_shark)
         self.theta_shark += random.uniform(-math.pi/4, math.pi/4)
