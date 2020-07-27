@@ -20,7 +20,7 @@ class SharkOccupancyGrid:
         grid will be used
     '''
 
-    def __init__(self, shark_dict, cell_size, boundary, bin_interval, detect_range):
+    def __init__(self, shark_dict, cell_size, boundary, bin_interval, detect_range, cell_list=None):
         '''
         create a occupancy dictionary to store occupancy grid maps at different time bins
         key is time bin, value is the corresponding occupancy grid map
@@ -35,7 +35,12 @@ class SharkOccupancyGrid:
         '''
         self.data = shark_dict
         self.cell_size = cell_size
-        self.cell_list = splitCell(boundary, cell_size)
+
+        if cell_list:
+            self.cell_list = cell_list
+        else:
+            self.cell_list = splitCell(boundary, cell_size)
+        
         self.bin_interval = bin_interval
         self.detect_range = detect_range
         self.boundary = boundary
@@ -113,11 +118,37 @@ class SharkOccupancyGrid:
                 final_result.append(g)
         return final_result
     
+    def constructAllSharkGrid(self, shark_traj_dict):
+        '''
+        create a single shark occupancy grid during one time bin for all sharks by addition
+
+        parameters: 
+        shark_traj_dict: a dictionary stored separate shark trajectories within the single time bin
+        output: a dictionary representing the shark occupancy value of each cell
+            key: Polygon object representing each cell
+            value: occupancy probability of the cell, calculated by num of sharks * average time sharks spent in this cell
+        '''
+        #initialize shark occupancy grid
+        minx, miny, maxx, maxy = self.boundary.bounds
+        grid = [[0 for _ in range(int(math.ceil(maxx - minx) / self.cell_size)+1)] for _ in range(int(math.ceil(maxy - miny) / self.cell_size)+1)]
+
+        for _, traj in shark_traj_dict.items():
+            tempOccGrid = self.constructSharkOccupancyGrid(traj)
+            for i in range(len(grid)):
+                for j in range(len(grid[0])):
+                    grid[i][j] = grid[i][j] + tempOccGrid[i][j]
+
+        for i in range(len(grid)):
+            for j in range(len(grid[0])):
+                grid[i][j] = grid[i][j] / len(list(shark_traj_dict.keys()))
+        
+        return grid
+
     def constructGrid(self, shark_traj_dict):
         '''
         create a single AUV detecting grid at during one time bin for multiple sharks
         the detecting probability of each cell represents the probability AUV can detect sharks in this cell
-            calculated by multiply probability of this cell for each cell together
+            calculated by adding probability of this cell for each cell together
         
         parameters:
             shark_traj_dict: a dictionary stored separate shark trajectories within the single time bin
@@ -393,11 +424,11 @@ def getGridByInterval(interval, gridDict):
     
     return res
 
-boundary_poly = []
-for b in catalina.BOUNDARIES:
-    pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
-    boundary_poly.append((pos[0],pos[1]))
-boundary_poly = Polygon(boundary_poly)
+# boundary_poly = []
+# for b in catalina.BOUNDARIES:
+#     pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
+#     boundary_poly.append((pos[0],pos[1]))
+# boundary_poly = Polygon(boundary_poly)
 # shark_dict1 = {1: [Motion_plan_state(-120 + (0.2 * i), -60 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
 #     2: [Motion_plan_state(-65 - (0.2 * i), -50 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
 #     3: [Motion_plan_state(-110 + (0.2 * i), -40 - (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
@@ -408,32 +439,32 @@ boundary_poly = Polygon(boundary_poly)
 #     8: [Motion_plan_state(-250 - (0.2 * i), 75 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)],
 #     9: [Motion_plan_state(-260 - (0.2 * i), 75 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
 #     10: [Motion_plan_state(-275 + (0.2 * i), 80 - (0.2 * i), traj_time_stamp=i) for i in range(1,501)]}
-shark_dict2 = {1: [Motion_plan_state(-120 + (0.1 * i), -60 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-90 - (0.1 * (i - 301)), -30 + (0.15 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
-    2: [Motion_plan_state(-65 - (0.1 * i), -50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-95 + (0.15 * (i - 301)), -20 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
-    3: [Motion_plan_state(-110 + (0.1 * i), -40 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-80 + (0.15 * (i - 301)), -70 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
-    4: [Motion_plan_state(-105 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-135 + (0.12 * (i - 301)), -25 + (0.07 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
-    5: [Motion_plan_state(-120 + (0.1 * i), -50 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-90 + (0.11 * (i - 301)), -80 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
-    6: [Motion_plan_state(-85 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-115 - (0.09 * (i - 301)), -25 - (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
-    7: [Motion_plan_state(-270 + (0.1 * i), 50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-240 - (0.08 * (i - 301)), 80 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
-    8: [Motion_plan_state(-250 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-280 - (0.1 * (i - 301)), 105 - (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
-    9: [Motion_plan_state(-260 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-290 + (0.08 * (i - 301)), 105 + (0.07 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
-    10: [Motion_plan_state(-275 + (0.1 * i), 80 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-245 - (0.13 * (i - 301)), 50 - (0.12 * (i - 301)), traj_time_stamp=i) for i in range(302,501)]}
-testing = SharkOccupancyGrid(shark_dict2, 10, boundary_poly, 50, 50)
+# shark_dict2 = {1: [Motion_plan_state(-120 + (0.1 * i), -60 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-90 - (0.1 * (i - 301)), -30 + (0.15 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
+#     2: [Motion_plan_state(-65 - (0.1 * i), -50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-95 + (0.15 * (i - 301)), -20 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
+#     3: [Motion_plan_state(-110 + (0.1 * i), -40 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-80 + (0.15 * (i - 301)), -70 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
+#     4: [Motion_plan_state(-105 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-135 + (0.12 * (i - 301)), -25 + (0.07 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
+#     5: [Motion_plan_state(-120 + (0.1 * i), -50 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-90 + (0.11 * (i - 301)), -80 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
+#     6: [Motion_plan_state(-85 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-115 - (0.09 * (i - 301)), -25 - (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
+#     7: [Motion_plan_state(-270 + (0.1 * i), 50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-240 - (0.08 * (i - 301)), 80 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
+#     8: [Motion_plan_state(-250 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-280 - (0.1 * (i - 301)), 105 - (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
+#     9: [Motion_plan_state(-260 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-290 + (0.08 * (i - 301)), 105 + (0.07 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
+#     10: [Motion_plan_state(-275 + (0.1 * i), 80 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-245 - (0.13 * (i - 301)), 50 - (0.12 * (i - 301)), traj_time_stamp=i) for i in range(302,501)]}
+# testing = SharkOccupancyGrid(shark_dict2, 10, boundary_poly, 50, 50)
 # boundary_poly = box(0.0, 0.0, 10.0, 10.0)
 # shark_dict = {1: [Motion_plan_state(0 + (0.1 * i), 2 + (0.1 * i), traj_time_stamp=0.1*i) for i in range(1,51)]}
 # testing = SharkOccupancyGrid(shark_dict, 2, boundary_poly, 2, 4)
 # occGrid = testing.constructSharkOccupancyGrid(shark_dict[5])
 # auvGrid = testing.constructAUVGrid(occGrid)
-grid = testing.convert()
+# grid = testing.convert()
 # plotShark(boundary_poly, shark_dict2)
 # print(grid[1])
-with open('AUVGrid_prob_500_turn.csv', 'w', newline='') as csvfile:
-    fieldnames = ['time bin', 'grid']
-    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+# with open('AUVGrid_prob_500_turn.csv', 'w', newline='') as csvfile:
+#     fieldnames = ['time bin', 'grid']
+#     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
-    writer.writeheader()
-    for time, AUVgrid in grid[1].items():
-        temp = []
-        for _, prob in AUVgrid.items():
-            temp.append(prob)
-        writer.writerow({'time bin': str(time), 'grid': str(temp)})
+#     writer.writeheader()
+#     for time, AUVgrid in grid[1].items():
+#         temp = []
+#         for _, prob in AUVgrid.items():
+#             temp.append(prob)
+#         writer.writerow({'time bin': str(time), 'grid': str(temp)})

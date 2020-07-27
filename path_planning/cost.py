@@ -142,18 +142,15 @@ def habitat_time_cost_func(path, length, habitats, dist, weights=[1,-1,-1]):
 
     return [sum(cost), cost]
 
-def habitat_shark_cost_func(path, length, peri, total_traj_time, habitats, shark_dict, weight):
+def habitat_shark_cost_func(path, total_traj_time, habitats, shark_dict, weight):
     '''
     cost function for habitat exploration and shark tracking
-    we want to find a path minimizing path length, maximizing the time spent in different habitats visited,
+    we want to find a path maximizing the time spent in different habitats visited,
         maximizing the number of sharks in the range of sonar detection of AUV
     
-    cost function = w1 * length - w2 * number of habitats visited - w3 * time spent in different habitats 
-                    - w4 * number of sharks in range
+    cost function = - w1 * number of habitats visited - w2 * time spent in different habitats - w3 * number of sharks in range
 
     path: current path, represented as a list of motion_plan_states
-    length: the length of current path
-    peri: perimeter of boundary, a normalization factor for path length
     habitats: a list of habitat areas represented as motion_plan_states
     shark_dict: a dictionary representing different shark trajectory/position
 
@@ -164,11 +161,8 @@ def habitat_shark_cost_func(path, length, peri, total_traj_time, habitats, shark
     w1 = weight[0]
     w2 = weight[1]
     w3 = weight[2]
-    w4 = weight[3]
 
     cost = [0 for _ in range(len(weight))]
-    #normalize the cost for path length
-    cost[0] = w1 * length / peri
     
     visited = {} #dictionary of visited habitats
     for i in range(len(habitats)):
@@ -186,19 +180,20 @@ def habitat_shark_cost_func(path, length, peri, total_traj_time, habitats, shark
         sharkGrid = shark_dict[temp_time]
         for cell_bound, prob in sharkGrid.items():
             if mps.x >= cell_bound[0] and mps.x <= cell_bound[2] and mps.y >= cell_bound[1] and mps.x <= cell_bound[3]:
-                cost[3] += w4 * prob
+                cost[2] += w3 * prob
                 break
 
         for i in range(len(habitats)):
             dist = math.sqrt((habitats[i].x-mps.x) **2 + (habitats[i].y-mps.y) **2)
             if dist <= habitats[i].size:
                 visited[i+1] = True
-                cost[2] += w3
+                cost[1] += w2
                 break
     
     #normalize the cost for time spent in habitats
-    cost[2] = cost[2] / total_traj_time
-    cost[3] = cost[3] / total_traj_time
+    if total_traj_time > 0:
+        cost[1] = cost[1] / total_traj_time
+        cost[2] = cost[2] / total_traj_time
 
     count = 0 #number of habitats visited
     for i in range(1, len(visited)+1):
@@ -207,6 +202,41 @@ def habitat_shark_cost_func(path, length, peri, total_traj_time, habitats, shark
     
     #normalize the cost for number of habitats visited
     if len(habitats) != 0:
-        cost[1] = w2 * count / len(habitats)
+        cost[0] = w1 * count / len(habitats)
 
     return [sum(cost), cost]
+
+def habitat_shark_cost_point(mps, habitats, visited, AUVGrid, weight):
+    '''
+    cost function for habitat exploration and shark tracking for a single motion_plan_state
+    
+    cost function = - w1 * number of habitats visited - w2 * time spent in different habitats - w3 * number of sharks in range
+
+    mps: current motion_plan_state
+    habitats: a list of habitat areas represented as motion_plan_states
+    AUVGrid: AUVdetecting grid for this motion_plan_state at its trajectory time stamp
+
+    output: 
+    cost: [total cost, [cost for w1, cost for w2, ...]]
+    '''
+    #set the weight for each term in cost function
+    w1 = weight[0]
+    w2 = weight[1]
+    w3 = weight[2]
+
+    cost = [0 for _ in range(len(weight))]
+    
+    for i in range(len(habitats)):
+        dist = math.sqrt((habitats[i].x-mps.x) **2 + (habitats[i].y-mps.y) **2)
+        if dist <= habitats[i].size:
+            if visited[i] == False:
+                cost[0] += w1 / len(habitats)
+                visited[i] == True
+            cost[1] += w2 / len(habitats)
+    
+    for cell_bound, prob in AUVGrid.items():
+        if mps.x >= cell_bound[0] and mps.x <= cell_bound[2] and mps.y >= cell_bound[1] and mps.x <= cell_bound[3]:
+            cost[2] += w3 * prob
+            break
+
+    return sum(cost), visited

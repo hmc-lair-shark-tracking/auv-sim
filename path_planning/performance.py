@@ -10,7 +10,7 @@ from rrt_dubins import RRT, createSharkGrid
 from motion_plan_state import Motion_plan_state
 import catalina
 from sharkOccupancyGrid import SharkOccupancyGrid, splitCell
-from cost import habitat_shark_cost_func
+from cost import habitat_shark_cost_func, habitat_shark_cost_point
 
 def summary_1(weight, obstacles, boundary, habitats, shark_dict, sharkGrid, test_num=100):
     '''
@@ -202,21 +202,48 @@ def plot_time_stamp(start, goal, boundary, obstacle_array, habitats):
     
     plt.show()
 
-def summary_4(traj, habitats, shark_dict):
-    '''
-        
-    '''
+def summary_4(rrt, habitats, shark_dict, weight):
+    res = rrt.exploring(Motion_plan_state(-200, 0), habitats, 0.5, 5, 2, 50, traj_time_stamp=True, max_plan_time=10, max_traj_time=500, plan_time=True, weights=weight)
+    traj = res["path"][0]
+    print(traj, res['cost'])
+
+    # res = rrt.replanning(Motion_plan_state(-200, 0), habitats, 10.0, 500.0, 0.1)
+    # traj = res[0]
+    # print(traj, res[2])
+
     #initialize
     total_cost = 0
-    num_steps = 0
+    # num_steps = 0
+    # t = 1
+    visited = [False for _ in range(len(habitats))]
+
+    #helper
+    # curr = 0
+    # time_diff = float("inf")
+    bin_list = list(shark_dict.keys())
+    curr_time = 0
     
-    for i in range(len(traj)):
-        #update habitats
-        #current shark_dict
-        total_cost += habitat_shark_cost_func(traj[:i], traj[i].length, peri, traj[i].traj_time_stamp, habitats, shark_dict, [1,-3,-1,-5])
-        num_steps += 1
+    # while t <= (traj[-1].traj_time_stamp//1):
+    #     diff = abs(traj[curr].traj_time_stamp - t)
+    #     while diff <= time_diff:
+    #         time_diff = diff
+    #         curr += 1
+    #         if curr == len(traj) -1:
+    #             break
+    #         diff = abs(traj[curr].traj_time_stamp - t)
+    #     curr = curr - 1
+    #     time_diff = float("inf")
+    for i in range(1, len(traj)):
+        if traj[i].traj_time_stamp > bin_list[curr_time][1]:
+            curr_time += 1
+        AUVGrid = shark_dict[bin_list[curr_time]]
+
+        cost, visited = habitat_shark_cost_point(traj[i], habitats, visited, AUVGrid, weight)
+        total_cost += cost * (traj[i].traj_time_stamp - traj[i-1].traj_time_stamp)
+        # t += 1
+        # num_steps += 1
     
-    return total_cost / num_steps
+    return total_cost / traj[-1].traj_time_stamp
 
 #initialize start, goal, obstacle, boundary, habitats for path planning
 start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
@@ -269,8 +296,10 @@ shark_dict2 = {1: [Motion_plan_state(-120 + (0.1 * i), -60 + (0.1 * i), traj_tim
     8: [Motion_plan_state(-250 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-280 - (0.1 * i), 105 - (0.1 * i), traj_time_stamp=i) for i in range(302,501)],
     9: [Motion_plan_state(-260 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-290 + (0.08 * i), 105 + (0.07 * i), traj_time_stamp=i) for i in range(302,501)], 
     10: [Motion_plan_state(-275 + (0.1 * i), 80 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-245 - (0.13 * i), 50 - (0.12 * i), traj_time_stamp=i) for i in range(302,501)]}
-# sharkGrid1 = createSharkGrid('path_planning/AUVGrid_prob_500_straight.csv', splitCell(boundary_poly,10))
-# sharkGrid2 = createSharkGrid('path_planning/AUVGrid_prob_500_turn.csv', splitCell(boundary_poly,10))
+# sharkGrid1 = createSharkGrid('path_planning/shark_data/AUVGrid_prob_500_straight.csv', splitCell(boundary_poly,10))
+sharkGrid2 = createSharkGrid('path_planning/shark_data/AUVGrid_prob_500_turn.csv', splitCell(boundary_poly,10))
 
-res = summary_1([1, -3, -1, -5], obstacles, boundary, habitats, shark_dict1, sharkGrid1, test_num=10)
-plot_summary_1(["replaning", "one-time planning"], res)
+# res = summary_1([1, -3, -1, -5], obstacles, boundary, habitats, shark_dict1, sharkGrid1, test_num=10)
+# plot_summary_1(["replaning", "one-time planning"], res)
+rrt = RRT(boundary, obstacles, shark_dict2, sharkGrid2)
+print(summary_4(rrt, habitats, sharkGrid2, [-3, -3, -4]))

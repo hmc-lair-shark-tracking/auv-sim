@@ -1,8 +1,8 @@
 from shapely.geometry import Polygon
 import math
 
-from path_planning.sharkOccupancyGrid import SharkOccupancyGrid, splitCell, plotShark
-import path_planning.catalina as catalina
+from sharkOccupancyGrid import SharkOccupancyGrid, splitCell, plotShark
+import catalina as catalina
 from motion_plan_state import Motion_plan_state
 
 class SharkUpdate:
@@ -20,6 +20,39 @@ class SharkUpdate:
         self.boundary = boundary
         self.cell_list = cell_list
     
+    def update(self, curr, sharkGrid, traj_time_length, bin_interval, method):
+        '''
+        main function for shark occupancy grid estimate
+
+        parameters:
+            curr: current time bin
+            sharkGrid: shark occupancy grid to be updated
+            traj_time_length: Trajectory time length, i.e. the difference between the the last and first time stamp of the trajectory constructed
+                i.e. how long the AUV will drive around for
+            bin_interval: time interval to construct a separate shark occupancy grid, in seconds
+            method: prediction method chosen to use to predict shark occupancy grid
+                indicated by [method, prediction]
+                method[0] = "ave" or "hist"
+                method[1] = 1 or 2
+
+        output: updated sharkGrid
+        '''
+        if method[0] == "ave":
+            for _ in range(math.ceil(traj_time_length / bin_interval)):
+                occGridPrev = sharkGrid[curr]
+                occGridCurr = self.predictOnAve(occGridPrev, False, method[1], 0.6, 0.1)
+                curr = (curr[0] + bin_interval, curr[1] + bin_interval)
+                sharkGrid[curr] = occGridCurr
+        
+        elif method[0] == "hist":
+            for _ in range(math.ceil(traj_time_length / bin_interval)):
+                occGridPrev = sharkGrid[curr]
+                occGridCurr = self.predictOnHist(occGridPrev, False, method[1], sharkGrid[(0, bin_interval)], 0.6, 0.1)
+                curr = (curr[0] + bin_interval, curr[1] + bin_interval)
+                sharkGrid[curr] = occGridCurr
+        
+        return sharkGrid
+
     def prediction1(self, occGridPrev, stayProb):
         '''
         Action update algorithm in Markov Localization, to predict position estimate 
@@ -175,24 +208,24 @@ class SharkUpdate:
         row = int((lowy - miny) / self.cell_size)
         return (row, col)
 
-boundary_poly = []
-for b in catalina.BOUNDARIES:
-    pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
-    boundary_poly.append((pos[0],pos[1]))
-boundary_poly = Polygon(boundary_poly)
-shark_dict2 = {1: [Motion_plan_state(-120 + (0.1 * i), -60 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-90 - (0.1 * (i - 301)), -30 + (0.15 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
-    2: [Motion_plan_state(-65 - (0.1 * i), -50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-95 + (0.15 * (i - 301)), -20 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
-    3: [Motion_plan_state(-110 + (0.1 * i), -40 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-80 + (0.15 * (i - 301)), -70 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
-    4: [Motion_plan_state(-105 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-135 + (0.12 * (i - 301)), -25 + (0.07 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
-    5: [Motion_plan_state(-120 + (0.1 * i), -50 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-90 + (0.11 * (i - 301)), -80 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
-    6: [Motion_plan_state(-85 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-115 - (0.09 * (i - 301)), -25 - (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
-    7: [Motion_plan_state(-270 + (0.1 * i), 50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-240 - (0.08 * (i - 301)), 80 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
-    8: [Motion_plan_state(-250 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-280 - (0.1 * (i - 301)), 105 - (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
-    9: [Motion_plan_state(-260 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-290 + (0.08 * (i - 301)), 105 + (0.07 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
-    10: [Motion_plan_state(-275 + (0.1 * i), 80 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-245 - (0.13 * (i - 301)), 50 - (0.12 * (i - 301)), traj_time_stamp=i) for i in range(302,501)]}
-testing = SharkOccupancyGrid(shark_dict2, 10, boundary_poly, 50, 50)
+# boundary_poly = []
+# for b in catalina.BOUNDARIES:
+#     pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
+#     boundary_poly.append((pos[0],pos[1]))
+# boundary_poly = Polygon(boundary_poly)
+# shark_dict2 = {1: [Motion_plan_state(-120 + (0.1 * i), -60 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-90 - (0.1 * (i - 301)), -30 + (0.15 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
+#     2: [Motion_plan_state(-65 - (0.1 * i), -50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-95 + (0.15 * (i - 301)), -20 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
+#     3: [Motion_plan_state(-110 + (0.1 * i), -40 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-80 + (0.15 * (i - 301)), -70 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
+#     4: [Motion_plan_state(-105 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-135 + (0.12 * (i - 301)), -25 + (0.07 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
+#     5: [Motion_plan_state(-120 + (0.1 * i), -50 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-90 + (0.11 * (i - 301)), -80 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
+#     6: [Motion_plan_state(-85 - (0.1 * i), -55 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-115 - (0.09 * (i - 301)), -25 - (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
+#     7: [Motion_plan_state(-270 + (0.1 * i), 50 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-240 - (0.08 * (i - 301)), 80 + (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
+#     8: [Motion_plan_state(-250 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-280 - (0.1 * (i - 301)), 105 - (0.1 * (i - 301)), traj_time_stamp=i) for i in range(302,501)],
+#     9: [Motion_plan_state(-260 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-290 + (0.08 * (i - 301)), 105 + (0.07 * (i - 301)), traj_time_stamp=i) for i in range(302,501)], 
+#     10: [Motion_plan_state(-275 + (0.1 * i), 80 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-245 - (0.13 * (i - 301)), 50 - (0.12 * (i - 301)), traj_time_stamp=i) for i in range(302,501)]}
+# testing = SharkOccupancyGrid(shark_dict2, 10, boundary_poly, 50, 50)
 # occGrid = testing.constructSharkOccupancyGrid(shark_dict2[1])
-updating = SharkUpdate(boundary_poly, 10, testing.cell_list)
-res = updating.predictOnAve(None, True, 1, 0.6, 0.1)
+# updating = SharkUpdate(boundary_poly, 10, testing.cell_list)
+# res = updating.predictOnAve(None, True, 1, 0.6, 0.1)
 # res = updating.predictOnHist(None, True, 2, occGrid, 0.6, 0.1)
-testing.plot({"current": res[0], "future": res[1]})
+# testing.plot({"current": res[0], "future": res[1]})
