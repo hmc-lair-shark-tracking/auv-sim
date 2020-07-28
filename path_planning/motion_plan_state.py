@@ -3,7 +3,7 @@
 class Motion_plan_state:
     #class for motion planning
 
-    def __init__(self,x,y,z=0,theta=0,v=0,w=0, traj_time_stamp=0, plan_time_stamp=0, size=0):
+    def __init__(self,x,y,z=0,theta=0,v=0,w=0, traj_time_stamp=0, plan_time_stamp=0, size=0, length=0):
         self.x = x
         self.y = y
         self.z = z
@@ -15,7 +15,7 @@ class Motion_plan_state:
         self.size = size
         self.parent = None
         self.path = []
-        self.length = 0
+        self.length = length
         self.cost = []
 
     def __repr__(self):
