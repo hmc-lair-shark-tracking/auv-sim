@@ -131,7 +131,7 @@ class RRTEnv(gym.Env):
         self.visited_unique_habitat_count = 0
 
 
-    def init_env(self, auv_init_pos, shark_init_pos, boundary_array, grid_cell_side_length, num_of_subsections, obstacle_array = [], habitat_grid = None):
+    def init_env(self, auv_init_pos, shark_init_pos, boundary_array, grid_cell_side_length, num_of_subsections, obstacle_array = [], empty_slot_tensor = [], habitat_grid = None):
         """
         Initialize the environment based on the auv and shark's initial position
 
@@ -162,6 +162,8 @@ class RRTEnv(gym.Env):
         for obs in obstacle_array:
             self.obstacle_array.append([obs.x, obs.y, obs.z, obs.size])
         self.obstacle_array = np.array(self.obstacle_array)
+
+        self.empty_slot_tensor = empty_slot_tensor
 
         self.boundary_array = boundary_array
 
@@ -446,6 +448,7 @@ class RRTEnv(gym.Env):
             'has_node': np.array(self.rrt_planner.has_node_array),\
             'path': None,\
             'rrt_grid_num_of_nodes_only': np.array(self.rrt_planner.rrt_grid_1D_array_num_of_nodes_only),\
+            'empty_slot_tensor': self.empty_slot_tensor,\
         }
 
         # print("initial state")

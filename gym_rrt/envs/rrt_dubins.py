@@ -1,6 +1,8 @@
 import math
 import random
 import time
+import sys
+import torch
 
 import matplotlib
 matplotlib.use("TkAgg")
@@ -489,7 +491,7 @@ class Planner_RRT:
                d, _ = self.get_distance_angle(obstacle, point)
                dList.append(d) 
 
-            if min(dList) <= obstacle.size:
+            if (min(dList) + sys.float_info.epsilon) <= obstacle.size:
                 return False  # collision
     
         for point in mps.path:
@@ -543,8 +545,61 @@ class Planner_RRT:
         for i in range(1, len(path)):
             length += math.sqrt((path[i].x-path[i-1].x)**2 + (path[i].y-path[i-1].y)**2)
         return length
-    
 
+
+def generate_rand_complex_env():
+    obstacle_array = []
+    # the empty space in each obstacle layer
+    empty_slot_array = []
+
+    for layer in range(3):
+        # each layer will have 10 obstacles, randomly remove 2 obstacles
+        obstacles_to_remove = random.choice(range(0, 12))
+        # obstacles at y = 10m
+        x = 2.0
+        y = 10.0 + 15.0 * layer
+
+        for j in range(13):
+            if (j != obstacles_to_remove) and (j != obstacles_to_remove + 1):
+                obstacle_array.append(Motion_plan_state(x=x, y=y, size=2.5))
+            else:
+                empty_slot_array.append([x, y, 2.5])
+            x += 4.0 
+
+    # convert the empty slot array
+    # empty_slot_array = np.array(empty_slot_array)
+    # empty_slot_tensor = torch.from_numpy(empty_slot_array)
+    # empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
+
+    return obstacle_array
+
+
+def generate_fix_complex_env():
+    obstacle_array = []
+    # the empty space in each obstacle layer
+    empty_slot_array = []
+
+    obstacles_to_remove_array= [6, 1, 9]
+
+    for i in range(0,3):
+        # each layer will have 10 obstacles, randomly remove 2 obstacles
+        obstacles_to_remove = obstacles_to_remove_array[i]
+        # obstacles at y = 10m
+        x = 2.0
+        y = 10.0 + 15.0 * i
+        for j in range(13):
+            if (j != obstacles_to_remove) and (j != obstacles_to_remove + 1):
+                obstacle_array.append(Motion_plan_state(x=x, y=y, size=2.5))
+            else:
+                empty_slot_array.append([x, y, 2.5])
+            x += 4.0 
+
+    # convert the empty slot array
+    # empty_slot_array = np.array(empty_slot_array)
+    # empty_slot_tensor = torch.from_numpy(empty_slot_array)
+    # empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
+
+    return obstacle_array
 
 def main():
     auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
@@ -562,188 +617,119 @@ def main():
 
     boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = 50.0, y = 50.0)]
 
-    step_array = []
-    success_count = 0
-    num_of_trails = 0
+    num_of_runs = 100
 
-    path_length_array = []
-    actual_time_duration_array = []
+    time_budget_array = [3,5]
 
-    total_start_time = time.time()
+    for time_budget in time_budget_array:
+        step_array = []
 
-    # time budget is 1 sec
-    time_budget = 5.0
+        path_length_array = []
+        actual_time_duration_array = []
 
-    while True:
-        obstacle_array = []
+        total_num_of_trails_array = []
 
-        # hard-code random obstacles
-        # obstacle # 1
-        # obs_x = np.random.uniform(12, 17)
-        # obs_y = np.random.uniform(34, 41)
-        # obs_size = np.random.randint(4,6)
+        total_success_count_array = []
 
-        # obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+        total_success_rate_array = []
 
-        # # obstacle # 2
-        # obs_x = np.random.uniform(17, 21)
-        # obs_y = np.random.uniform(29, 36)
-        # obs_size = np.random.randint(5,7)
+        for run in range(num_of_runs):
+            num_of_trails = 0
+            success_count = 0
+            # print("run")
+            # print(run)
+            # print("---")
+            total_start_time = time.time()
+            while True:
+                # print("trail")
+                # print(num_of_trails)
+                # print("-")
+                obstacle_array = []
 
-        # obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+                auv_min_x = 5.0
+                auv_max_x = 15.0
+                auv_min_y = 5.0
+                auv_max_y = 15.0
 
-        # # obstacle # 3
-        # obs_x = np.random.uniform(20, 25)
-        # obs_y = np.random.uniform(23, 30)
-        # obs_size = np.random.randint(6,8)
+                shark_min_x = 35.0
+                shark_max_x = 45.0
+                shark_min_y = 35.0
+                shark_max_y = 45.0
 
-        # obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+                # auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+                # shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
 
-        # # obstacle # 4
-        # obs_x = np.random.uniform(24, 29)
-        # obs_y = np.random.uniform(19, 25)
-        # obs_size = np.random.randint(4,6)
+                auv_init_pos = Motion_plan_state(x = 5.0, y = 5.0, z = -5.0, theta = 0.0)
+                shark_init_pos = Motion_plan_state(x = 45.0, y = 45.0, z = -5.0, theta = 0.0)
+                obstacle_array = generate_rand_complex_env()
 
-        # obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+                # print("===============================")
+                # print("Starting Positions")
+                # print(auv_init_pos)
+                # print(shark_init_pos)
+                # print("-")
+                # print(obstacle_array)
+                # print("===============================")
 
-        # # obstacle # 5
-        # obs_x = np.random.uniform(27, 33)
-        # obs_y = np.random.uniform(17, 24)
-        # obs_size = np.random.randint(4,6)
+                rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=10, cell_side_length=5, subsections_in_cell = 1)
+                
+                path, step, actual_time_duration = rrt.planning(max_step=500)
 
-        # obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+                if path != [] and type(path) == list:
+                    success_count += 1
+                    path_len = rrt.cal_length(path)
+                    path_length_array.append(path_len)
 
-        # # obstacle # 6
-        # obs_x = np.random.uniform(32, 36)
-        # obs_y = np.random.uniform(14, 19)
-        # obs_size = np.random.randint(6,8)
+                step_array.append(step)
+                actual_time_duration_array.append(actual_time_duration)
 
-        # obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+                num_of_trails += 1
 
-        # # obstacle # 7
-        # obs_x = np.random.uniform(36, 40)
-        # obs_y = np.random.uniform(7, 10)
-        # obs_size = np.random.randint(3,6)
+                total_duration = time.time() - total_start_time
+                
+                if total_duration > time_budget:
+                    break
 
-        # obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
+            total_num_of_trails_array.append(num_of_trails)
+            total_success_count_array.append(success_count)
+            total_success_rate_array.append(float(success_count) / float(num_of_trails) * 100)
 
-        auv_min_x = 5.0
-        auv_max_x = 15.0
-        auv_min_y = 5.0
-        auv_max_y = 15.0
-
-        shark_min_x = 35.0
-        shark_max_x = 45.0
-        shark_min_y = 35.0
-        shark_max_y = 45.0
-
-        # auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
-        # shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
-
-        auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
-        shark_init_pos = Motion_plan_state(x = 35.0, y = 45.0, z = -5.0, theta = 0.0)
-
-        # obstacle_array = [\
-        #     Motion_plan_state(x=15.0, y=15.0, size=3),\
+        # rrt.init_live_graph()
             
-        #     Motion_plan_state(x=3.0, y=25.0, size=3),\
+        # if path != [] and type(path) == list:
+        #     rrt.draw_graph()
+        #     plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
+        # else:
+        #     print("Failed to find path")
+        #     rrt.draw_graph()
 
-        #     Motion_plan_state(x=25.0, y=25.0, size=3),\
+        # plt.draw()
 
-        #     Motion_plan_state(x=40.0, y=3.0, size=3),\
+        print("time budget")
+        print(time_budget)
+        print("========")
 
-        #     Motion_plan_state(x=30.0, y=40.0, size=3),\
-        # ]
+        print('steps')
+        print(np.mean(step_array))
 
-        obstacle_array = []
-        x = 15.0
-        y = 15.0
+        print("average success count")
+        print(total_success_count_array)
+        print(np.mean(total_success_count_array))
+        print("number of trails")
+        print(total_num_of_trails_array)
+        print(np.mean(total_num_of_trails_array))
+        print("success rate")
+        print(total_success_rate_array)
+        print(np.mean(total_success_rate_array))
 
-        for _ in range(5):
-            obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
-            x -= 3.0
-            y += 3.0
-        
-        x = 3.0
-        y = 33.0
-        for _ in range(2):
-            obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
-            y += 6.0
+        print("average path length")
+        print(np.mean(path_length_array))
+        print("actual time")
+        print(np.mean(actual_time_duration_array))
+        print("average time for each expansion")
+        print(np.mean(duration_each_expansion))
 
-        x = 9.0
-        y = 39.0
-        for _ in range(4):
-            obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
-            x += 6.0
-
-        x = 25.0
-        y = 24.0
-        for _ in range(8):
-            obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
-            x += 3.0
-            y -= 3.0
-
-        x = 33.0
-        y = 39.0
-        for _ in range(4):
-            obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
-            x += 3.0
-            y -= 3.0
-
-        # print("===============================")
-        # print("Starting Positions")
-        # print(auv_init_pos)
-        # print(shark_init_pos)
-        # print("-")
-        # print(obstacle_array)
-        # print("===============================")
-
-        rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=10, cell_side_length=5, subsections_in_cell = 1)
-        
-        path, step, actual_time_duration = rrt.planning(max_step=500)
-
-        if path != [] and type(path) == list:
-            success_count += 1
-            path_len = rrt.cal_length(path)
-            path_length_array.append(path_len)
-
-        step_array.append(step)
-        actual_time_duration_array.append(actual_time_duration)
-
-        num_of_trails += 1
-
-        total_duration = time.time() - total_start_time
-        if total_duration > time_budget:
-            break
-
-    rrt.init_live_graph()
-    
-    if path != [] and type(path) == list:
-        rrt.draw_graph()
-        plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
-    else:
-        print("Failed to find path")
-        rrt.draw_graph()
-
-    plt.draw()
-
-    text = print("stop")
-
-    print('steps')
-    print(np.mean(step_array))
-    print("success")
-    print(success_count)
-    print("number of trails")
-    print(num_of_trails)
-    print("success rate")
-    print(float(success_count)/float(num_of_trails)*100.0)
-    print("average path length")
-    print(np.mean(path_length_array))
-    print("actual time")
-    print(np.mean(actual_time_duration_array))
-    print("average time for each expansion")
-    print(np.mean(duration_each_expansion))
-        
+        # text = print("stop")
 
 
 if __name__ == '__main__':

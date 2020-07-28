@@ -60,20 +60,20 @@ NUM_GOALS_SAMPLED_HER = 4
 
 TARGET_UPDATE = 10000
 
-NUM_OF_OBSTACLES = 7
+NUM_OF_OBSTACLES = 6
 
 ENV_SIZE = 50.0
 ENV_GRID_CELL_SIDE_LENGTH = 5.0
 
 R_USEFUL_STATE = 10
 
-NUM_OF_SUBSECTIONS_IN_GRID_CELL = 4
+NUM_OF_SUBSECTIONS_IN_GRID_CELL = 1
 
 # the output size for the neural network
 NUM_OF_GRID_CELLS = int(((int(ENV_SIZE) / int(ENV_GRID_CELL_SIDE_LENGTH)) ** 2) * NUM_OF_SUBSECTIONS_IN_GRID_CELL)
 
 # the input size for the neural network
-STATE_SIZE = int(NUM_OF_GRID_CELLS)
+STATE_SIZE = int(NUM_OF_GRID_CELLS + 3 * NUM_OF_OBSTACLES)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(DEVICE)
@@ -81,7 +81,7 @@ print(DEVICE)
 # how many episode should we save the model
 SAVE_EVERY = 10
 # how many episode should we render the model
-RENDER_EVERY = 100
+RENDER_EVERY = 1
 # how many episode should we run a test on the model
 TEST_EVERY = 50
 
@@ -136,8 +136,8 @@ def process_state_for_nn(state):
     habitat_tensor = torch.flatten(habitat_tensor)"""
     
     # join tensors together
-    # return torch.cat((obstacle_tensor, rrt_grid_tensor)).float()
-    return rrt_grid_tensor.float()
+    return torch.cat((state['empty_slot_tensor'], rrt_grid_tensor)).float()
+    # return rrt_grid_tensor.float()
 
 
 def extract_tensors(experiences):
@@ -268,6 +268,59 @@ def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shar
 
     return obstacle_array   
 
+def generate_rand_complex_env():
+    obstacle_array = []
+    # the empty space in each obstacle layer
+    empty_slot_array = []
+
+    for layer in range(3):
+        # each layer will have 10 obstacles, randomly remove 2 obstacles
+        obstacles_to_remove = random.choice(range(0, 12))
+        # obstacles at y = 10m
+        x = 2.0
+        y = 10.0 + 15.0 * layer
+
+        for j in range(13):
+            if (j != obstacles_to_remove) and (j != obstacles_to_remove + 1):
+                obstacle_array.append(Motion_plan_state(x=x, y=y, size=2.5))
+            else:
+                empty_slot_array.append([x, y, 2.5])
+            x += 4.0 
+
+    # convert the empty slot array
+    empty_slot_array = np.array(empty_slot_array)
+    empty_slot_tensor = torch.from_numpy(empty_slot_array)
+    empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
+
+    return obstacle_array, empty_slot_tensor
+
+
+def generate_fix_complex_env():
+    obstacle_array = []
+    # the empty space in each obstacle layer
+    empty_slot_array = []
+
+    obstacles_to_remove_array= [6, 1, 9]
+
+    for i in range(0,3):
+        # each layer will have 10 obstacles, randomly remove 2 obstacles
+        obstacles_to_remove = obstacles_to_remove_array[i]
+        # obstacles at y = 10m
+        x = 2.0
+        y = 10.0 + 15.0 * i
+        for j in range(13):
+            if (j != obstacles_to_remove) and (j != obstacles_to_remove + 1):
+                obstacle_array.append(Motion_plan_state(x=x, y=y, size=2.5))
+            else:
+                empty_slot_array.append([x, y, 2.5])
+            x += 4.0 
+
+    # convert the empty slot array
+    empty_slot_array = np.array(empty_slot_array)
+    empty_slot_tensor = torch.from_numpy(empty_slot_array)
+    empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
+
+    return obstacle_array, empty_slot_tensor
 
 def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
     """
@@ -286,7 +339,7 @@ def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
 Class for building policy and target neural network
 """
 class Neural_network(nn.Module):
-    def __init__(self, input_size, output_size, hidden_layer_1_in = 300, hidden_layer_1_out = 200, hidden_layer_2_out = 150, hidden_layer_3_out = 100):
+    def __init__(self, input_size, output_size, hidden_layer_1_in = 20, hidden_layer_1_out = 15, hidden_layer_2_out = 10, hidden_layer_3_out = 5):
         """
         Initialize the Q neural network with input
 
@@ -603,68 +656,46 @@ class AuvEnvManager():
 
     
     def init_env_randomly(self, dist = DIST):
-        auv_min_x = 5.0
-        auv_max_x = 15.0
-        auv_min_y = 5.0
-        auv_max_y = 15.0
+        empty_slot_tensor = []
 
-        shark_min_x = 35.0
-        shark_max_x = 45.0
-        shark_min_y = 35.0
-        shark_max_y = 45.0
+        auv_init_pos = Motion_plan_state(x = 5.0, y = 5.0, z = -5.0, theta = 0.0)
+        shark_init_pos = Motion_plan_state(x = 45.0, y = 45.0, z = -5.0, theta = 0.0)
+        obstacle_array, empty_slot_tensor = generate_fix_complex_env()
+       
+        # obstacle_array = []
+        # x = 15.0
+        # y = 15.0
 
-        # auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
-        # shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
-
-        auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
-        shark_init_pos = Motion_plan_state(x = 35.0, y = 45.0, z = -5.0, theta = 0.0)
-        # obstacle_array = generate_rand_obstacles(auv_init_pos, shark_init_pos, NUM_OF_OBSTACLES, shark_min_x, shark_max_x, shark_min_y, shark_max_y)
-
-        # obstacle_array = [\
-        #     Motion_plan_state(x=15.0, y=15.0, size=3),\
-            
-        #     Motion_plan_state(x=3.0, y=25.0, size=3),\
-
-        #     Motion_plan_state(x=25.0, y=25.0, size=3),\
-
-        #     Motion_plan_state(x=40.0, y=3.0, size=3),\
-
-        #     Motion_plan_state(x=30.0, y=40.0, size=3),\
-        # ]
-        obstacle_array = []
-        x = 15.0
-        y = 15.0
-
-        for _ in range(5):
-            obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
-            x -= 3.0
-            y += 3.0
+        # for _ in range(5):
+        #     obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
+        #     x -= 3.0
+        #     y += 3.0
         
-        x = 3.0
-        y = 33.0
-        for _ in range(2):
-            obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
-            y += 6.0
+        # x = 3.0
+        # y = 33.0
+        # for _ in range(2):
+        #     obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
+        #     y += 6.0
 
-        x = 9.0
-        y = 39.0
-        for _ in range(4):
-            obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
-            x += 6.0
+        # x = 9.0
+        # y = 39.0
+        # for _ in range(4):
+        #     obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
+        #     x += 6.0
 
-        x = 25.0
-        y = 24.0
-        for _ in range(8):
-            obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
-            x += 3.0
-            y -= 3.0
+        # x = 25.0
+        # y = 24.0
+        # for _ in range(8):
+        #     obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
+        #     x += 3.0
+        #     y -= 3.0
 
-        x = 33.0
-        y = 39.0
-        for _ in range(4):
-            obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
-            x += 3.0
-            y -= 3.0
+        # x = 33.0
+        # y = 39.0
+        # for _ in range(4):
+        #     obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
+        #     x += 3.0
+        #     y -= 3.0
 
         boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = ENV_SIZE, y = ENV_SIZE)]
 
@@ -684,7 +715,7 @@ class AuvEnvManager():
         if DEBUG:
             text = input("stop")
 
-        return self.env.init_env(auv_init_pos, shark_init_pos, boundary_array = boundary_array, grid_cell_side_length = ENV_GRID_CELL_SIDE_LENGTH, obstacle_array = obstacle_array, num_of_subsections=NUM_OF_SUBSECTIONS_IN_GRID_CELL)
+        return self.env.init_env(auv_init_pos, shark_init_pos, boundary_array = boundary_array, grid_cell_side_length = ENV_GRID_CELL_SIDE_LENGTH, obstacle_array = obstacle_array, num_of_subsections=NUM_OF_SUBSECTIONS_IN_GRID_CELL, empty_slot_tensor = empty_slot_tensor)
 
 
     def reset(self):
@@ -1077,13 +1108,13 @@ class DQN():
         
         """reward = self.em.get_reward_with_habitats_no_shark(next_state['auv_pos'], next_state['habitats_pos'], visited_habitat_cell, next_state['auv_dist_from_walls'])"""
 
-        self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"])))
+        self.memory.push(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"]).to(DEVICE)))
 
         # if reward.item() == 10.0 or reward.item() == 300.0:
-        # print("**********************")
-        # print("real experience")
-        # print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"])))
-        # text = input("stop")
+        #     print("**********************")
+        #     print("real experience")
+        #     print(Experience(process_state_for_nn(state), action, process_state_for_nn(next_state), reward, done, torch.from_numpy(next_state["has_node"])))
+        #     text = input("stop")
 
     
     def generate_extra_goals(self, time_step, next_state_array):
@@ -1283,6 +1314,7 @@ class DQN():
             print("*********************************")
             print("final state")
             print(state)
+            
             if not LIMIT_TERMINAL_OUTPUT:
                 if self.loss_in_eps != []:
                     avg_loss = np.mean(self.loss_in_eps)
@@ -1418,8 +1450,8 @@ class DQN():
 
             total_reward_array.append(eps_reward)
             print("final state")
-            
-            print(self.em.env.rrt_planner.env_grid)
+            self.em.env.rrt_planner.print_env_grid()
+            print(state['rrt_grid_num_of_nodes_only'])
             text = input("stop")
 
         self.em.close()
@@ -1465,8 +1497,6 @@ class DQN():
 
         self.load_trained_network()
         self.policy_net.eval()
-        
-        total_start_time = time.time()
 
         total_num_of_trails_array = []
 
@@ -1477,6 +1507,8 @@ class DQN():
         for _ in range(num_of_runs):
             num_of_trails = 0
             success_count = 0
+
+            total_start_time = time.time()
             
             while True:
                 # initialize the starting point of the shark and the auv randomly
@@ -1557,6 +1589,7 @@ class DQN():
         print("average success count")
         print(np.mean(total_success_count_array))
         print("number of trails")
+        print(total_num_of_trails_array)
         print(np.mean(total_num_of_trails_array))
         print("success rate")
         print(np.mean(total_success_rate_array))
@@ -1665,26 +1698,21 @@ class DQN():
 def main():
     dqn = DQN()
    
-    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = True, live_graph_2D = True, use_HER = False)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
     filename = "7-23_sub=1_og-nn_max-step=500_eps=1000_75rand.csv"
-    # dqn.test(100, MAX_STEP_TEST, live_graph_2D = False)
+    dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
     # dqn.store_agent_dictionary(filename)
 
     # if COMPLETELY_USE_MEMO:
     # dqn.load_agent_dictionary(filename)
-    # dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
-    print("seconds: 2")
-    dqn.test_with_time_budget(100, 2.0, MAX_STEP_TEST, live_graph_2D = False)
-    text = input("stop")
-    print("seconds: 3")
-    dqn.test_with_time_budget(100, 3.0, MAX_STEP_TEST, live_graph_2D = False)
-    text = input("stop")
-    print("seconds: 4")
-    dqn.test_with_time_budget(100, 4.0, MAX_STEP_TEST, live_graph_2D = False)
-    text = input("stop")
-    print("seconds: 5")
-    dqn.test_with_time_budget(100, 5.0, MAX_STEP_TEST, live_graph_2D = False)
-    # dqn.load_agent_dictionary("7-23_sub=1_og-nn_max-step=500.csv")
+
+    # print("seconds: 3")
+    # dqn.test_with_time_budget(100, 3.0, MAX_STEP_TEST, live_graph_2D = False)
+    # print("----")
+    # print("seconds: 5")
+    # dqn.test_with_time_budget(100, 5.0, MAX_STEP_TEST, live_graph_2D = False)
+    # text = input("stop")
+
     
 
 
