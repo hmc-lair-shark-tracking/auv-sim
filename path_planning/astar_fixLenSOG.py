@@ -127,7 +127,7 @@ class astar:
         self.cell_list = splitCell(self.boundary_poly, 10) # divide the workspace into cells 
 
         if sharkGrid == {}:
-            self.sharkGrid = createSharkGrid('path_planning/AUVGrid_prob_500_straight.csv', self.cell_list)
+            self.sharkGrid = createSharkGrid('path_planning/shark_data/AUVGrid_prob_500_straight.csv', self.cell_list)
         else:
             self.sharkGrid = sharkGrid
 
@@ -224,8 +224,6 @@ class astar:
             check_point: a Motion_plan_state object
             current_point: a Motion_plan_state object
         """
-
-        # print ("\n", "Walkable called")
         start_x = check_point.x
         start_y = check_point.y
 
@@ -234,7 +232,7 @@ class astar:
     
         while start_x <= current_point.x and start_y <= current_point.y:
             intermediate = (start_x, start_y)
-            # print ("intermediate position: ", intermediate)
+          
             start_x += step_x
             start_y += step_y
 
@@ -420,22 +418,16 @@ class astar:
         
         while index < len(trajectory)-1:
 
-            # print ("\n", "index: ", index)
-
             if self.Walkable(checkPoint, currentPoint, self.obstacle_list): # if no obstacle in between two points
                 
                 inside_habitats = self.inside_habitats(currentPoint, haibitats)
-                # print ("\n", "currentPoint inside habitats? ", inside_habitats)
-                # print ("\n", "currentPoint: ", (currentPoint.x, currentPoint.y))
            
                 if not inside_habitats: # if currentPoint is NOT within any of the habitats => removable
                     temp = currentPoint
                     index += 1 
                     currentPoint = trajectory[index]                    
                     smoothTraj.remove(temp)
-                    
-                    # print ("\n", "Eliminate: ", (temp.x, temp.y)) 
-                    # print ("\n", "Walkable traj: ", smoothTraj)
+ 
                 else: 
                     index += 1
                     currentPoint = trajectory[index]
@@ -444,25 +436,8 @@ class astar:
                 checkPoint = currentPoint
                 index += 1
                 currentPoint = trajectory[index]
-                # print ("\n", "currentPoint NOT Walkable: ", (currentPoint.x, currentPoint.y))
 
         return smoothTraj
-    
-    def get_max_prob_from_grid(self, curr_grid):
-        """
-        Return the maximum probability from the given grid
-
-        Parameter:
-            curr_grid: a dictionary representing occupancy grid of each shark during this time bin
-        """
-        max_value = 0
-
-        for grid_val in curr_grid.values():
-            if grid_val > max_value:
-                max_value = grid_val
-
-        print ("\n", "max probability: ", max_value)
-        return max_value
     
     def findCurrSOG(self, grid, curr_time_stamp):
         """
@@ -491,6 +466,22 @@ class astar:
             if self.with_in_time_bin(key_time, curr_time_stamp):
                 return AUVGrid
 
+    def get_max_prob_from_grid(self, curr_grid):
+        """
+        Return the maximum probability from the given grid
+
+        Parameter:
+            curr_grid: a dictionary representing occupancy grid of each shark during this time bin
+        """
+        max_value = 0
+
+        for grid_val in curr_grid.values():
+            if grid_val > max_value:
+                max_value = grid_val
+
+        print ("\n", "max probability: ", max_value)
+        return max_value
+
     def get_cell_prob(self, node, currGrid):
         """
         Return the probability of the cell corresponding to the node in AUV detection grid/currGrid
@@ -501,7 +492,6 @@ class astar:
         """
         x_test = node.position[0]
         y_test = node.position[1]
-        print ("\n", "child position: ", node.position)
 
         key = None
        
@@ -515,8 +505,6 @@ class astar:
  
             if (abs(x_test - pos_1[0]) <= dx and abs(x_test - pos_2[0]) <= dx) and (abs(y_test - pos_1[1]) <= dy and abs(y_test - pos_2[1]) <= dy):
                     key = pos_tuple
-                    print ("pos_1 and pos_2", pos_1, pos_2)
-                    print ("key: ", key)
                     break
 
         if key == None:
@@ -525,6 +513,25 @@ class astar:
             print ("\n", "cell probability: ", currGrid[key])
             return currGrid[key]
      
+    def get_top_n_prob(self, n, currGrid):
+        """
+        Return the sum of top n probabilities from the currGrid
+
+        Parameter: 
+            n: an integer; indicate the number of steps left 
+            currGrid: a dictionary representing occupancy grid of each shark during this time bin
+        """
+
+        total = 0
+        probabilities = list(currGrid.values())
+        probabilities.sort(reverse=True)
+        
+        for index in range(n):
+            total += probabilities[index]
+
+        print ("\n", "top n probabilities: ", total)
+        return total
+
     def with_in_time_bin(self, time_bin, curr_time_stamp):
         """
         Return True if current_time_stamp is within the range given by time_bin; 
@@ -549,18 +556,6 @@ class astar:
             weights: a list of three numbers [w1, w2, w3] 
             shark_traj: a list of Motion_plan_state objects 
         """
-        boundary_poly = []
-        for pos in self.boundary_list:
-            boundary_poly.append((pos.x, pos.y))
-
-        boundary = Polygon(boundary_poly) # a Polygon object that represents the boundary of our workspace 
-        sharkOccupancyGrid = SharkOccupancyGrid(self.sharkDict, 10, boundary, 50, 50)
-
-        # convert() returns a dictionary of shark occupancy grid maps; 
-        # key: timebin, tuple(start time, end time)
-        # value: a dictionary representing occupancy grid of each shark during this time bin
-        grid_dict = sharkOccupancyGrid.convert()[0]  
-        # print ("grid_dict keys: ", list(grid_dict.values())[0], list(grid_dict.values())[1], list(grid_dict.values())[2])
 
         w1 = weights[0]
         w2 = weights[1]
@@ -602,7 +597,6 @@ class astar:
                 while current is not None: # backtracking to find the d 
         
                     path.append(current)
-                    # print ("\n", "node position: ", current.position, "node time stamp: ", round(current.time_stamp, 2))
                     cost.append(current.cost)
                     habitats_time_spent += self.habitats_time_spent(current)
                     current = current.parent
@@ -621,7 +615,7 @@ class astar:
                 smoothPath = self.smoothPath(trajectory, habitats)
                 
                 # return {"path length" : len(trajectory), "path" : trajectory, "cost" : cost[0], "cost list" : cost}
-                return {"path length" : len(smoothPath), "path" : smoothPath, "cost" : cost[0], "cost list" : cost}
+                return {"path length" : len(smoothPath), "path" : smoothPath, "cost" : cost[0], "cost list" : cost, "node" : path[::-1]} 
                 
             current_neighbors = self.curr_neighbors(current_node, self.boundary_list)
 
@@ -632,24 +626,13 @@ class astar:
                 if self.collision_free(neighbor, self.obstacle_list):
 
                     new_node = Node(current_node, neighbor)
-                    result = self.update_habitat_coverage(new_node, habitat_open_list, habitat_closed_list)  # update habitat_open_list and habitat_closed_list
-          
-                    habitat_open_list = result[0]
-                    habitat_closed_list = result[1]
-                
-                    cost_of_edge = cal_cost.cost_of_edge(new_node, habitat_open_list, habitat_closed_list, weights)
-                    new_node.cost = new_node.parent.cost + cost_of_edge[0]
-  
+
                     children.append(new_node)
            
             for child in children: 
 
                 if child in closed_list:
                     continue
-
-                result = cal_cost.cost_of_edge(child, habitat_open_list, habitat_closed_list, weights) 
-                d_2 = result[1]
-                d_3 = result[2]
                 
                 child.pathLen = child.parent.pathLen + euclidean_dist(child.parent.position, child.position)
                 dist_left = abs(pathLenLimit - child.pathLen)
@@ -658,9 +641,8 @@ class astar:
                 
                 child.g = child.parent.cost - w4 * self.get_cell_prob(child, currGrid)
                 child.cost = child.g
-                child.h = - w2 * dist_left - w3 * len(habitat_open_list) - w4 * dist_left * self.get_max_prob_from_grid(currGrid)
-
-                # print ("child h: ", child.h)
+                # child.h = - w2 * dist_left - w3 * len(habitat_open_list) - w4 * dist_left * self.get_max_prob_from_grid(currGrid)
+                child.h = - w2 * dist_left - w3 * len(habitat_open_list) - w4 * self.get_top_n_prob(int(dist_left), currGrid)
                 child.f = child.g + child.h 
 
                 # check if child exists in the open list and have bigger g 
@@ -672,12 +654,11 @@ class astar:
 
                 if self.visited_nodes[x_pos, y_pos] == 0: 
                     open_list.append(child)
-                    # print ("\n", "Explanded Node: ", child.position)
                     self.visited_nodes[x_pos, y_pos] = 1
 
 def main():
     weights = [0, 10, 10, 100]
-    start_cartesian = create_cartesian((33.446056, -118.489111), catalina.ORIGIN_BOUND)
+    start_cartesian = create_cartesian((33.446198, -118.486652), catalina.ORIGIN_BOUND)
     start = (round(start_cartesian[0], 2), round(start_cartesian[1], 2))
     print ("start: ", start) 
 
@@ -690,21 +671,19 @@ def main():
     habitat_list = environ[3]
 
    # testing data for shark trajectories
-    # shark_dict = {1: [Motion_plan_state(-120 + (0.3 * i), -60 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
-    # 2: [Motion_plan_state(-65 - (0.3 * i), -50 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
-    # 3: [Motion_plan_state(-110 + (0.3 * i), -40 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
-    # 4: [Motion_plan_state(-105 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
-    # 5: [Motion_plan_state(-120 + (0.3 * i), -50 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
-    # 6: [Motion_plan_state(-85 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
-    # 7: [Motion_plan_state(-270 + (0.3 * i), 50 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
-    # 8: [Motion_plan_state(-250 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
-    # 9: [Motion_plan_state(-260 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
-    # 10: [Motion_plan_state(-275 + (0.3 * i), 80 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)]} 
-
-    shark_dict = {5: [Motion_plan_state(-120 + (0.3 * i), -50 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)]}
+    shark_dict = {1: [Motion_plan_state(-120 + (0.3 * i), -60 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+    2: [Motion_plan_state(-65 - (0.3 * i), -50 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+    3: [Motion_plan_state(-110 + (0.3 * i), -40 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+    4: [Motion_plan_state(-105 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+    5: [Motion_plan_state(-120 + (0.3 * i), -50 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+    6: [Motion_plan_state(-85 - (0.3 * i), -55 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+    7: [Motion_plan_state(-270 + (0.3 * i), 50 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+    8: [Motion_plan_state(-250 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)],
+    9: [Motion_plan_state(-260 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
+    10: [Motion_plan_state(-275 + (0.3 * i), 80 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)]} 
 
     astar_solver = astar(start, obstacle_list+boat_list, boundary_list, habitat_list, {}, shark_dict, AUV_velocity=1) 
-    final_path_mps = astar_solver.astar(400, weights, shark_dict[5])
+    final_path_mps = astar_solver.astar(300, weights, shark_dict)
 
     print ("\n", "Final Trajectory: ",  final_path_mps["path"])
     print ("\n", "Trajectory Length: ", final_path_mps["path length"])
