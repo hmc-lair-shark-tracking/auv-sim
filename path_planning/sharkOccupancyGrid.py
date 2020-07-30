@@ -20,7 +20,7 @@ class SharkOccupancyGrid:
         grid will be used
     '''
 
-    def __init__(self, shark_dict, cell_size, boundary, bin_interval, detect_range, cell_list=None):
+    def __init__(self, cell_size, boundary, bin_interval, detect_range, cell_list=None):
         '''
         create a occupancy dictionary to store occupancy grid maps at different time bins
         key is time bin, value is the corresponding occupancy grid map
@@ -33,7 +33,6 @@ class SharkOccupancyGrid:
             detect_range: the maximum distance hydrophone can track sharks, in meters
         the probability of occupancy of each cell is calculated by the time sharks spent in the cell / duration of time bin
         '''
-        self.data = shark_dict
         self.cell_size = cell_size
 
         if cell_list:
@@ -44,10 +43,8 @@ class SharkOccupancyGrid:
         self.bin_interval = bin_interval
         self.detect_range = detect_range
         self.boundary = boundary
-
-        self.bin_list = self.createBinList()
     
-    def convert(self):
+    def convert(self, shark_dict):
         '''
         convert a dictionary of shark trajectories
             key: shark ID, int
@@ -59,8 +56,9 @@ class SharkOccupancyGrid:
                 key: timebin, tuple(start time, end time)
                 value: a dictionary representing occupancy grid of each shark during this time bin
         '''
-
+        self.data = shark_dict
         #convert to a dictionary, whose key is time bin
+        self.bin_list = self.createBinList()
         self.timeBinDict = self.convertToTimeBin()
 
         resultArr = {}

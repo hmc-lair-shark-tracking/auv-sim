@@ -12,11 +12,10 @@ import catalina
 from sharkOccupancyGrid import SharkOccupancyGrid, splitCell
 from cost import habitat_shark_cost_func, habitat_shark_cost_point
 
-def summary_1(weight, obstacles, boundary, habitats, shark_dict, sharkGrid, test_num=100):
+def summary_1(weight, obstacles, boundary, habitats, shark_dict, cell_list, comp, test_num=10):
     '''
         generate a summary about each term of one specific cost function, given randomly chosen environment
     
-        cost_func: a list of lists of weights assigned to each term in the cost function
         test_num: the number of tests to run under a specific cost function
 
         output:
@@ -24,11 +23,31 @@ def summary_1(weight, obstacles, boundary, habitats, shark_dict, sharkGrid, test
             key will be weight i.e. w1, w2, ...
             value will be the average cost of each term
     '''
-    testing = RRT(boundary, obstacles, shark_dict, sharkGrid)
+    sharkOccupancyGrid = SharkOccupancyGrid(10, boundary, 50, 50, cell_list)
 
-    cost_summary_ex = [[] for _ in range(len(weight))]
-    cost_summary_rp = [[] for _ in range(len(weight))]
+    cost_summary_ex = []
+    cost_summary_rp = []
+    
+    ran_hab = int(random.uniform(0, comp))
+    temp_habitats = []
+    temp_shark = {}
 
+    while len(temp_habitats) < ran_hab and len(temp_habitats) < len(habitats):
+        temp = math.floor(random.uniform(0, len(habitats)))
+        while temp >= len(habitats):
+            temp = math.floor(random.uniform(0, len(habitats)))
+        temp_habitats.append(habitats[temp])
+    ran_shark = comp - len(temp_habitats)
+    while len(list(temp_shark.keys())) < ran_shark and len(list(temp_shark.keys())) < len(list(shark_dict.keys())):
+        temp = math.floor(random.uniform(1, len(list(shark_dict.keys()))))
+        while temp >= len(list(shark_dict.keys())):
+            temp = math.floor(random.uniform(0, len(habitats)))
+        temp_shark[temp] = shark_dict[temp]
+    print(len(temp_habitats)+len(list(temp_shark.keys())), temp_habitats, temp_shark.keys())
+    temp_sharkGrid = sharkOccupancyGrid.convert(temp_shark)[1]
+
+    temp_cost_ex = []
+    temp_cost_rp = []
     for _ in range(test_num):
         initial_x = random.uniform(-300, -100)
         initial_y = random.uniform(-100, 100)
@@ -39,25 +58,20 @@ def summary_1(weight, obstacles, boundary, habitats, shark_dict, sharkGrid, test
             initial = Point(initial_x, initial_y)
         initial = Motion_plan_state(initial_x, initial_y)
 
-        res1 = testing.exploring(initial, habitats, 0.5, 5, 1, 50, True, 20.0, 500.0, weights=weight)
+        testing = RRT(boundary, obstacles, temp_sharkGrid, cell_list)
+        res1 = testing.exploring(initial, temp_habitats, 0.5, 5, 1, 50, True, 20.0, 500.0, weights=weight)
         print(res1["cost"])
-        for i in range(len(res1["cost"][1])):
-            cost_summary_ex[i].append(res1["cost"][1][i])
+        temp_cost_ex.append(res1["cost"][0])
 
-        res2 = testing.replanning(initial, habitats, 10.0, 100.0, 0.1)
+        res2 = testing.replanning(initial, habitats, 10.0, 100.0, 0.1, weight)
         print(res2[2])
-        for i in range(len(res2[2][1])):
-            cost_summary_rp[i].append(res2[2][1][i])
+        temp_cost_rp.append(res2[2][0])
 
-    #calculate average cost for each term
-    result1 = []
-    for cost in cost_summary_ex:
-        result1.append(statistics.mean(cost))
-    result2 = []
-    for cost in cost_summary_rp:
-        result2.append(statistics.mean(cost))
+    cost_summary_ex.append(statistics.mean(temp_cost_ex))
+    cost_summary_rp.append(statistics.mean(temp_cost_rp))
+    print("replanning algorithm: " + str(cost_summary_rp) + ", one-time planning algorithm: "+ str(cost_summary_ex))
     
-    return [result2, result1]
+    return [cost_summary_rp, cost_summary_ex]
 
 def plot_summary_1(labels, summarys):
     x = np.arange(len(labels))  # the label locations
@@ -245,33 +259,22 @@ def summary_4(rrt, habitats, shark_dict, weight):
     return total_cost / traj[-1].traj_time_stamp
 
 #initialize start, goal, obstacle, boundary, habitats for path planning
-start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
-start = Motion_plan_state(start[0], start[1])
+# start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
+# start = Motion_plan_state(start[0], start[1])
 
-goal = catalina.create_cartesian(catalina.GOAL, catalina.ORIGIN_BOUND)
-goal = Motion_plan_state(goal[0], goal[1])
+# goal = catalina.create_cartesian(catalina.GOAL, catalina.ORIGIN_BOUND)
+# goal = Motion_plan_state(goal[0], goal[1])
 
-obstacles = []
-for ob in catalina.OBSTACLES:
-    pos = catalina.create_cartesian((ob.x, ob.y), catalina.ORIGIN_BOUND)
-    obstacles.append(Motion_plan_state(pos[0], pos[1], size=ob.size))
-for boat in catalina.BOATS:
-    pos = catalina.create_cartesian((boat.x, boat.y), catalina.ORIGIN_BOUND)
-    obstacles.append(Motion_plan_state(pos[0], pos[1], size=boat.size))
-        
-boundary = []
-boundary_poly = []
-for b in catalina.BOUNDARIES:
-    pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
-    boundary.append(Motion_plan_state(pos[0], pos[1]))
-    boundary_poly.append((pos[0],pos[1]))
+# convert to environment in casrtesian coordinates 
+environ = catalina.create_environs(catalina.OBSTACLES, catalina.BOUNDARIES, catalina.BOATS, catalina.HABITATS)
+
+obstacles = environ[0] + environ[2]
+boundary = environ[1]
+habitats = environ[3]
+boundary_poly = [(mps.x, mps.y) for mps in boundary]
 boundary_poly = Polygon(boundary_poly)
-        
-#testing data for habitats
-habitats = []
-for habitat in catalina.HABITATS:
-    pos = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
-    habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
+
+cell_list = splitCell(boundary_poly,10)
     
 # testing data for shark trajectories
 shark_dict1 = {1: [Motion_plan_state(-120 + (0.2 * i), -60 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
@@ -295,10 +298,6 @@ shark_dict2 = {1: [Motion_plan_state(-120 + (0.1 * i), -60 + (0.1 * i), traj_tim
     8: [Motion_plan_state(-250 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-280 - (0.1 * i), 105 - (0.1 * i), traj_time_stamp=i) for i in range(302,501)],
     9: [Motion_plan_state(-260 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-290 + (0.08 * i), 105 + (0.07 * i), traj_time_stamp=i) for i in range(302,501)], 
     10: [Motion_plan_state(-275 + (0.1 * i), 80 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-245 - (0.13 * i), 50 - (0.12 * i), traj_time_stamp=i) for i in range(302,501)]}
-# sharkGrid1 = createSharkGrid('path_planning/shark_data/AUVGrid_prob_500_straight.csv', splitCell(boundary_poly,10))
-sharkGrid2 = createSharkGrid('path_planning/shark_data/AUVGrid_prob_500_turn.csv', splitCell(boundary_poly,10))
-
-# res = summary_1([1, -3, -1, -5], obstacles, boundary, habitats, shark_dict1, sharkGrid1, test_num=10)
-# plot_summary_1(["replaning", "one-time planning"], res)
-rrt = RRT(boundary, obstacles, sharkGrid2)
-print(summary_4(rrt, habitats, sharkGrid2, [-3, -3, -4]))
+# sharkGrid1 = createSharkGrid('path_planning/AUVGrid_prob_500_straight.csv', cell_list)
+# sharkGrid2 = createSharkGrid('path_planning/shark_data/AUVGrid_prob_500_turn.csv', cell_list)
+# print(summary_1([-3,-3,-4], obstacles, boundary_poly, habitats, shark_dict2, cell_list, 17, test_num=10))
