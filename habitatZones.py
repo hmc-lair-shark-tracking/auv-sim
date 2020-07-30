@@ -212,7 +212,9 @@ def main_shark_traj_function():
     shark_dict = {}
     for i in range(len(coordinates)):
         shark_dict[i] = Motion_plan_state(x = float(coordinates[i][0]), y = float(coordinates[i][1]), traj_time_stamp = i * 0.03)
-    print(shark_dict)
+    
+    #print(shark_dict)
+    return shark_dict
 
 
 
