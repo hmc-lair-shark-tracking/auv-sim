@@ -84,10 +84,19 @@ OBSTACLES = [Motion_plan_state(33.445113, -118.484508, size=4.479407446738455),
             Motion_plan_state(33.444862, -118.483741, size=17.812248298199293),
             Motion_plan_state(33.444779, -118.483577, size=26.601714064649762)]
 
-BOATS = [Motion_plan_state(33.445425, -118.486314, size=5),
-        Motion_plan_state(33.444596, -118.485285, size=5),
-        Motion_plan_state(33.444412, -118.485508, size=5),
-        Motion_plan_state(33.443940, -118.485384, size=5)]  
+BOATS = [Motion_plan_state(33.445425, -118.486314, size=6),
+        Motion_plan_state(33.444596, -118.485285, size=10),
+        Motion_plan_state(33.443940, -118.485384, size=5),
+        Motion_plan_state(33.444678, -118.485429, size=6),
+        Motion_plan_state(33.444820, -118.48756, size=9),
+        Motion_plan_state(33.445300, -118.485870, size=10),
+        Motion_plan_state(33.446200, -118.484950, size=5),
+        Motion_plan_state(33.444520, -118.484732, size=5),
+        Motion_plan_state(33.445733, -118.487100, size=6),
+        Motion_plan_state(33.445628, -118.487389, size=7),
+        Motion_plan_state(33.445850, -118.488100, size=8),
+        Motion_plan_state(33.445358, -118.487052, size=8),
+        Motion_plan_state(33.445492, -118.486839, size=7)]  
 
 HABITATS = [Motion_plan_state(33.445733, -118.487789, size=45),
     Motion_plan_state(33.446198, -118.486652, size=32),
