@@ -92,7 +92,14 @@ BOATS = [Motion_plan_state(33.445425, -118.486314, size=5),
 HABITATS = [Motion_plan_state(33.445733, -118.487789, size=45),
     Motion_plan_state(33.446198, -118.486652, size=32),
     Motion_plan_state(33.445400, -118.485959, size=20),
-    Motion_plan_state(33.445287, -118.484928, size=55)]
+    Motion_plan_state(33.445287, -118.484928, size=55),
+    Motion_plan_state(33.444457, -118.485744, size=20),
+    Motion_plan_state(33.444832, -118.485764, size=30),
+    Motion_plan_state(33.445534, -118.486689, size=25),
+    Motion_plan_state(33.445829, -118.485234, size=30),
+    Motion_plan_state(33.445632, -118.486744, size=20),
+    Motion_plan_state(33.445232, -118.485344, size=20),
+    ]
 
 GOAL_LIST = [(33.444928, -118.484448), (33.444686, -118.484716), 
 (33.444328, -118.485606), (33.444811, -118.486454), 
