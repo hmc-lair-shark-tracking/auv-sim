@@ -173,10 +173,11 @@ class Shark:
 
     
 
-def main_shark_traj_function(GRID_RANGE, NUMBER_OF_TIMESTAMPS, dt):
+def main_shark_traj_function(GRID_RANGE, NUMBER_OF_TIMESTAMPS):
     #grid_range: half the distance of the square where the shark's initial location will be randomized
     #number of timestamps: number of loops/timestamps the function will run
-    #dt: length of each timestamp, in seconds
+    dt = 1
+    #dt: length of each timestamp, in seconds, is mult by .03
     percent = 50
     #percent of the time the sharks will swim towards the closest hotspot to them
     coordinates = []
@@ -652,8 +653,10 @@ class Histogram:
         shark_testing_trajectories = test_robot.load_shark_testing_trajectories("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv")
         return shark_testing_trajectories
 
-
-    
+    def create_random_sharks(self, number_of_sharks):
+        sharks = []
+        for x in range(1,number_of_sharks):
+            shark_traj = main_shark_traj_function(self.boundary_size, 300, 1)
             
     def update_probabilities_historical(self, shark_testing_trajectory, zones):
         id_number = 0
@@ -979,4 +982,4 @@ def main():
         """
 
 if __name__ == "__main__":
-    main_shark_traj_function()
+    main_shark_traj_function(40,300,1)
