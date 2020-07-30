@@ -174,7 +174,6 @@ class Shark:
     
 
 def main_shark_traj_function():
-    NUMBER_OF_SHARKS = 3
     GRID_RANGE = 150
     #half the distance of the square where the shark's initial location will be randomized
     NUMBER_OF_TIMESTAMPS = 300
@@ -187,15 +186,13 @@ def main_shark_traj_function():
     coordinates = []
     hotspots_present = True
     #true or false for presence of hotspots
-    for x in range(1,NUMBER_OF_SHARKS):
-        shark = Shark(random.uniform(-GRID_RANGE, GRID_RANGE), random.uniform(-GRID_RANGE, GRID_RANGE))
-        sharks.append(shark)
+    shark = Shark(random.uniform(-GRID_RANGE, GRID_RANGE), random.uniform(-GRID_RANGE, GRID_RANGE))
+    
 
     if hotspots_present == False:
         for x in range(1, NUMBER_OF_TIMESTAMPS):
-            for shark in sharks: 
-                coordinate = shark.update_shark(dt)
-                coordinates.append(coordinate)
+            coordinate = shark.update_shark(dt)
+            coordinates.append(coordinate)
     
     if hotspots_present == True: 
         hotspots = []
@@ -203,10 +200,9 @@ def main_shark_traj_function():
         hotspots.append(hotspot1)
         hotspot2 = [50,0]
         hotspots.append(hotspot2)
-        for x in range(1, NUMBER_OF_TIMESTAMPS):  
-            for shark in sharks: 
-                coordinate = shark.update_shark_hotspots(hotspots, percent, dt)
-                coordinates.append(coordinate)
+        for x in range(1, NUMBER_OF_TIMESTAMPS):   
+            coordinate = shark.update_shark_hotspots(hotspots, percent, dt)
+            coordinates.append(coordinate)
 
     key = 1
     shark_dict = {}
