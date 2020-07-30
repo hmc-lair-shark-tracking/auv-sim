@@ -38,11 +38,15 @@ def angle_wrap(ang):
         return angle_wrap(ang)
 
 def velocity_wrap(velocity):
-    if velocity <= 5:
+    if 0 < velocity <= 5:
         return velocity  
-    elif velocity > 5: 
+    if velocity < 0:
+        velocity += 5
+        return velocity_wrap(velocity)
+    if velocity > 5: 
         velocity += -5
         return velocity_wrap(velocity)
+    
 
 class Particle: 
         def __init__(self, x_shark, y_shark):
@@ -139,6 +143,7 @@ class Shark:
         self.v_shark += random.uniform(-2, 2)
         self.v_shark = velocity_wrap(self.v_shark)
         self.theta_shark += random.uniform(-math.pi/4, math.pi/4)
+        #self.theta_shark = 0
         self.theta_shark = angle_wrap(self.theta_shark)
         self.xy_coordinates.append([self.x_shark, self.y_shark])
         return [self.x_shark, self.y_shark]
@@ -157,17 +162,22 @@ class Shark:
     def update_shark_hotspots(self, hotspots, percent, dt):
         index = self.find_closest_hotspot(hotspots)
         hotspot = hotspots[index]
-        theta_to_hotspot = angle_wrap(math.atan2((-hotspot[1] + self.y_shark), (self.x_shark + -hotspot[0])) - self.theta_shark)
+        #theta_to_hotspot = angle_wrap(math.atan2((-hotspot[1] + self.y_shark), (self.x_shark + -hotspot[0])) - self.theta_shark)
+        theta_to_hotspot = angle_wrap(math.atan2((-self.y_shark + hotspot[1]), (hotspot[0] + -self.x_shark)))
+
+        print(theta_to_hotspot)
         chance = random.uniform(0,100)
         if chance < percent:
             self.theta_shark = theta_to_hotspot
+            self.v_shark += random.uniform(-2, 2)
+            self.v_shark = velocity_wrap(self.v_shark)
         else:
             self.theta_shark += random.uniform(-math.pi/4, math.pi/4)
             self.theta_shark = angle_wrap(self.theta_shark)
+            self.v_shark += random.uniform(-2, 2)
+            self.v_shark = velocity_wrap(self.v_shark)
         self.x_shark = self.x_shark + dt * (self.v_shark * math.cos(self.theta_shark))
         self.y_shark = self.y_shark + dt * (self.v_shark * math.sin(self.theta_shark))
-        self.v_shark += random.uniform(-2, 2)
-        self.v_shark = velocity_wrap(self.v_shark)
         self.xy_coordinates.append([self.x_shark, self.y_shark])
         return [self.x_shark, self.y_shark]
 
@@ -178,13 +188,14 @@ def main_shark_traj_function(GRID_RANGE, NUMBER_OF_TIMESTAMPS):
     #number of timestamps: number of loops/timestamps the function will run
     dt = 1
     #dt: length of each timestamp, in seconds, is mult by .03
-    percent = 50
+    percent = 80
     #percent of the time the sharks will swim towards the closest hotspot to them
     coordinates = []
-    hotspots_present = False
+    hotspots_present = True
     #true or false for presence of hotspots
     shark = Shark(random.uniform(-GRID_RANGE, GRID_RANGE), random.uniform(-GRID_RANGE, GRID_RANGE))
     
+    #shark = Shark(10, 0)
 
     if hotspots_present == False:
         for x in range(1, NUMBER_OF_TIMESTAMPS):
@@ -195,11 +206,12 @@ def main_shark_traj_function(GRID_RANGE, NUMBER_OF_TIMESTAMPS):
         hotspots = []
         hotspot1 = [0,0]
         hotspots.append(hotspot1)
-        hotspot2 = [50,0]
+        hotspot2 = [10,0]
         hotspots.append(hotspot2)
         for x in range(1, NUMBER_OF_TIMESTAMPS):   
             coordinate = shark.update_shark_hotspots(hotspots, percent, dt)
             coordinates.append(coordinate)
+            print(coordinate)
 
     
     shark_dict = {}
@@ -551,7 +563,7 @@ class HabitatZones:
         maxx += self.grid_range
         maxx = (maxx/self.cell_size) -1
         maxy += -self.grid_range
-        maxy = (maxy/-self.cell_size) 
+        maxy = (maxy/-self.cell_size) -1
         
         #print(int(maxy), int(maxx))
         return zones[int(maxy)][int(maxx)]
@@ -630,17 +642,17 @@ class Histogram:
         if x_shark < -self.boundary_size:
             x_shark = -self.boundary_size
         if y_shark > self.boundary_size:
-            y_shark = self.boundary_size
+            y_shark = self.boundary_size 
         if y_shark < -self.boundary_size:
-            y_shark = -self.boundary_size
+            y_shark = -self.boundary_size 
         NUMBER_OF_CELLS = (self.boundary_size * 2) **2
         maxx = int(math.ceil(x_shark / 10.0)) * 10
         maxy = int(math.ceil(y_shark / 10.0)) * 10
         maxx += self.boundary_size
         maxx = (maxx/self.cell_size) -1
         maxy += -self.boundary_size
-        maxy = (maxy/-self.cell_size)
-        
+        maxy = (maxy/-self.cell_size)-1
+        #print(type(zones[int(maxy)][int(maxx)]))
         return zones[int(maxy)][int(maxx)]
 
     def create_historical_sharks(self):
@@ -653,10 +665,13 @@ class Histogram:
         shark_testing_trajectories = test_robot.load_shark_testing_trajectories("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv")
         return shark_testing_trajectories
 
-    def create_random_sharks(self, number_of_sharks):
+    def create_random_sharks(self):
         sharks = []
-        for x in range(1,number_of_sharks):
-            shark_traj = main_shark_traj_function(self.boundary_size, 600)
+        shark_traj = {}
+        for x in range(1, self.number_of_sharks):
+            shark_traj = main_shark_traj_function((self.boundary_size - 20), 50)
+            sharks.append(shark_traj)
+        return sharks
             
     def update_probabilities_historical(self, shark_testing_trajectory, zones):
         id_number = 0
@@ -671,7 +686,7 @@ class Histogram:
                     new_time = trajectory[x+1]
                     old_time = trajectory[x]
                     new_coordinates = [new_time.x, new_time.y]
-                    #print(new_coordinates[0])
+                    
                     new_cell = self.indexToCell(int(new_coordinates[0]), int(new_coordinates[1]), zones)
                     old_coordinates = [old_time.x, old_time.y]
                     old_cell = self.indexToCell(old_coordinates[0], old_coordinates[1], zones)
@@ -682,18 +697,16 @@ class Histogram:
 
         return zones
 
-    def update_probabilities_random(self, shark_testing_trajectory, zones):
-        id_number = 0
+    def update_probabilities_random(self, sharks, zones):
+        
         new_cell = []
         old_cell = []
-        for x in range(0, self.number_of_sharks-1):
-            trajectory = shark_testing_trajectory[x].traj_pts_array
-            #print(trajectory)
-            for x in range(len(trajectory)):
-                if x <= (len(trajectory)-2):
+        for shark_traj in sharks:
+            for x in range(len(shark_traj)):
+                if x <= (len(shark_traj)-2):
                     #print(x, len(trajectory))
-                    new_time = trajectory[x+1]
-                    old_time = trajectory[x]
+                    new_time = shark_traj[x+1]
+                    old_time = shark_traj[x]
                     new_coordinates = [new_time.x, new_time.y]
                     #print(new_coordinates[0])
                     new_cell = self.indexToCell(int(new_coordinates[0]), int(new_coordinates[1]), zones)
@@ -714,6 +727,7 @@ class Histogram:
         for zone in zones:
             for cell in zone:
                 total = cell[2] + cell[3]
+                #print(total)
                 del cell[0:3]
                 #print(cell)
                 if total != 0:
@@ -729,7 +743,7 @@ class Histogram:
         return zones
     
     def plot_probabilities(self, zones):
-        
+        print(zones)
         y_axis = []
         for y in range(len(zones)):
             y_axis.append(y)
@@ -768,10 +782,10 @@ class Histogram:
     
 
 def main_histogram_function():
-    histogram = Histogram(40, 10, 10)
+    histogram = Histogram(50, 10, 2)
     zones = histogram.create_zones()
-    shark_testing_trajectories = histogram.create_historical_sharks()
-    zones = histogram.update_probabilities_historical(shark_testing_trajectories, zones)
+    shark_testing_trajectories = histogram.create_random_sharks()
+    zones = histogram.update_probabilities_random(shark_testing_trajectories, zones)
     zones = histogram.normalize_probabilities(zones)
     histogram.plot_probabilities(zones)
             
@@ -982,4 +996,4 @@ def main():
         """
 
 if __name__ == "__main__":
-    main_shark_traj_function(40,300,1)
+    main_histogram_function()
