@@ -6,6 +6,7 @@ import numpy as np
 import random
 from copy import copy, deepcopy
 from numpy import random
+import matplotlib
 import matplotlib.pyplot as plt
 from numpy.random import uniform 
 from numpy.random import randn
@@ -15,7 +16,8 @@ from shapely.geometry import box, Polygon, MultiPolygon, GeometryCollection, Poi
 from live3DGraph import Live3DGraph
 #from twoDfigure import Figure
 from motion_plan_state import Motion_plan_state
-import robotSim
+from robotSim import RobotSim
+from sharkTrajectory import SharkTrajectory
 
 def angle_wrap(ang):
     """
@@ -127,17 +129,92 @@ class Shark:
         self.y_shark = y_shark
         self.v_shark = random.uniform(0, 5)
         self.theta_shark = random.uniform(-math.pi, math.pi)
+        self.xy_coordinates = [[self.x_shark, self.y_shark]]
 
     def update_shark(self, dt): 
         #updates shark position and randomly changes velocity and theta
         
-        self.x_shark = self.x_shark + dt * (v_shark * cos(theta_t))
-        self.y_shark = self.y_shark + dt * (v_shark * sin(theta_t))
+        self.x_shark = self.x_shark + dt * (self.v_shark * math.cos(self.theta_shark))
+        self.y_shark = self.y_shark + dt * (self.v_shark * math.sin(self.theta_shark))
         self.v_shark += random.uniform(-2, 2)
         self.v_shark = velocity_wrap(self.v_shark)
         self.theta_shark += random.uniform(-math.pi/4, math.pi/4)
         self.theta_shark = angle_wrap(self.theta_shark)
+        self.xy_coordinates.append([self.x_shark, self.y_shark])
         return [self.x_shark, self.y_shark]
+
+    
+    
+    def find_closest_hotspot(self, hotspots):
+        list_of_distances_squared = []
+        for hotspot in hotspots:
+            distance_squared = (hotspot[1] - self.y_shark)**2 + (hotspot[0] - self.x_shark)**2
+            list_of_distances_squared.append(distance_squared)
+        closest_distance = list_of_distances_squared.index(min(list_of_distances_squared))
+        return closest_distance
+
+
+    def update_shark_hotspots(self, hotspots, percent, dt):
+        index = self.find_closest_hotspot(hotspots)
+        hotspot = hotspots[index]
+        theta_to_hotspot = angle_wrap(math.atan2((-hotspot[1] + self.y_shark), (self.x_shark + -hotspot[0])) - self.theta_shark)
+        chance = random.uniform(0,100)
+        if chance < percent:
+            self.theta_shark = theta_to_hotspot
+        else:
+            self.theta_shark += random.uniform(-math.pi/4, math.pi/4)
+            self.theta_shark = angle_wrap(self.theta_shark)
+        self.x_shark = self.x_shark + dt * (self.v_shark * math.cos(self.theta_shark))
+        self.y_shark = self.y_shark + dt * (self.v_shark * math.sin(self.theta_shark))
+        self.v_shark += random.uniform(-2, 2)
+        self.v_shark = velocity_wrap(self.v_shark)
+        self.xy_coordinates.append([self.x_shark, self.y_shark])
+        return [self.x_shark, self.y_shark]
+
+    
+
+def main_shark_traj_function():
+    NUMBER_OF_SHARKS = 3
+    GRID_RANGE = 150
+    #half the distance of the square where the shark's initial location will be randomized
+    NUMBER_OF_TIMESTAMPS = 300
+    #number of loops/timestamps the function will run
+    dt = 1
+    #length of each timestamp, in seconds
+    percent = 50
+    #percent of the time the sharks will swim towards the closest hotspot to them
+    sharks = []
+    coordinates = []
+    hotspots_present = True
+    #true or false for presence of hotspots
+    for x in range(1,NUMBER_OF_SHARKS):
+        shark = Shark(random.uniform(-GRID_RANGE, GRID_RANGE), random.uniform(-GRID_RANGE, GRID_RANGE))
+        sharks.append(shark)
+
+    if hotspots_present == False:
+        for x in range(1, NUMBER_OF_TIMESTAMPS):
+            for shark in sharks: 
+                coordinate = shark.update_shark(dt)
+                coordinates.append(coordinate)
+    
+    if hotspots_present == True: 
+        hotspots = []
+        hotspot1 = [0,0]
+        hotspots.append(hotspot1)
+        hotspot2 = [50,0]
+        hotspots.append(hotspot2)
+        for x in range(1, NUMBER_OF_TIMESTAMPS):  
+            for shark in sharks: 
+                coordinate = shark.update_shark_hotspots(hotspots, percent, dt)
+                coordinates.append(coordinate)
+
+    key = 1
+    shark_dict = {}
+    for i in range(len(coordinates)):
+        shark_dict[i] = Motion_plan_state(x = float(coordinates[i][0]), y = float(coordinates[i][1]), traj_time_stamp = i * 0.03)
+    print(shark_dict)
+
+
 
 
 class ParticleFilter:
@@ -533,41 +610,173 @@ class HabitatZones:
         return zones
 
 class Histogram: 
-    def __init__(self, boundary_size, number_of_sharks):
+    def __init__(self, boundary_size, cell_size, number_of_sharks):
         self.boundary_size = boundary_size
+        self.cell_size = cell_size
         #length of half of one side of the boundary "square", so that the origin is in the middle
         #generally 150meters
         self.number_of_sharks = number_of_sharks
 
-    def create_zones(self, cell_size):
-        habitat_zone = HabitatZones((self.boundary_size), cell_size)
-        zones = habitat_zone.create_zones(cell_size)
+    def create_zones(self):
+        habitat_zone = HabitatZones((self.boundary_size), self.cell_size)
+        zones = habitat_zone.create_zones(self.cell_size)
         for zone in zones:
-            for cell in zones: 
+            for cell in zone: 
                 cell[2] = 0
                 #number of times the shark leaves
                 cell[3] = 0
                 #number of times that the shark stays
         return zones
 
-    def create_robotsim_sharks(self):
-        shark_number = 0
-        for s in range(len(number_of_sharks)):
+    def indexToCell(self, x_shark, y_shark, zones):
+        #round x_p and y_p up to the nearest 10
+        if x_shark > self.boundary_size:
+            x_shark = self.boundary_size
+        if x_shark < -self.boundary_size:
+            x_shark = -self.boundary_size
+        if y_shark > self.boundary_size:
+            y_shark = self.boundary_size
+        if y_shark < -self.boundary_size:
+            y_shark = -self.boundary_size
+        NUMBER_OF_CELLS = (self.boundary_size * 2) **2
+        maxx = int(math.ceil(x_shark / 10.0)) * 10
+        maxy = int(math.ceil(y_shark / 10.0)) * 10
+        maxx += self.boundary_size
+        maxx = (maxx/self.cell_size) -1
+        maxy += -self.boundary_size
+        maxy = (maxy/-self.cell_size)
+        
+        return zones[int(maxy)][int(maxx)]
+
+    def create_historical_sharks(self):
+        #shark_number = 0
+        #sharks = []
+        
+        test_robot = RobotSim(5.0, 5.0, 0, 0.1)
+        #sharks.append(shark_s)
+        #test_robot.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [0,31])
+        shark_testing_trajectories = test_robot.load_shark_testing_trajectories("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv")
+        return shark_testing_trajectories
 
 
+    
+            
+    def update_probabilities_historical(self, shark_testing_trajectory, zones):
+        id_number = 0
+        new_cell = []
+        old_cell = []
+        for x in range(0, self.number_of_sharks-1):
+            trajectory = shark_testing_trajectory[x].traj_pts_array
+            #print(trajectory)
+            for x in range(len(trajectory)):
+                if x <= (len(trajectory)-2):
+                    #print(x, len(trajectory))
+                    new_time = trajectory[x+1]
+                    old_time = trajectory[x]
+                    new_coordinates = [new_time.x, new_time.y]
+                    #print(new_coordinates[0])
+                    new_cell = self.indexToCell(int(new_coordinates[0]), int(new_coordinates[1]), zones)
+                    old_coordinates = [old_time.x, old_time.y]
+                    old_cell = self.indexToCell(old_coordinates[0], old_coordinates[1], zones)
+                    if new_cell == old_cell:
+                        old_cell[3] += 1
+                    elif new_cell != old_cell:
+                        old_cell[2] += 1
 
-    def create_random_sharks(self):
-        shark_number = 0
-        sharks = []
-        for s in range(len(number_of_sharks)):
-            x_shark = random.uniform(-self.boundary_size, self.boundary_size)
-            y_shark = random.uniform(-self.boundary_size, self.boundary_size)
-            shark_s = Shark(x_shark, y_shark)
-            shark_s.v_shark = random.uniform(0, 5)
-            shark_s.theta_shark = random.uniform(-math.pi, math.pi)
-            sharks.append(shark_s)
-            shark_number += 1
-        return sharks
+        return zones
+
+    def update_probabilities_random(self, shark_testing_trajectory, zones):
+        id_number = 0
+        new_cell = []
+        old_cell = []
+        for x in range(0, self.number_of_sharks-1):
+            trajectory = shark_testing_trajectory[x].traj_pts_array
+            #print(trajectory)
+            for x in range(len(trajectory)):
+                if x <= (len(trajectory)-2):
+                    #print(x, len(trajectory))
+                    new_time = trajectory[x+1]
+                    old_time = trajectory[x]
+                    new_coordinates = [new_time.x, new_time.y]
+                    #print(new_coordinates[0])
+                    new_cell = self.indexToCell(int(new_coordinates[0]), int(new_coordinates[1]), zones)
+                    old_coordinates = [old_time.x, old_time.y]
+                    old_cell = self.indexToCell(old_coordinates[0], old_coordinates[1], zones)
+                    if new_cell == old_cell:
+                        old_cell[3] += 1
+                    elif new_cell != old_cell:
+                        old_cell[2] += 1
+
+        return zones
+
+    def normalize_probabilities(self, zones):
+        total = 0
+        graphing_zones = []
+        #graphing_zones = [[0 for x in range(int(math.ceil(self.boundary_size * 2) / self.cell_size))] for y in range(int(math.ceil(self.boundary_size * 2) / self.cell_size))]
+        new_cell = ''
+        for zone in zones:
+            for cell in zone:
+                total = cell[2] + cell[3]
+                del cell[0:3]
+                #print(cell)
+                if total != 0:
+                    cell[0] = cell[0]/total
+                
+                cell[0] = round(cell[0],3)
+                
+        zones = np.reshape(zones, (len(zones), len(zones)))
+        #print(graphing_zones)
+        print(zones)
+        #print(type(cell))
+    
+        return zones
+    
+    def plot_probabilities(self, zones):
+        
+        y_axis = []
+        for y in range(len(zones)):
+            y_axis.append(y)
+        x_axis = []
+        for x in range(len(zones)):
+            x_axis.append(x)
+        #print(zones)
+        probabilities = np.array(zones, dtype = np.float)
+
+
+        fig, ax = plt.subplots()
+        im = ax.imshow(probabilities)
+
+        # We want to show all ticks...
+        ax.set_xticks(np.arange(len(x_axis)))
+        ax.set_yticks(np.arange(len(y_axis)))
+        # ... and label them with the respective list entries
+        ax.set_xticklabels(x_axis)
+        ax.set_yticklabels(y_axis)
+
+        # Rotate the tick labels and set their alignment.
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
+                rotation_mode="anchor")
+
+        # Loop over data dimensions and create text annotations.
+        for i in range(len(y_axis)):
+            for j in range(len(x_axis)):
+                text = ax.text(j, i, probabilities[i, j],
+                            ha="center", va="center", color="w")
+
+        ax.set_title("Probability of shark to stay in current cell")
+        fig.tight_layout()
+        plt.show()
+        
+
+    
+
+def main_histogram_function():
+    histogram = Histogram(40, 10, 10)
+    zones = histogram.create_zones()
+    shark_testing_trajectories = histogram.create_historical_sharks()
+    zones = histogram.update_probabilities_historical(shark_testing_trajectories, zones)
+    zones = histogram.normalize_probabilities(zones)
+    histogram.plot_probabilities(zones)
             
 
 
@@ -776,4 +985,4 @@ def main():
         """
 
 if __name__ == "__main__":
-    main()
+    main_shark_traj_function()
