@@ -674,7 +674,7 @@ def createSharkGrid(filepath, cell_list):
 # path = rrt.replanning(Motion_plan_state(-200, 0), habitats, 10.0, 100.0, 0.1)
 # print(path[2])
 # path = rrt.exploring(Motion_plan_state(-200, 0), habitats, 0.5, 5, 2, 50, traj_time_stamp=True, max_plan_time=10, max_traj_time=500, plan_time=True, weights=[-3, -3, -4])
-# print(path['cost'])
+# print(path['path'])
 
 # Draw final path
 # rrt.draw_graph_explore(habitats, path['path'])
