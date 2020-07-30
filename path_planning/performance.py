@@ -148,11 +148,14 @@ def summary_2(start, goal, obstacle_array, boundary, habitats, shark_dict, shark
     return cost_mean, improvement
 
 def plot_summary_2(x_list, y_list):
+    plt.figure(1)
 
-    for i in range(len(x_list)):
-        plt.plot(x_list[i], y_list[i])
+    for planner, cost in y_list.items():
+        plt.plot(x_list, cost, label=planner)
 
     # Add some text for labels, title and custom x-axis tick labels, etc.
+    plt.legend()
+    plt.xticks(x_list)
     plt.ylabel('optimal sum cost')
     plt.title('RRT performance')
 
@@ -300,4 +303,4 @@ shark_dict2 = {1: [Motion_plan_state(-120 + (0.1 * i), -60 + (0.1 * i), traj_tim
     10: [Motion_plan_state(-275 + (0.1 * i), 80 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-245 - (0.13 * i), 50 - (0.12 * i), traj_time_stamp=i) for i in range(302,501)]}
 # sharkGrid1 = createSharkGrid('path_planning/AUVGrid_prob_500_straight.csv', cell_list)
 # sharkGrid2 = createSharkGrid('path_planning/shark_data/AUVGrid_prob_500_turn.csv', cell_list)
-# print(summary_1([-3,-3,-4], obstacles, boundary_poly, habitats, shark_dict2, cell_list, 17, test_num=10))
+print(summary_1([-3,-3,-4], obstacles, boundary_poly, habitats, shark_dict2, cell_list, 20, test_num=10))
