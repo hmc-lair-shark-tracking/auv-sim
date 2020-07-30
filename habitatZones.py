@@ -173,18 +173,14 @@ class Shark:
 
     
 
-def main_shark_traj_function():
-    GRID_RANGE = 150
-    #half the distance of the square where the shark's initial location will be randomized
-    NUMBER_OF_TIMESTAMPS = 300
-    #number of loops/timestamps the function will run
-    dt = 1
-    #length of each timestamp, in seconds
+def main_shark_traj_function(GRID_RANGE, NUMBER_OF_TIMESTAMPS, dt):
+    #grid_range: half the distance of the square where the shark's initial location will be randomized
+    #number of timestamps: number of loops/timestamps the function will run
+    #dt: length of each timestamp, in seconds
     percent = 50
     #percent of the time the sharks will swim towards the closest hotspot to them
-    sharks = []
     coordinates = []
-    hotspots_present = True
+    hotspots_present = False
     #true or false for presence of hotspots
     shark = Shark(random.uniform(-GRID_RANGE, GRID_RANGE), random.uniform(-GRID_RANGE, GRID_RANGE))
     
@@ -204,7 +200,7 @@ def main_shark_traj_function():
             coordinate = shark.update_shark_hotspots(hotspots, percent, dt)
             coordinates.append(coordinate)
 
-    key = 1
+    
     shark_dict = {}
     for i in range(len(coordinates)):
         shark_dict[i] = Motion_plan_state(x = float(coordinates[i][0]), y = float(coordinates[i][1]), traj_time_stamp = i * 0.03)
