@@ -204,7 +204,7 @@ def main_shark_traj_function(GRID_RANGE, NUMBER_OF_TIMESTAMPS):
     
     shark_dict = {}
     for i in range(len(coordinates)):
-        shark_dict[i] = Motion_plan_state(x = float(coordinates[i][0]), y = float(coordinates[i][1]), traj_time_stamp = i * 0.03)
+        shark_dict[i] = Motion_plan_state(x = float(coordinates[i][0]), y = float(coordinates[i][1]), traj_time_stamp = i)
     
     #print(shark_dict)
     return shark_dict
@@ -656,7 +656,7 @@ class Histogram:
     def create_random_sharks(self, number_of_sharks):
         sharks = []
         for x in range(1,number_of_sharks):
-            shark_traj = main_shark_traj_function(self.boundary_size, 300, 1)
+            shark_traj = main_shark_traj_function(self.boundary_size, 600)
             
     def update_probabilities_historical(self, shark_testing_trajectory, zones):
         id_number = 0
