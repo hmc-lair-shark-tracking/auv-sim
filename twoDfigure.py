@@ -123,23 +123,6 @@ class Figure:
         plt.ylabel('range error (meters) ')
         plt.xlabel('time (s)')
 
-    """
-    # plots just to plot time and convergence, not really useful
-    def mean_convergence_plot(self):
-        list_of_2_auv = [4.727, 5.5, 5.772727, 4.8636]
-        plt.plot(list_of_2_auv, color =  '#038cfc' )
-        plt.ylabel('Mean Steady State Error (meters)')
-        plt.xlabel('Number of AUVs')
-
-    def time_convergence_plot(self):
-
-        list_of_1_auv = [18.421, 16.31, 16.611, 14.1875]
-        
-        plt.plot(list_of_1_auv , color = '#eb5282')
-        
-        plt.ylabel('time (s)')
-        plt.xlabel('NUM OF AUV')
-    """
     def mean_over_time(self, final_range_error_list):
         # generates average range error list for each number of auv over x number of trials
         final_mean_list = []
@@ -156,6 +139,7 @@ class Figure:
         plt.plot(final_mean_list , color = '#eb5282')
         plt.ylabel('range error (m)')
         plt.xlabel('Time (s)')
+        
     def combined_plotter(self, first_auv, second_auv, third_auv, fourth_auv):
         # combined plot for all auv range error lists
         plt.plot(first_auv , '--', label= '1 AUV', color = '#718bbf')
