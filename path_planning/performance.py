@@ -276,8 +276,8 @@ def summary_4(rrt, habitats, shark_dict, weight):
     
     return total_cost / traj[-1].traj_time_stamp
 
-def summary_5(obstacles, boundary, habitats, sharkGrid, cell_list, test_num=30):
-    nums = [0, 3, 5, 7, 8, 10, 11]
+def summary_5(obstacles, boundary, habitats, sharkGrid, cell_list, test_num=50):
+    nums = [0, 3, 5, 7, 8, 10, 11, 12, 13, 15, 16]
     rrt = RRT(boundary, sharkGrid, cell_list)
     res= []
 
@@ -305,7 +305,6 @@ def summary_5(obstacles, boundary, habitats, sharkGrid, cell_list, test_num=30):
             end = time.time()
             time_list.append((end - start))
         
-        print(time_list)
         res.append(statistics.mean(time_list))
     return res
 
