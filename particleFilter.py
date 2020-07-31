@@ -167,6 +167,7 @@ class ParticleFilter:
         return xy_mean
 
     def meanError(self, x_mean, y_mean):
+        # range error is defined as the differnece in distance between the shark and the particle Filters mean particle coordinate
         x_difference = x_mean - self.x_shark
         y_difference = y_mean - self.y_shark
         range_error = math.sqrt((x_difference**2) + (y_difference **2))
@@ -176,11 +177,11 @@ class ParticleFilter:
         return (range_error)
 
     def correct(self, normalize_list, old_coordinates):
+        # corrects the weight of the particles by assigning a higher weight to those that have a higher probability of being the location of the shark
         list_of_new_particles = []
         new_particles = []
         copy = []
         count = -1
-        #print(normalize_list)
         for particle in old_coordinates:
             if particle.weight_p < 0.2:
                 count += 1
@@ -255,6 +256,7 @@ class ParticleFilter:
         return new_particles
     
     def particle_coordinates(self, particles): 
+        # retuns all the particles as a list of coordinates
         particle_coordinates = []
         individual_coordinates = []
         for particle in particles:
@@ -267,19 +269,9 @@ class ParticleFilter:
             #print("particle_coordinates", particle_coordinates)
         return particle_coordinates
     
-    def cluster_over_time_function(self, particles, actual_shark_coordinate_x, actual_shark_coordinate_y, sim_time, list_of_error_mean):
-        list_of_answers = []
-        count = 0
-        for particle in particles:
-            sum = math.sqrt(((particle.x_p - actual_shark_coordinate_x[-1])**2)  + ((particle.y_p - actual_shark_coordinate_y[-1])**2))
-            if sum <= 1.1* (list_of_error_mean[9]):
-                count += 1
-            if count == 560:
-                initial_time = sim_time
-                list_of_answers.append(sim_time)
-            return list_of_answers
 
     def create_and_update(self, particles):
+        # updates the particles x,y position based on the velocity and theta it has been assigned
         particles_list = []
         for particle in particles: 
             particle.update_particle(.1)
@@ -288,6 +280,7 @@ class ParticleFilter:
         #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
 
     def update_weights(self,particles, list_of_range_bearing):
+        # updates the weight of all the particles 
         final_list_of_weights = []
         # list_of_range_bearing = [shark_data.x, shark_data.y, shark_data.theta, Z_shark_range, Z_shark_bearing,  shark_id)]
 
@@ -314,6 +307,7 @@ class ParticleFilter:
             #print("x:", particle.x_p, " y:", particle.y_p, " velocity:", particle.v_p, " theta:", particle.theta_p, " weight:", particle.weight_p)
         return particles
     def create(self):
+        # creates the particles for the particleFilter (1000 particles recommended )
         NUMBER_OF_PARTICLES = 1000
         particles = []
         for x in range(0, NUMBER_OF_PARTICLES):

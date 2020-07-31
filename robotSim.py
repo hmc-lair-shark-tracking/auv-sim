@@ -804,50 +804,40 @@ class RobotSim:
 
 
 def main():
+    # if the code doesnt run.. try typing in terminal 'python3 robotSim.py'
     #pos = create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
-    final_range_error_list = []
     range_graph = Figure()
+    test_robot = RobotSim(5.0, 5.0, 0, 0.1, 0.5, 1, 1, 0)
+    BOUNDARY_RANGE = 50
     
-    for i in range(1):
-        test_robot = RobotSim(5.0, 5.0, 0, 0.1, 0.5, 1, 1, 0)
-        BOUNDARY_RANGE = 50
-        
-        for i in range(test_robot.num_of_auv):
-            x = random.uniform(- BOUNDARY_RANGE, BOUNDARY_RANGE)
-            y = random.uniform(- BOUNDARY_RANGE, BOUNDARY_RANGE)
-            z = random.uniform(- BOUNDARY_RANGE, BOUNDARY_RANGE)
-            theta = random.uniform(-math.pi/2, math.pi/2)
-            velocity = random.uniform(0,4)
-            curr_traj_pt_index = 0
-            w_1 = random.uniform(-math.pi/2, math.pi/2)
-            test_robot.auv_dict[i] = Auv(x,y,z, theta, velocity, w_1, curr_traj_pt_index, i)
+    for i in range(test_robot.num_of_auv):
+        # creates random auvs based on the number of AUVS you want
+        x = random.uniform(- BOUNDARY_RANGE, BOUNDARY_RANGE)
+        y = random.uniform(- BOUNDARY_RANGE, BOUNDARY_RANGE)
+        z = random.uniform(- BOUNDARY_RANGE, BOUNDARY_RANGE)
+        theta = random.uniform(-math.pi/2, math.pi/2)
+        velocity = random.uniform(0,4)
+        curr_traj_pt_index = 0
+        w_1 = random.uniform(-math.pi/2, math.pi/2)
+        test_robot.auv_dict[i] = Auv(x,y,z, theta, velocity, w_1, curr_traj_pt_index, i)
+
+    # load shark trajectories from csv file
+    # the second parameter specify the ids of sharks that we want to track
+    test_robot.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1, 2])
+    shark_state_dict = test_robot.get_all_sharks_state()
+    # create a dictionary of all the particleFilters
+    shark_state = shark_state_dict[1]
+    # update the auv_state list with the AUV in order for the particleFilter to use measurements from all the AUVS
+    auv_state = [test_robot.auv_dict[0]]
+
     
-        # load shark trajectories from csv file
-        # the second parameter specify the ids of sharks that we want to track
-        test_robot.setup("./data/shark_tracking_data_x.csv", "./data/shark_tracking_data_y.csv", [1, 2])
-        shark_state_dict = test_robot.get_all_sharks_state()
-        # create a dictionary of all the particleFilters
-        shark_state = shark_state_dict[1]
-        auv_state = [test_robot.auv_dict[0]]
-        #list of auv objects 
-        test_robot.filter_dict[0] = ParticleFilter(shark_state.x, shark_state.y, auv_state)
+    # this creates the ParticleFilter 
+    test_robot.filter_dict[0] = ParticleFilter(shark_state.x, shark_state.y, auv_state)
 
-        range_error_list = test_robot.main_navigation_loop(False)
-
-        final_range_error_list.append(range_error_list)
+    # if you don't want to see the constant Map of the simulation --> do: test_robot.main_navigation_loop(False)
+    test_robot.main_navigation_loop()
 
     plt.close()
-    
-
-    #print(final_range_error_list[0])
-    #range_graph.mean_over_time(final_range_error_list)
-    fourth_auv = [ 6.941292738549372, 6.74510875976074, 4.863612137852509, 4.7645320156235815, 4.242321597974949, 4.024569706322692, 3.7856283010580034, 3.6885523135357934, 3.6940316308687295, 3.565448399870291, 3.5942208631951087, 3.3986329914806404, 3.2112466441207514, 3.335102291641126, 3.0825214709156277, 2.6331242903164545, 2.595834887895439, 2.5215326408457273, 2.685626320737836, 2.6789160793387663, 3.5004450810073284, 3.256934195541281, 3.269892248705662, 3.648606982885082, 3.646666498608356, 3.5891473020858724, 3.505817100120372, 3.233825686309518, 3.371466974934547, 2.9794275859228443, 3.019631257313322, 3.016372690440745, 3.138196698525654, 3.083253476306716, 3.1646711165070998, 3.1296086025500927, 3.057958210734628, 2.909420887599409, 2.8003790378446487, 2.82849407662044, 3.0247473245877505, 3.1276817046468333, 3.0757219274218532, 3.2851670008836305, 3.3770804605960736]
-    third_auv = [ 8.081317387011678, 7.779297121871716, 6.173583861386646, 5.9983556531961755, 5.051500620940572, 5.050230966314058, 4.176303004545716, 3.7005980703159587, 3.4848581968156394, 3.558000956071518, 3.320353935550109, 3.3714975913264187, 3.3306234225927622, 3.5313747602210364, 3.6189610524732023, 3.6018372771073746, 3.8303698025790527, 3.6531454359284767, 4.138811445471834, 3.9444757294198185, 4.711113029197889, 4.201315683696884, 4.197079307352095, 4.4836208722583395, 4.658837792372989, 4.6957128597785385, 4.670398251163862, 4.321008625332003, 4.135029907526813, 3.8982611636179816, 4.135204957662355, 4.07626278822587, 4.115575697178099, 3.7897718555972517, 3.5139421194463125, 3.4836355154825673, 3.6280257318354896, 3.595651801744126, 3.5237599770541124, 3.460003854055289, 3.21217649350233, 3.1756921986763573, 3.0455423087022027, 3.252906862366884, 3.4199656311766478]
-    second_auv = [12.05546048273719, 11.737083551650088, 7.194221710161365, 6.855373288552319, 5.46331254076676, 5.233025757793365, 4.762799741467497, 4.987053818842264, 4.950173856329736, 4.994754405808627, 4.719438106286129, 4.091345329590689, 3.7053332724750936, 4.073230682584524, 4.239336838157733, 4.298866809898684, 4.618904805923281, 4.532100521717682, 4.807702488326691, 4.23380453541572, 4.85078288400519, 4.112198737827719, 4.071946185757456, 4.179838934232877, 4.289587951082809, 4.346023201148386, 4.528808590374294, 4.1675261490157185, 4.2096865668177506, 4.202492775333994, 4.564805821929903, 4.37359159351516, 4.421059489973278, 4.0628862403375505, 4.166099685247517, 4.134236631004299, 4.222458702131249, 4.058844350884665, 3.7192827952256033, 3.7012358991370964, 4.307580469707284, 4.716430693371498, 4.477284055292072, 4.619494273074682, 4.352312187317038]
-    first_auv = [16.896782801193922, 16.74136447388518, 13.04278992412347, 12.44363792946683, 11.124585883957439, 10.912341478553355, 9.568547890800428, 9.102157569142921, 8.771210039319012, 8.676632514043623, 8.187990485687326, 7.711475281789337, 7.275966909987672, 7.255014456129833, 6.988756231175932, 6.500827054147205, 6.684558485001317, 6.903342271697974, 7.120731495197683, 6.928743765436396, 7.474043018129467, 6.6765337247778005, 6.702859565053783, 6.519184769569636, 6.564292237123785, 6.657615781195312, 6.9600487046702195, 6.554314839161952, 6.9529764798778455, 6.48003120766768, 6.42306453596607, 6.565419939770142, 6.957791104972147, 6.6911156646240135, 6.68481759681049, 6.534621669051838, 6.226267299778227, 6.159896869765249, 6.202696589127211, 6.149612512523127, 5.779071763310621, 6.300229610812975, 5.970635079206829, 6.309230649007301, 6.048919215031328]
-
-    range_graph.combined_plotter(first_auv, second_auv, third_auv, fourth_auv)
-    
     plt.show()
     
     # test_robot.display_auv_trajectory()
