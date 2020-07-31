@@ -32,15 +32,13 @@ class RealSim:
         goal = catalina.create_cartesian(catalina.GOAL, catalina.ORIGIN_BOUND)
         self.goal = Motion_plan_state(goal[0], goal[1])
 
-        obstacles = catalina.OBSTACLES
         self.obstacles = []
-        for ob in obstacles:
+        for ob in catalina.OBSTACLES:
             pos = catalina.create_cartesian((ob.x, ob.y), catalina.ORIGIN_BOUND)
             self.obstacles.append(Motion_plan_state(pos[0], pos[1], size=ob.size))
         
-        boundary = catalina.BOUNDARIES
         self.boundary = []
-        for b in boundary:
+        for b in catalina.BOUNDARIES:
             pos = catalina.create_cartesian((b.x, b.y), catalina.ORIGIN_BOUND)
             self.boundary.append(Motion_plan_state(pos[0], pos[1]))
         
@@ -54,6 +52,10 @@ class RealSim:
         for habitat in catalina.HABITATS:
             pos = catalina.create_cartesian((habitat.x, habitat.y), catalina.ORIGIN_BOUND)
             self.habitats.append(Motion_plan_state(pos[0], pos[1], size=habitat.size))
+        
+        #testing data for shark trajectories
+        self.shark_dict = {1: [Motion_plan_state(-102 + (0.1 * i), -91 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)], 
+            2: [Motion_plan_state(-150 - (0.1 * i), 0 + (0.1 * i), traj_time_stamp=i) for i in range(1,501)]}
         
         #initialize path planning algorithm
         #A* algorithm
@@ -98,11 +100,8 @@ class RealSim:
         RRT path planning algorithm
         call RRT planning to generate optimal path while exploring habitats as much as possible
         '''
-        #testing data for static sharks
-        self.shark_state_dict = {1: Motion_plan_state(-100,-65, size=self.sonar_range), 2: Motion_plan_state(-70, 0, size=self.sonar_range), 
-            3: Motion_plan_state(50, -20, size=self.sonar_range), 4: Motion_plan_state(-150, 10, size=self.sonar_range)}
 
-        result = self.rrt.exploring(self.shark_state_dict, 0.5, 5, 1, False, 5.0, 500.0, True, weights=[1,-3,-3,-3])
+        result = self.rrt.exploring(self.shark_dict, 0.5, 5, 1, False, 5.0, 500.0, True, weights=[1,-3,-3,-3])
         #RRT trajectory represented by a list of motion_plan_states
         rrt_traj = result["path"]
 
@@ -219,7 +218,7 @@ class RealSim:
     def plot_real_traj(self):        
         #trajectory dictionary to store paths for plotting from A *, RRT and RL algorithms
         traj = {"A *" : self.A_star_traj, "RRT" : self.rrt_traj, "RL": []}        
-        self.live3DGraph.plot_2d_traj(traj, self.shark_state_dict)
+        self.live3DGraph.plot_2d_traj(traj, self.shark_dict)
 
 testing = RealSim()
 testing.rrt_planning()

@@ -497,7 +497,6 @@ class Live3DGraph:
 
         # plot sharks
         for shark_id, shark_pos in shark_dict.items():
-            ax.add_patch(plt.Circle((shark_pos.x, shark_pos.y), shark_pos.size, color="r", fill=False))
-
+            ax.plot([mps.x for mps in shark_pos],[mps.y for mps in shark_pos], label=shark_id)
         ax.legend()
         plt.show()
