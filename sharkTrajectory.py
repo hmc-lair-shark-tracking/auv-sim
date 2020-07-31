@@ -1,5 +1,5 @@
 from motion_plan_state import Motion_plan_state
-
+import random
 """
 A class to store the trajectory of a given shark
 """
@@ -20,13 +20,16 @@ class SharkTrajectory:
         # end of the simulation
         # initialize the array with the first point, so we can do the orientation calculation
         #   for the direction vector
+        
         self.x_pos_array = [float(x_pos_array[0])]
         self.y_pos_array = [float(y_pos_array[0])]
         self.z_pos_array = [0]
-
+        
         # use map to convert the array of strings to array of float
         self.x_vel_array = list(map(lambda x: float(x), x_vel_array))
         self.y_vel_array = list(map(lambda y: float(y), y_vel_array))
+        
+
 
         for i in range(len(x_pos_array)):
             # the shark tracking video has frame rate 30 fps

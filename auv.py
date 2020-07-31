@@ -2,6 +2,7 @@ from motion_plan_state import Motion_plan_state
 import math
 import numpy as np
 import constants as const
+import random
 from sharkState import SharkState
 def angle_wrap(ang):
     """
@@ -49,12 +50,11 @@ class Auv:
             w - angular veloctiy of the robot (rad/sg)
             delta_t - time step (sec)
         """
-        # change to return Motionplanstate
+        # returns random velocity and w_velocity
         self.state.x = self.state.x + self.velocity_1 * math.cos(self.state.theta)*delta_t
         self.state.y = self.state.y + self.velocity_1 * math.sin(self.state.theta)*delta_t
         self.state.theta = angle_wrap(self.state.theta + self.w_1 * delta_t)
     
-        
         self.x_list += [self.state.x]
         self.y_list += [self.state.y]
         self.z_list += [self.state.z]
@@ -74,7 +74,7 @@ class Auv:
         x = self.state.x + np.random.normal(0,1)
         y = self.state.y + np.random.normal(0,1)
         z = self.state.z + np.random.normal(0,1)
-        theta = angle_wrap(self.state.theta + np.random.normal(0,0.05))
+        theta = angle_wrap(self.state.theta + np.random.normal(0,1))
         
         return Motion_plan_state(x, y, z, theta, curr_time)
 
@@ -132,7 +132,7 @@ class Auv:
         #   we need 20 iterations to return a new set of sensor data
         if self.sensor_time == const.NUM_ITER_FOR_NEW_SENSOR_DATA:
             self.shark_sensor_data_list = []
-            print(" len of shark_state_dict", len(shark_state_dict))
+            #print(" len of shark_state_dict", len(shark_state_dict))
             # iterate through all the sharks that we are tracking
             for shark_id in shark_state_dict: 
                 shark_data = shark_state_dict[shark_id]
@@ -143,12 +143,12 @@ class Auv:
                 
                 bearing_random = np.random.normal(0,0.5) #Gaussian noise with 0 mean and standard deviation 0.5
     
-
                 Z_shark_range = math.sqrt(delta_x**2 + delta_y**2) + range_random
                 Z_shark_bearing = angle_wrap(math.atan2(delta_y, delta_x) - self.state.theta + bearing_random)
                 # updates new x, y here 
-                #print("auv file bearing and range ",  Z_shark_bearing, Z_shark_range)
-                self.shark_sensor_data_list.append([self.state.x, self.state.y, self.state.theta, Z_shark_range, Z_shark_bearing,  shark_id])
+                #print("new shark ",  shark_id, "shark coordinates", shark_data.x, shark_data.y)
+                self.shark_sensor_data_list.append([self.state.x, self.state.y, self.state.theta, Z_shark_range, Z_shark_bearing,  shark_id, shark_data.x, shark_data.y])
+
             
             # reset the 2 sec time counter
             self.sensor_time = 0

@@ -233,12 +233,6 @@ class Live3DGraph:
                 self.labels += [planner_name]
                 self.traj_checkbox_dict[planner_name][0] = True
             
-            '''traj_x_array = []
-            traj_y_array = []
-            # create two array of x and y positions for plotting
-            for traj_pt in trajectory_array:
-                traj_x_array.append(traj_pt.x)
-                traj_y_array.append(traj_pt.y)'''
 
             # TODO: for now, we set the z position of the trajectory to be -10
             #self.ax.plot(traj_x_array,  traj_y_array, 0, marker = ',', color = color, label = planner_name)
