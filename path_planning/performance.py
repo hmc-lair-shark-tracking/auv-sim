@@ -276,6 +276,39 @@ def summary_4(rrt, habitats, shark_dict, weight):
     
     return total_cost / traj[-1].traj_time_stamp
 
+def summary_5(obstacles, boundary, habitats, sharkGrid, cell_list, test_num=30):
+    nums = [0, 3, 5, 7, 8, 10, 11]
+    rrt = RRT(boundary, sharkGrid, cell_list)
+    res= []
+
+    for num in nums:
+
+        temp_obstacles = []
+        while len(temp_obstacles) < num:
+            ran = int(random.uniform(0, len(habitats)))
+            temp_obstacles.append(obstacles[ran])
+        time_list = []
+
+        for _ in range(test_num):
+
+            initial_x = random.uniform(-300, -100)
+            initial_y = random.uniform(-100, 100)
+            initial = Point(initial_x, initial_y)
+            while not initial.within(boundary_poly):
+                initial_x = random.uniform(-300, -100)
+                initial_y = random.uniform(-100, 100)
+                initial = Point(initial_x, initial_y)
+            initial = Motion_plan_state(initial_x, initial_y)
+
+            start = time.time()
+            rrt.exploring(initial, habitats, temp_obstacles, 5, 50, 1, 50, True, 100, 500, True, [-3,-3,-4])
+            end = time.time()
+            time_list.append((end - start))
+        
+        print(time_list)
+        res.append(statistics.mean(time_list))
+    return res
+
 #initialize start, goal, obstacle, boundary, habitats for path planning
 # start = catalina.create_cartesian(catalina.START, catalina.ORIGIN_BOUND)
 # start = Motion_plan_state(start[0], start[1])
@@ -292,7 +325,7 @@ habitats = environ[3]
 boundary_poly = [(mps.x, mps.y) for mps in boundary]
 boundary_poly = Polygon(boundary_poly)
 
-# cell_list = splitCell(boundary_poly,10)
+cell_list = splitCell(boundary_poly,10)
     
 # testing data for shark trajectories
 shark_dict1 = {1: [Motion_plan_state(-120 + (0.2 * i), -60 + (0.2 * i), traj_time_stamp=i) for i in range(1,501)], 
@@ -317,4 +350,5 @@ shark_dict2 = {1: [Motion_plan_state(-120 + (0.1 * i), -60 + (0.1 * i), traj_tim
     9: [Motion_plan_state(-260 - (0.1 * i), 75 + (0.1 * i), traj_time_stamp=i) for i in range(1,301)] + [Motion_plan_state(-290 + (0.08 * i), 105 + (0.07 * i), traj_time_stamp=i) for i in range(302,501)], 
     10: [Motion_plan_state(-275 + (0.1 * i), 80 - (0.1 * i), traj_time_stamp=i) for i in range(1,301)]+ [Motion_plan_state(-245 - (0.13 * i), 50 - (0.12 * i), traj_time_stamp=i) for i in range(302,501)]}
 # sharkGrid1 = createSharkGrid('path_planning/AUVGrid_prob_500_straight.csv', cell_list)
-# sharkGrid2 = createSharkGrid('path_planning/shark_data/AUVGrid_prob_500_turn.csv', cell_list)
+sharkGrid2 = createSharkGrid('path_planning/shark_data/AUVGrid_prob_500_turn.csv', cell_list)
+print(summary_5(obstacles, boundary_poly, habitats, sharkGrid2, cell_list))
