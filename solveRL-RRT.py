@@ -3,8 +3,6 @@ import math
 import random
 import time
 import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
 from collections import namedtuple
 from itertools import count
 import torch
@@ -14,6 +12,10 @@ import torch.nn.functional as F
 import torchvision.transforms as T  
 import copy
 import csv
+
+# Warning: Comment out matplotlib library if we are using XSEDE
+import matplotlib
+import matplotlib.pyplot as plt
 
 from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
 
@@ -33,10 +35,10 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 20.0
 
-NUM_OF_EPISODES = 1000
-MAX_STEP = 1000
+NUM_OF_EPISODES = 2000
+MAX_STEP = 500
 
-NUM_OF_EPISODES_TEST =  50
+NUM_OF_EPISODES_TEST = 50
 MAX_STEP_TEST = 500
 
 N_V = 7
@@ -83,7 +85,7 @@ SAVE_EVERY = 10
 # how many episode should we render the model
 RENDER_EVERY = 1
 # how many episode should we run a test on the model
-TEST_EVERY = 50
+TEST_EVERY = 25
 
 FILTER_IN_UPDATING_NN = True
 
@@ -96,7 +98,7 @@ USE_MEMO = True
 COMPLETELY_USE_MEMO = False
 
 # to limit the terminal output for training over high computing resources
-PLOT_INTERMEDIATE_TESTING = True
+PLOT_INTERMEDIATE_TESTING = False
 LIMIT_TERMINAL_OUTPUT = True
 
 duration_for_memo = []
@@ -106,6 +108,7 @@ duration_convert_to_str = []
 
 ratio_in_an_ep_for_memo = []
 
+obstacles_to_remove_array = [[6,7], [1,2], [9,10]]
 """
 ============================================================================
 
@@ -126,7 +129,7 @@ def process_state_for_nn(state):
     # obstacle_tensor = torch.from_numpy(state['obstacles_pos'])
     # obstacle_tensor = torch.flatten(obstacle_tensor).float()
 
-    rrt_grid_tensor = torch.from_numpy(state['rrt_grid_num_of_nodes_only']).float()
+    rrt_grid_tensor = torch.from_numpy(state['rrt_grid_num_of_nodes_only']).float().to(DEVICE)
     # rrt_grid_tensor = torch.flatten(rrt_grid_tensor)
 
     # rrt_grid_all_info_tensor = torch.from_numpy(state['rrt_grid']).float()
@@ -199,83 +202,17 @@ def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_p
     return auv_overlaps or shark_overlaps or obs_overlaps
 
 
-def generate_rand_obstacles(auv_init_pos, shark_init_pos, num_of_obstacles, shark_min_x, shark_max_x,  shark_min_y, shark_max_y):
-    """
-    """ 
-    obstacle_array = []
-
-    # hard-code random obstacles
-    # obstacle # 1
-    obs_x = np.random.uniform(12, 17)
-    obs_y = np.random.uniform(34, 41)
-    obs_size = np.random.randint(4,6)
-
-    obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
-
-    # obstacle # 2
-    obs_x = np.random.uniform(17, 21)
-    obs_y = np.random.uniform(29, 36)
-    obs_size = np.random.randint(5,7)
-
-    obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
-
-    # obstacle # 3
-    obs_x = np.random.uniform(20, 25)
-    obs_y = np.random.uniform(23, 30)
-    obs_size = np.random.randint(6,8)
-
-    obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
-
-    # obstacle # 4
-    obs_x = np.random.uniform(24, 29)
-    obs_y = np.random.uniform(19, 25)
-    obs_size = np.random.randint(4,6)
-
-    obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
-
-    # obstacle # 5
-    obs_x = np.random.uniform(27, 33)
-    obs_y = np.random.uniform(17, 24)
-    obs_size = np.random.randint(4,6)
-
-    obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
-
-    # obstacle # 6
-    obs_x = np.random.uniform(32, 36)
-    obs_y = np.random.uniform(14, 19)
-    obs_size = np.random.randint(6,8)
-
-    obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
-
-    # obstacle # 7
-    obs_x = np.random.uniform(36, 40)
-    obs_y = np.random.uniform(7, 10)
-    obs_size = np.random.randint(3,6)
-
-    obstacle_array.append(Motion_plan_state(x=obs_x, y=obs_y, size=obs_size))
-    
-    # for _ in range(num_of_obstacles):
-    #     obs_x = np.random.uniform(shark_min_x, shark_max_x)
-    #     obs_y = np.random.uniform(shark_min_y, shark_max_y)
-    #     obs_size = np.random.randint(1,5)
-    #     # to prevent this from going into an infinite loop
-    #     counter = 0
-    #     while validate_new_obstacle([obs_x, obs_y], obs_size, auv_init_pos, shark_init_pos, obstacle_array) and counter < 100:
-    #         obs_x = np.random.uniform(shark_min_x, shark_max_x)
-    #         obs_y = np.random.uniform(shark_min_y, shark_max_y)
-    #         counter += 1
-    #     obstacle_array.append(Motion_plan_state(x = obs_x, y = obs_y, z=-5, size = obs_size))
-
-    return obstacle_array   
-
 def generate_rand_complex_env():
     obstacle_array = []
     # the empty space in each obstacle layer
     empty_slot_array = []
 
+    obstacle_range = [2, 0, 0]
+
     for layer in range(3):
         # each layer will have 10 obstacles, randomly remove 2 obstacles
-        obstacles_to_remove = random.choice(range(0, 12))
+        obstacles_to_remove = random.choice(range(obstacle_range[layer], 12))
+
         # obstacles at y = 10m
         x = 2.0
         y = 10.0 + 15.0 * layer
@@ -322,6 +259,46 @@ def generate_fix_complex_env():
 
     return obstacle_array, empty_slot_tensor
 
+
+def generate_gradually_changing_complex_env(eps):
+    obstacle_array = []
+    # the empty space in each obstacle layer
+    empty_slot_array = []
+
+    for i in range(0,3):
+        # each layer will have 10 obstacles, randomly remove 2 obstacles
+        lower_b, upper_b = obstacles_to_remove_array[i]
+
+        if eps % 100 == 0 and eps >= 200 and eps <= 1200:
+            # increase the range from right to left
+            if upper_b < 12:  
+                obstacles_to_remove_array[i][1] += 1
+            else:
+                # it has reached the max upper bound
+                if (i == 0 and lower_b > 2) or (i > 0 and lower_b > 0):
+                    obstacles_to_remove_array[i][0] -= 1          
+
+        print("lower bound: ", obstacles_to_remove_array[i][0], ", upper bound: ", obstacles_to_remove_array[i][1])
+        obstacles_to_remove = np.random.randint(obstacles_to_remove_array[i][0], obstacles_to_remove_array[i][1])
+            
+        # obstacles at y = 10m
+        x = 2.0
+        y = 10.0 + 15.0 * i
+
+        for j in range(13):
+            if (j != obstacles_to_remove) and (j != obstacles_to_remove + 1):
+                obstacle_array.append(Motion_plan_state(x=x, y=y, size=2.5))
+            else:
+                empty_slot_array.append([x, y, 2.5])
+            x += 4.0 
+
+    # convert the empty slot array
+    empty_slot_array = np.array(empty_slot_array)
+    empty_slot_tensor = torch.from_numpy(empty_slot_array)
+    empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
+
+    return obstacle_array, empty_slot_tensor
+
 def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
     """
     Helper function for checking whether the newly habitat generated is valid or not
@@ -339,7 +316,7 @@ def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
 Class for building policy and target neural network
 """
 class Neural_network(nn.Module):
-    def __init__(self, input_size, output_size, hidden_layer_1_in = 20, hidden_layer_1_out = 15, hidden_layer_2_out = 10, hidden_layer_3_out = 5):
+    def __init__(self, input_size, output_size, hidden_layer_1_in = 40, hidden_layer_1_out = 25, hidden_layer_2_out = 20, hidden_layer_3_out = 15):
         """
         Initialize the Q neural network with input
 
@@ -655,13 +632,21 @@ class AuvEnvManager():
         self.done = False
 
     
-    def init_env_randomly(self, dist = DIST):
+    def init_env_randomly(self, eps = 1, dist = DIST):
         empty_slot_tensor = []
 
         auv_init_pos = Motion_plan_state(x = 5.0, y = 5.0, z = -5.0, theta = 0.0)
         shark_init_pos = Motion_plan_state(x = 45.0, y = 45.0, z = -5.0, theta = 0.0)
-        obstacle_array, empty_slot_tensor = generate_fix_complex_env()
+        # shark_init_pos = Motion_plan_state(x = np.random.uniform(5.0, 45.0), y = 45.0, z = -5.0, theta = 0.0)
        
+        obstacle_array, empty_slot_tensor = generate_rand_complex_env()
+        # if empty_slot_first_layer < 3:
+        #     auv_theta = np.pi / 2.0
+        # else:
+        #     auv_theta = 0
+
+        # auv_init_pos = Motion_plan_state(x = 5.0, y = 5.0, z = -5.0, theta = auv_theta)
+
         # obstacle_array = []
         # x = 15.0
         # y = 15.0
@@ -706,7 +691,7 @@ class AuvEnvManager():
             print(auv_init_pos)
             print(shark_init_pos)
             print("-")
-            print(obstacle_array)
+            print(empty_slot_tensor)
             print("-")
             print("Number of Environment Grid")
             print(NUM_OF_GRID_CELLS)
@@ -1222,7 +1207,7 @@ class DQN():
         for eps in range(1, num_episodes+1):
             # initialize the starting point of the shark and the auv randomly
             # receive initial observation state s1 
-            state = self.em.init_env_randomly()
+            state = self.em.init_env_randomly(eps)
 
             # reward received in this episode
             eps_reward = 0
@@ -1342,6 +1327,8 @@ class DQN():
 
                 testing_result_array.append(result)
 
+                text = input("stop")
+
                 
         save_model(self.policy_net, self.target_net)
 
@@ -1383,7 +1370,9 @@ class DQN():
 
         self.load_trained_network()
         self.policy_net.eval()
-        
+
+        stop_first = True
+
         for eps in range(0, num_episodes):
             # initialize the starting point of the shark and the auv randomly
             # receive initial observation state s1 
@@ -1415,6 +1404,10 @@ class DQN():
                 self.em.render(print_state = False, live_graph_2D = live_graph_2D)
 
                 state = self.em.get_state()
+
+                if stop_first:
+                    text = input("stop")
+                    stop_first = False
 
                 if self.em.done:
                     # because the only way for an episode to terminate is when an rrt path is found
@@ -1450,7 +1443,7 @@ class DQN():
 
             total_reward_array.append(eps_reward)
             print("final state")
-            self.em.env.rrt_planner.print_env_grid()
+            # self.em.env.rrt_planner.print_env_grid()
             print(state['rrt_grid_num_of_nodes_only'])
             text = input("stop")
 
@@ -1697,48 +1690,24 @@ class DQN():
 
 def main():
     dqn = DQN()
-   
+    # save_model(dqn.policy_net, dqn.target_net)
     # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
-    filename = "7-23_sub=1_og-nn_max-step=500_eps=1000_75rand.csv"
-    dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
+    # filename = "7-23_sub=1_og-nn_max-step=500_eps=1000_75rand.csv"
+    # dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
     # dqn.store_agent_dictionary(filename)
 
     # if COMPLETELY_USE_MEMO:
     # dqn.load_agent_dictionary(filename)
 
-    # print("seconds: 3")
-    # dqn.test_with_time_budget(100, 3.0, MAX_STEP_TEST, live_graph_2D = False)
-    # print("----")
-    # print("seconds: 5")
-    # dqn.test_with_time_budget(100, 5.0, MAX_STEP_TEST, live_graph_2D = False)
-    # text = input("stop")
+    print("seconds: 3")
+    dqn.test_with_time_budget(100, 3.0, MAX_STEP_TEST, live_graph_2D = False)
+    print("----")
+    print("seconds: 5")
+    dqn.test_with_time_budget(100, 5.0, MAX_STEP_TEST, live_graph_2D = False)
+    text = input("stop")
 
     
 
 
 if __name__ == "__main__":
     main()
-
-# start_time = time.time()
-# t = []
-# for i in range(len(l)):
-#    t.append(l[i])
-# end_time = time.time() - start_time
-# print(end_time)
-
-
-# for i in range(len(test)): 
-#     if int(test[i]) == 0 and int(has_node[i]) == 1: 
-#         print("should not have any node") 
-#         print(i)
-#         print(test[i])
-#     elif int(test[i]) != 0 and int(has_node[i]) == 0: 
-#         print("this might be because this is causing many nodes being generated?")
-#         print(i)
-#         print(test[i])
-
-# for i in range(len(t1)): 
-#     if t1[i] != t2[i]:
-#         print(t1[i])
-#         print(t2[i])
-#         print(i)

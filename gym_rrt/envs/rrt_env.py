@@ -2,14 +2,17 @@ import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
 import numpy as np
+import copy
+import random
+import torch
+
+# Warning: Comment out matplotlib library if we are using XSEDE
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.patches import Circle, Rectangle
 import mpl_toolkits.mplot3d.art3d as Art3d
-import copy
-import random
-
 from gym_rrt.envs.live3DGraph_rrt_env import Live3DGraph
+
 from gym_rrt.envs.rrt_dubins import Planner_RRT
 from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
 
@@ -51,6 +54,9 @@ ENV_SIZE = 500.0
 DEBUG = False
 # if PLOT_3D = False, plot the 2d version
 PLOT_3D = False
+
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(DEVICE)
 
 """
 ============================================================================
@@ -443,7 +449,7 @@ class RRTEnv(gym.Env):
 
         self.state = {
             'auv_pos': auv_init_pos,\
-            'shark_pos': shark_init_pos,\
+            'shark_pos': torch.from_numpy(shark_init_pos).float().to(DEVICE),\
             'obstacles_pos': self.obstacle_array,\
             'has_node': np.array(self.rrt_planner.has_node_array),\
             'path': None,\

@@ -3,16 +3,15 @@ import random
 import time
 import sys
 import torch
+import numpy as np
 
+# Warning: Comment out matplotlib library if we are using XSEDE
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import matplotlib.path as mpath
 import matplotlib.patches as mpatches
 from matplotlib.patches import Rectangle
-import numpy as np
-# from shapely.wkt import loads as load_wkt 
-# from shapely.geometry import Polygon, Point
 
 from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
 from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
@@ -552,9 +551,14 @@ def generate_rand_complex_env():
     # the empty space in each obstacle layer
     empty_slot_array = []
 
+    obstacle_range = [2, 0, 0]
+
     for layer in range(3):
         # each layer will have 10 obstacles, randomly remove 2 obstacles
-        obstacles_to_remove = random.choice(range(0, 12))
+        obstacles_to_remove = random.choice(range(obstacle_range[layer], 12))
+
+        if layer == 0:
+            empty_slot_first_layer = obstacles_to_remove
         # obstacles at y = 10m
         x = 2.0
         y = 10.0 + 15.0 * layer
@@ -572,7 +576,6 @@ def generate_rand_complex_env():
     # empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
 
     return obstacle_array
-
 
 def generate_fix_complex_env():
     obstacle_array = []
@@ -660,7 +663,7 @@ def main():
                 # shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
 
                 auv_init_pos = Motion_plan_state(x = 5.0, y = 5.0, z = -5.0, theta = 0.0)
-                shark_init_pos = Motion_plan_state(x = 45.0, y = 45.0, z = -5.0, theta = 0.0)
+                shark_init_pos = Motion_plan_state(x = np.random.uniform(5.0, 45.0), y = 45.0, z = -5.0, theta = 0.0)
                 obstacle_array = generate_rand_complex_env()
 
                 # print("===============================")
