@@ -582,7 +582,40 @@ def generate_fix_complex_env():
     # the empty space in each obstacle layer
     empty_slot_array = []
 
-    obstacles_to_remove_array= [6, 1, 9]
+    # obstacles_to_remove_array = [6, 1, 9]
+    
+    obstacles_to_remove_array = [4, 10, 6]
+
+    for i in range(0,3):
+        # each layer will have 10 obstacles, randomly remove 2 obstacles
+        obstacles_to_remove = obstacles_to_remove_array[i]
+        # obstacles at y = 10m
+        x = 2.0
+        y = 10.0 + 15.0 * i
+        for j in range(13):
+            if (j != obstacles_to_remove) and (j != obstacles_to_remove + 1):
+                obstacle_array.append(Motion_plan_state(x=x, y=y, size=2.5))
+            else:
+                empty_slot_array.append([x, y, 2.5])
+            x += 4.0 
+
+    # convert the empty slot array
+    # empty_slot_array = np.array(empty_slot_array)
+    # empty_slot_tensor = torch.from_numpy(empty_slot_array)
+    # empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
+
+    return obstacle_array
+
+def generate_two_types_env():
+    """
+    The environment will randomly be one of 2 types
+    """
+    obstacle_array = []
+    # the empty space in each obstacle layer
+    empty_slot_array = []
+
+    # 2 types of the obstacle environment
+    obstacles_to_remove_array= random.choice([[6, 1, 9], [4, 10, 6]])
 
     for i in range(0,3):
         # each layer will have 10 obstacles, randomly remove 2 obstacles
@@ -643,10 +676,8 @@ def main():
             # print(run)
             # print("---")
             total_start_time = time.time()
+            
             while True:
-                # print("trail")
-                # print(num_of_trails)
-                # print("-")
                 obstacle_array = []
 
                 auv_min_x = 5.0
@@ -659,12 +690,10 @@ def main():
                 shark_min_y = 35.0
                 shark_max_y = 45.0
 
-                # auv_init_pos = Motion_plan_state(x = np.random.uniform(auv_min_x, auv_max_x), y = np.random.uniform(auv_min_y, auv_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
-                # shark_init_pos = Motion_plan_state(x = np.random.uniform(shark_min_x, shark_max_x), y = np.random.uniform(shark_min_y, shark_max_y), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
-
                 auv_init_pos = Motion_plan_state(x = 5.0, y = 5.0, z = -5.0, theta = 0.0)
-                shark_init_pos = Motion_plan_state(x = np.random.uniform(5.0, 45.0), y = 45.0, z = -5.0, theta = 0.0)
-                obstacle_array = generate_rand_complex_env()
+                shark_init_pos = Motion_plan_state(x = 45.0, y = 45.0, z = -5.0, theta = 0.0)
+                
+                obstacle_array = generate_two_types_env()
 
                 # print("===============================")
                 # print("Starting Positions")

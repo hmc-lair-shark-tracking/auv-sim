@@ -92,7 +92,7 @@ FILTER_IN_UPDATING_NN = True
 DEBUG = False
 
 RAND_PICK = True
-RAND_PICK_RATE = 0.75
+RAND_PICK_RATE = 0.5
 
 USE_MEMO = True
 COMPLETELY_USE_MEMO = False
@@ -139,8 +139,8 @@ def process_state_for_nn(state):
     habitat_tensor = torch.flatten(habitat_tensor)"""
     
     # join tensors together
-    return torch.cat((state['empty_slot_tensor'], rrt_grid_tensor)).float()
-    # return rrt_grid_tensor.float()
+    # return torch.cat((state['empty_slot_tensor'], rrt_grid_tensor)).float()
+    return rrt_grid_tensor.float()
 
 
 def extract_tensors(experiences):
@@ -238,6 +238,7 @@ def generate_fix_complex_env():
     empty_slot_array = []
 
     obstacles_to_remove_array= [6, 1, 9]
+    # obstacles_to_remove_array= [4, 10, 6]
 
     for i in range(0,3):
         # each layer will have 10 obstacles, randomly remove 2 obstacles
@@ -299,6 +300,39 @@ def generate_gradually_changing_complex_env(eps):
 
     return obstacle_array, empty_slot_tensor
 
+
+def generate_two_types_env():
+    """
+    The environment will randomly be one of 2 types
+    """
+    obstacle_array = []
+    # the empty space in each obstacle layer
+    empty_slot_array = []
+
+    # 2 types of the obstacle environment
+    obstacles_to_remove_array= random.choice([[6, 1, 9], [4, 10, 6]])
+
+    for i in range(0,3):
+        # each layer will have 10 obstacles, randomly remove 2 obstacles
+        obstacles_to_remove = obstacles_to_remove_array[i]
+        # obstacles at y = 10m
+        x = 2.0
+        y = 10.0 + 15.0 * i
+        for j in range(13):
+            if (j != obstacles_to_remove) and (j != obstacles_to_remove + 1):
+                obstacle_array.append(Motion_plan_state(x=x, y=y, size=2.5))
+            else:
+                empty_slot_array.append([x, y, 2.5])
+            x += 4.0 
+
+    # convert the empty slot array
+    empty_slot_array = np.array(empty_slot_array)
+    empty_slot_tensor = torch.from_numpy(empty_slot_array)
+    empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
+
+    return obstacle_array, empty_slot_tensor
+
+
 def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
     """
     Helper function for checking whether the newly habitat generated is valid or not
@@ -311,12 +345,18 @@ def validate_new_habitat(new_habitat, new_hab_size, habitats_array):
     return hab_overlaps
 
 
+"""
+============================================================================
 
+    Class - Neural Network
+
+============================================================================
+"""
 """
 Class for building policy and target neural network
 """
 class Neural_network(nn.Module):
-    def __init__(self, input_size, output_size, hidden_layer_1_in = 40, hidden_layer_1_out = 25, hidden_layer_2_out = 20, hidden_layer_3_out = 15):
+    def __init__(self, input_size, output_size, hidden_layer_1_in = 1, hidden_layer_1_out = 1, hidden_layer_2_out = 1, hidden_layer_3_out = 1):
         """
         Initialize the Q neural network with input
 
@@ -639,7 +679,7 @@ class AuvEnvManager():
         shark_init_pos = Motion_plan_state(x = 45.0, y = 45.0, z = -5.0, theta = 0.0)
         # shark_init_pos = Motion_plan_state(x = np.random.uniform(5.0, 45.0), y = 45.0, z = -5.0, theta = 0.0)
        
-        obstacle_array, empty_slot_tensor = generate_rand_complex_env()
+        obstacle_array, empty_slot_tensor = generate_two_types_env()
         # if empty_slot_first_layer < 3:
         #     auv_theta = np.pi / 2.0
         # else:
@@ -1296,9 +1336,9 @@ class DQN():
                         print("UPDATE TARGET NETWORK")
                     self.target_net.load_state_dict(self.policy_net.state_dict())
 
-            print("*********************************")
-            print("final state")
-            print(state)
+            # print("*********************************")
+            # print("final state")
+            # print(state)
             
             if not LIMIT_TERMINAL_OUTPUT:
                 if self.loss_in_eps != []:
@@ -1326,9 +1366,6 @@ class DQN():
                 result = self.test_model_during_training(NUM_OF_EPISODES_TEST, MAX_STEP_TEST, DIST)
 
                 testing_result_array.append(result)
-
-                text = input("stop")
-
                 
         save_model(self.policy_net, self.target_net)
 
@@ -1442,10 +1479,10 @@ class DQN():
                 print("+++++++++++++++++++++++++++++")
 
             total_reward_array.append(eps_reward)
-            print("final state")
+            # print("final state")
             # self.em.env.rrt_planner.print_env_grid()
-            print(state['rrt_grid_num_of_nodes_only'])
-            text = input("stop")
+            # print(state['rrt_grid_num_of_nodes_only'])
+            # text = input("stop")
 
         self.em.close()
 
@@ -1691,20 +1728,26 @@ class DQN():
 def main():
     dqn = DQN()
     # save_model(dqn.policy_net, dqn.target_net)
+    # alg_time_start = time.time()
     # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
+
+    # print("++++")
+    # print("used time: ")
+    # print(time.time() - alg_time_start)
+    
     # filename = "7-23_sub=1_og-nn_max-step=500_eps=1000_75rand.csv"
-    # dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
+    dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
     # dqn.store_agent_dictionary(filename)
 
     # if COMPLETELY_USE_MEMO:
     # dqn.load_agent_dictionary(filename)
 
-    print("seconds: 3")
-    dqn.test_with_time_budget(100, 3.0, MAX_STEP_TEST, live_graph_2D = False)
-    print("----")
-    print("seconds: 5")
-    dqn.test_with_time_budget(100, 5.0, MAX_STEP_TEST, live_graph_2D = False)
-    text = input("stop")
+    # print("seconds: 3")
+    # dqn.test_with_time_budget(100, 3.0, MAX_STEP_TEST, live_graph_2D = False)
+    # print("----")
+    # print("seconds: 5")
+    # dqn.test_with_time_budget(100, 5.0, MAX_STEP_TEST, live_graph_2D = False)
+    # text = input("stop")
 
     
 
