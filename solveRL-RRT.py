@@ -35,7 +35,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 20.0
 
-NUM_OF_EPISODES = 2000
+NUM_OF_EPISODES = 1000
 MAX_STEP = 500
 
 NUM_OF_EPISODES_TEST = 50
@@ -75,7 +75,7 @@ NUM_OF_SUBSECTIONS_IN_GRID_CELL = 1
 NUM_OF_GRID_CELLS = int(((int(ENV_SIZE) / int(ENV_GRID_CELL_SIDE_LENGTH)) ** 2) * NUM_OF_SUBSECTIONS_IN_GRID_CELL)
 
 # the input size for the neural network
-STATE_SIZE = int(NUM_OF_GRID_CELLS + 3 * NUM_OF_OBSTACLES)
+STATE_SIZE = int(NUM_OF_GRID_CELLS)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(DEVICE)
@@ -85,7 +85,7 @@ SAVE_EVERY = 10
 # how many episode should we render the model
 RENDER_EVERY = 1
 # how many episode should we run a test on the model
-TEST_EVERY = 25
+TEST_EVERY = 100
 
 FILTER_IN_UPDATING_NN = True
 
@@ -109,6 +109,7 @@ duration_convert_to_str = []
 ratio_in_an_ep_for_memo = []
 
 obstacles_to_remove_array = [[6,7], [1,2], [9,10]]
+
 """
 ============================================================================
 
@@ -675,53 +676,15 @@ class AuvEnvManager():
     def init_env_randomly(self, eps = 1, dist = DIST):
         empty_slot_tensor = []
 
-        auv_init_pos = Motion_plan_state(x = 5.0, y = 5.0, z = -5.0, theta = 0.0)
+        auv_init_pos = Motion_plan_state(x = np.random.uniform(5.0, 45.0), y = 5.0, z = -5.0, theta = 0.0)
         shark_init_pos = Motion_plan_state(x = 45.0, y = 45.0, z = -5.0, theta = 0.0)
         # shark_init_pos = Motion_plan_state(x = np.random.uniform(5.0, 45.0), y = 45.0, z = -5.0, theta = 0.0)
-       
-        obstacle_array, empty_slot_tensor = generate_two_types_env()
-        # if empty_slot_first_layer < 3:
-        #     auv_theta = np.pi / 2.0
-        # else:
-        #     auv_theta = 0
 
-        # auv_init_pos = Motion_plan_state(x = 5.0, y = 5.0, z = -5.0, theta = auv_theta)
+        if auv_init_pos.x > 30:
+            auv_init_pos.theta = -np.pi
 
-        # obstacle_array = []
-        # x = 15.0
-        # y = 15.0
-
-        # for _ in range(5):
-        #     obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
-        #     x -= 3.0
-        #     y += 3.0
+        obstacle_array, empty_slot_tensor = generate_fix_complex_env()
         
-        # x = 3.0
-        # y = 33.0
-        # for _ in range(2):
-        #     obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
-        #     y += 6.0
-
-        # x = 9.0
-        # y = 39.0
-        # for _ in range(4):
-        #     obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
-        #     x += 6.0
-
-        # x = 25.0
-        # y = 24.0
-        # for _ in range(8):
-        #     obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
-        #     x += 3.0
-        #     y -= 3.0
-
-        # x = 33.0
-        # y = 39.0
-        # for _ in range(4):
-        #     obstacle_array.append(Motion_plan_state(x=x, y=y, size=3))
-        #     x += 3.0
-        #     y -= 3.0
-
         boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = ENV_SIZE, y = ENV_SIZE)]
 
         # self.habitat_grid = HabitatGrid(habitat_bound_x, habitat_bound_y, habitat_bound_size_x, habitat_bound_size_y, HABITAT_SIDE_LENGTH, HABITAT_CELL_SIDE_LENGTH)
