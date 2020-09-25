@@ -2,7 +2,7 @@ import math
 from shapely.geometry import box, Polygon, MultiPolygon, GeometryCollection, Point, LinearRing, LineString, MultiPolygon
 from shapely.ops import split
 import matplotlib.pyplot as plt
-from descartes import PolygonPatch
+# from descartes import PolygonPatch
 from matplotlib import cm, patches, collections
 import numpy as np
 import csv

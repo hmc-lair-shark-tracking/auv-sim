@@ -181,10 +181,14 @@ class Cost:
             visited[i+1] = False #visited initialized to be False for all habitat
         
         for mps in path:
+            found = False
             for time_bin in shark_dict:
                 if mps.traj_time_stamp >= time_bin[0] and mps.traj_time_stamp <= time_bin[1]:
                     temp_time = time_bin
+                    found = True
                     break
+            if not found:
+                continue
             sharkGrid = shark_dict[temp_time]
             for cell_bound, prob in sharkGrid.items():
                 if mps.x >= cell_bound[0] and mps.x <= cell_bound[2] and mps.y >= cell_bound[1] and mps.x <= cell_bound[3]:
@@ -208,6 +212,7 @@ class Cost:
                 count += 1
         
         #normalize the cost for number of habitats visited
-        cost[1] = w2 * count / len(habitats)
+        if len(habitats) != 0:
+            cost[1] = w2 * count / len(habitats)
 
         return [sum(cost), cost]

@@ -13,7 +13,6 @@ from shapely.geometry import Polygon
 from catalina import create_cartesian
 from sharkOccupancyGrid import SharkOccupancyGrid, splitCell
 from matplotlib import cm, patches, collections
-from cost import Cost
 
 def euclidean_dist(point1, point2):
     """
@@ -106,15 +105,16 @@ class Node:
         self.pathLen = 0 # dynamically changing as a node is appended to the existing length
         self.time_stamp = 0 # time stamp stores the amount of time passed by at each Node object 
 
-class astar:
+class singleAUV:
 
-    def __init__(self, start, obstacleList, boundaryList, habitatList, sharkGrid, shark_dict, AUV_velocity):
+    def __init__(self, start, habitatList, obstacleList, boundaryList, sharkGrid, AUV_velocity):
         
         self.start = start
         self.velocity = AUV_velocity
         self.obstacle_list = obstacleList
         self.boundary_list = boundaryList
-        self.habitat_list = habitatList
+        self.habitat_open_list = habitatList.copy()
+        self.habitat_closed_list = []
         self.visited_nodes = np.zeros([600, 600])
 
         coords = []
@@ -122,25 +122,22 @@ class astar:
             coords.append((corner.x, corner.y))
 
         # initialize shark occupancy grid
-
         self.boundary_poly = Polygon(coords)
-        self.cell_list = splitCell(self.boundary_poly, 10) # divide the workspace into cells 
+        # divide the workspace into cells
+        self.cell_list = splitCell(self.boundary_poly, 10)  
 
         if sharkGrid == {}:
             self.sharkGrid = createSharkGrid('path_planning/shark_data/AUVGrid_prob_500_straight.csv', self.cell_list)
         else:
             self.sharkGrid = sharkGrid
-
-        self.sharkDict = shark_dict
         
-    def euclidean_dist(self, point1, point2): # point is a position tuple (x, y)
+    def euclidean_dist(self, point1, point2): 
         """
         Calculate the distance square between two points
         Parameter:
             point1 - a position tuple: (x, y)
             point2 - a position tuple: (x, y)
         """
-
         dx = abs(point1[0]-point2[0])
         dy = abs(point1[1]-point2[1])
 
@@ -196,7 +193,8 @@ class astar:
             else:
                 if self.point_in_triangle(position, poly_list[len(poly_list)-1], poly_list[0], centroid):
                     return True
-        return False # not within boundary  
+        # return False if not within boundary 
+        return False 
         
     def collision_free(self, position, obstacleList): # obstacleList lists of motion plan state 
         """
@@ -211,7 +209,8 @@ class astar:
         for obstacle in obstacleList:
             d, _ = self.get_distance_angle(obstacle, position_mps)
             if d <= obstacle.size:
-                return False # collision 
+                # return False if collision 
+                return False 
 
         return True 
 
@@ -236,7 +235,7 @@ class astar:
             start_x += step_x
             start_y += step_y
 
-            if not self.collision_free(intermediate, obstacleList): # if collision happens
+            if not self.collision_free(intermediate, obstacleList): 
                 return False
 
         return True
@@ -256,33 +255,12 @@ class astar:
             
             node_position = (current_node.position[0]+new_position[0], current_node.position[1]+new_position[1])
 
-            # check if it's within the boundary
-
+            # check if within the boundary
             if self.within_bounds(boundary_list, node_position):
                 current_neighbors.append(node_position)
 
         return current_neighbors  
 
-    def habitats_time_spent(self, current_node):
-        """
-        Find the approximate time spent in habitats if the current node is within the habitat(s)
-        Parameter:
-            current_node: a position tuple of two elements (x,y)
-            habitats: a list of motion_plan_state
-        """
-        dist_in_habitats = 0
-        velocity = 1 # velocity of exploration in m/s
-
-        for habi in catalina.HABITATS:
-    
-            pos_habi = create_cartesian((habi.x, habi.y), catalina.ORIGIN_BOUND)
-            dist, _ = self.get_distance_angle(Motion_plan_state(pos_habi[0], pos_habi[1], size=habi.size), Motion_plan_state(current_node.position[0], current_node.position[1]))
-            
-            if dist <= habi.size:
-                dist_in_habitats += 10
-                
-        return dist_in_habitats/velocity
-    
     def update_habitat_coverage(self, current_node, habitat_open_list, habitat_closed_list):
         """
         Check if the current node covers a habitat (either explored or unexplored);
@@ -295,7 +273,7 @@ class astar:
         """
         for index, item in enumerate(habitat_open_list):
             dist = math.sqrt((current_node.position[0]-item.x) **2 + (current_node.position[1]-item.y) **2)
-            if dist <= item.size: # current_node covers a habitat
+            if dist <= item.size: 
                 habitat_open_list.pop(index)
                 habitat_closed_list.append(item)
 
@@ -303,8 +281,8 @@ class astar:
     
     def inside_habitats(self, mps, habitats):
         """
-        Return True if the location mps is inside any of the habitats in habitat_list;
-        return False otherwise
+        helper function to smooth the path;
+        return True if the location mps is inside any of the habitats in habitat_list
 
         Parameter:
             mps: a Motion_plan_state object; the location to check
@@ -452,7 +430,7 @@ class astar:
         
         for time, AUVGrid in self.sharkGrid.items(): # time: tuple(start time, end time); value: a dictionary representing occupancy grid of each shark during this time bin
             
-            print ("\n", "time: ", time, "current time stamp: ", curr_time_stamp)
+            # print ("\n", "time: ", time, "current time stamp: ", curr_time_stamp)
 
             if self.with_in_time_bin(time, curr_time_stamp):
                 
@@ -479,7 +457,7 @@ class astar:
             if grid_val > max_value:
                 max_value = grid_val
 
-        print ("\n", "max probability: ", max_value)
+        # print ("\n", "max probability: ", max_value)
         return max_value
 
     def get_cell_prob(self, node, currGrid):
@@ -510,7 +488,7 @@ class astar:
         if key == None:
             print ("ERROR! Cannot find corresponding location")
         else:
-            print ("\n", "cell probability: ", currGrid[key])
+            # print ("\n", "cell probability: ", currGrid[key])
             return currGrid[key]
      
     def get_top_n_prob(self, n, currGrid):
@@ -529,7 +507,7 @@ class astar:
         for index in range(n):
             total += probabilities[index]
 
-        print ("\n", "top n probabilities: ", total)
+        # print ("\n", "top n probabilities: ", total)
         return total
 
     def with_in_time_bin(self, time_bin, curr_time_stamp):
@@ -548,7 +526,7 @@ class astar:
         else:
             return False
             
-    def astar(self, pathLenLimit, weights, shark_traj): 
+    def astar(self, pathLenLimit, weights): 
         """
         Find the optimal path from start to goal avoiding given obstacles 
         Parameter: 
@@ -556,14 +534,10 @@ class astar:
             weights: a list of three numbers [w1, w2, w3] 
             shark_traj: a list of Motion_plan_state objects 
         """
-
         w1 = weights[0]
         w2 = weights[1]
         w3 = weights[2]
         w4 = weights[3]
-
-        habitats_time_spent = 0
-        cal_cost = Cost()
 
         start_node = Node(None, self.start)
         start_node.g = start_node.h = start_node.f = 0
@@ -572,9 +546,9 @@ class astar:
         open_list = [] # hold neighbors of the expanded nodes
         closed_list = [] # hold all the exapnded nodes
 
-        habitats = self.habitat_list[:]
-        habitat_open_list = self.habitat_list[:] # hold haibitats that have not been explored 
-        habitat_closed_list = [] # hold habitats that have been explored 
+        # habitats = self.habitat_list[:]
+        # habitat_open_list = self.habitat_list[:] # hold haibitats that have not been explored 
+        # habitat_closed_list = [] # hold habitats that have been explored 
 
         open_list.append(start_node)
 
@@ -597,8 +571,12 @@ class astar:
                 while current is not None: # backtracking to find the d 
         
                     path.append(current)
+                    # update habitat_open_list 
+                    habitats_open_n_close_list = self.update_habitat_coverage(current_node, self.habitat_open_list, self.habitat_closed_list)
+                    self.habitat_open_list = habitats_open_n_close_list[0]
+                    self.habitat_closed_list = habitats_open_n_close_list[1]
                     cost.append(current.cost)
-                    habitats_time_spent += self.habitats_time_spent(current)
+                    
                     current = current.parent
                     
                 path_mps = [] 
@@ -610,12 +588,12 @@ class astar:
                 trajectory = path_mps[::-1]
                 
                 # print ("\n", "Original Trajectory: ", trajectory)
-                print ("\n", "Original Trajectory length: ", len(trajectory))
+                # print ("\n", "Original Trajectory length: ", len(trajectory))
 
-                smoothPath = self.smoothPath(trajectory, habitats)
+                smoothPath = self.smoothPath(trajectory, self.habitat_open_list)
                 
                 # return {"path length" : len(trajectory), "path" : trajectory, "cost" : cost[0], "cost list" : cost}
-                return {"path length" : len(smoothPath), "path" : smoothPath, "cost" : cost[0], "cost list" : cost, "node" : path[::-1]} 
+                return {"path length" : len(smoothPath), "path" : trajectory, "cost" : cost[0], "cost list" : cost, "node" : path[::-1]} 
                 
             current_neighbors = self.curr_neighbors(current_node, self.boundary_list)
 
@@ -642,7 +620,7 @@ class astar:
                 child.g = child.parent.cost - w4 * self.get_cell_prob(child, currGrid)
                 child.cost = child.g
                 # child.h = - w2 * dist_left - w3 * len(habitat_open_list) - w4 * dist_left * self.get_max_prob_from_grid(currGrid)
-                child.h = - w2 * dist_left - w3 * len(habitat_open_list) - w4 * self.get_top_n_prob(int(dist_left), currGrid)
+                child.h = - w2 * dist_left - w3 * len(self.habitat_open_list) - w4 * self.get_top_n_prob(int(dist_left), currGrid)
                 child.f = child.g + child.h 
 
                 # check if child exists in the open list and have bigger g 
@@ -682,9 +660,11 @@ def main():
     9: [Motion_plan_state(-260 - (0.3 * i), 75 + (0.3 * i), traj_time_stamp=i) for i in range(1,201)], 
     10: [Motion_plan_state(-275 + (0.3 * i), 80 - (0.3 * i), traj_time_stamp=i) for i in range(1,201)]} 
 
-    astar_solver = astar(start, obstacle_list+boat_list, boundary_list, habitat_list, {}, shark_dict, AUV_velocity=1) 
-    final_path_mps = astar_solver.astar(300, weights, shark_dict)
+    astar_solver = singleAUV(start, habitat_list, obstacle_list+boat_list, boundary_list, {}, AUV_velocity=1) 
+    final_path_mps = astar_solver.astar(50, weights)
 
+    print ("\n", "Open Habitats: ", astar_solver.habitat_open_list)
+    print ("\n", "Closed Habitats: ", astar_solver.habitat_closed_list)
     print ("\n", "Final Trajectory: ",  final_path_mps["path"])
     print ("\n", "Trajectory Length: ", final_path_mps["path length"])
     print ("\n", "Trajectory Cost: ",  final_path_mps["cost"])

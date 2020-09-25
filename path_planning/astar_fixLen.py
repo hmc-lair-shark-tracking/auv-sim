@@ -38,6 +38,7 @@ class Node:
 
         self.cost = 0 # each node has a cost value computed through def cost_of_edge
         self.pathLen = 0 # dynamically changing as a node is appended to the existing length
+        self.time_stamp = 0
 
 class astar:
 
@@ -48,6 +49,7 @@ class astar:
         self.boundary_list = boundaryList
         self.habitat_list = habitatList
         self.visited_nodes = np.zeros([600, 600])
+        self.velocity = 1 
         
     def euclidean_dist(self, point1, point2): # point is a position tuple (x, y)
         """
@@ -372,7 +374,7 @@ class astar:
             start - a tuple of two elements: x and y coordinates
             goal - a tuple of two elements: x and y coordinates
         """
-
+        
         w1 = weights[0]
         w2 = weights[1]
         w3 = weights[2]
@@ -388,8 +390,6 @@ class astar:
         closed_list = [] # hold all the exapnded nodes
 
         habitats = habitat_list[:]
-        
-
         habitat_open_list = habitat_list # hold haibitats that have not been explored 
         habitat_closed_list = [] # hold habitats that have been explored 
 
@@ -496,6 +496,8 @@ class astar:
                 child.h = - w2 * abs(pathLenLimit - child.pathLen) - w3 * len(habitat_open_list)
                 child.f = child.g + child.h 
                 child.pathLen = child.parent.pathLen + euclidean_dist(child.parent.position, child.position)
+                child.time_stamp = int(child.pathLen/self.velocity)
+                print ("\n", "child time stamp: ", child.time_stamp)
 
                 # check if child exists in the open list and have bigger g 
                 for open_node in open_list:
@@ -510,7 +512,7 @@ class astar:
 
 def main():
     weights = [0, 10, 10]
-    start_cartesian = create_cartesian((33.446198, -118.486652), catalina.ORIGIN_BOUND)
+    start_cartesian = create_cartesian((33.445089, -118.486933), catalina.ORIGIN_BOUND)
     start = (round(start_cartesian[0], 2), round(start_cartesian[1], 2))
     print ("start: ", start) 
 
@@ -523,7 +525,7 @@ def main():
     habitat_list = environ[3]
 
     astar_solver = astar(start, obstacle_list+boat_list, boundary_list, habitat_list) 
-    final_path_mps = astar_solver.astar(habitat_list, obstacle_list+boat_list, boundary_list, start, 800, weights)
+    final_path_mps = astar_solver.astar(habitat_list, obstacle_list+boat_list, boundary_list, start, 200, weights)
 
     print ("\n", "final trajectory: ",  final_path_mps[0])
     print ("\n", "Trajectory length: ", len(final_path_mps[0]))
