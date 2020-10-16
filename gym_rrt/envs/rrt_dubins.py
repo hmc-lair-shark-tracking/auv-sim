@@ -35,7 +35,7 @@ class Planner_RRT:
     """
     Class for RRT planning
     """
-    def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 50, cell_side_length = 2, subsections_in_cell = 4):
+    def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 50, cell_side_length = 5, subsections_in_cell = 1):
         '''
         Parameters:
             start - initial Motion_plan_state of AUV, [x, y, z, theta, v, w, time_stamp]
@@ -582,9 +582,9 @@ def generate_fix_complex_env():
     # the empty space in each obstacle layer
     empty_slot_array = []
 
-    # obstacles_to_remove_array = [6, 1, 9]
+    obstacles_to_remove_array = [6, 1, 9]
     
-    obstacles_to_remove_array = [4, 10, 6]
+    # obstacles_to_remove_array = [4, 10, 6]
 
     for i in range(0,3):
         # each layer will have 10 obstacles, randomly remove 2 obstacles
@@ -637,25 +637,63 @@ def generate_two_types_env():
 
     return obstacle_array
 
+def calculate_range(a_pos, b_pos):
+        """
+        Calculate the range (distance) between point a and b, specified by their coordinates
+
+        Parameters:
+            a_pos - an array / a numpy array
+            b_pos - an array / a numpy array
+                both have the format: [x_pos, y_pos, z_pos, theta]
+
+        TODO: include z pos in future range calculation?
+        """
+        a_x = a_pos[0]
+        a_y = a_pos[1]
+        b_x = b_pos[0]
+        b_y = b_pos[1]
+
+        delta_x = b_x - a_x
+        delta_y = b_y - a_y
+
+        return np.sqrt(delta_x**2 + delta_y**2)
+
+def validate_start(start, obstacle_array):
+    obs_overlaps = False
+    for obs in obstacle_array:
+        if calculate_range([obs.x, obs.y], [start.x, start.y]) <= obs.size + 1:
+            obs_overlaps = True
+            break
+    return not obs_overlaps
+
+
+def generate_fix_env_4():
+    obstacle_array = []
+    # the empty space in each obstacle layer
+    empty_slot_array = []
+
+    obstacles_to_remove_array= [[5, 18], [3, 15], [1, 12], [8, 20], [4, 16]]
+
+    for i in range(0,5):
+        # each layer will have 10 obstacles, randomly remove 2 obstacles
+        obstacles_to_remove = obstacles_to_remove_array[i]
+        # obstacles at y = 10m
+        x = 1.0
+        y = 7.5 + 9 * i
+        for j in range(25):
+            if (j != obstacles_to_remove[0]) and (j != obstacles_to_remove[0] + 1) and (j != obstacles_to_remove[1]) and (j != obstacles_to_remove[1] + 1):
+                obstacle_array.append(Motion_plan_state(x=x, y=y, size=1.25))
+            else:
+                empty_slot_array.append([x, y, 1.25])
+            x += 2
+
+    return obstacle_array
+
+
 def main():
-    auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
-    shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
-    
-    obstacle_array = [\
-        Motion_plan_state(x=12.0, y=38.0, size=4),\
-        Motion_plan_state(x=17.0, y=34.0, size=5),\
-        Motion_plan_state(x=20.0, y=29.0, size=4),\
-        Motion_plan_state(x=25.0, y=25.0, size=3),\
-        Motion_plan_state(x=29.0, y=20.0, size=4),\
-        Motion_plan_state(x=34.0, y=17.0, size=3),\
-        Motion_plan_state(x=37.0, y=8.0, size=5)\
-    ]
+    num_of_runs = 50
 
-    boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = 50.0, y = 50.0)]
-
-    num_of_runs = 100
-
-    time_budget_array = [3,5]
+    time_budget_array = [3]
 
     for time_budget in time_budget_array:
         step_array = []
@@ -678,34 +716,24 @@ def main():
             total_start_time = time.time()
             
             while True:
+                boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = 50.0, y = 50.0)]
+
                 obstacle_array = []
 
-                auv_min_x = 5.0
-                auv_max_x = 15.0
-                auv_min_y = 5.0
-                auv_max_y = 15.0
-
-                shark_min_x = 35.0
-                shark_max_x = 45.0
-                shark_min_y = 35.0
-                shark_max_y = 45.0
-
-                auv_init_pos = Motion_plan_state(x = 5.0, y = 5.0, z = -5.0, theta = 0.0)
-                shark_init_pos = Motion_plan_state(x = 45.0, y = 45.0, z = -5.0, theta = 0.0)
+                shark_init_pos = Motion_plan_state(x = 25.0, y = 47.5, z = -5.0, theta = 0.0)
                 
-                obstacle_array = generate_two_types_env()
+                obstacle_array = generate_fix_env_4()
 
-                # print("===============================")
-                # print("Starting Positions")
-                # print(auv_init_pos)
-                # print(shark_init_pos)
-                # print("-")
-                # print(obstacle_array)
-                # print("===============================")
+                auv_init_pos = Motion_plan_state(x = 5.0, y = 2.5, z = -5.0, theta = 0.0)
+
+                # auv_init_pos = Motion_plan_state(x = np.random.uniform(0.1, 49.9), y = np.random.uniform(0.1, 49.9), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+
+                # while not validate_start(auv_init_pos, obstacle_array):
+                #     auv_init_pos = Motion_plan_state(x = np.random.uniform(0.1, 49.9), y = np.random.uniform(0.1, 49.9), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
 
                 rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=10, cell_side_length=5, subsections_in_cell = 1)
                 
-                path, step, actual_time_duration = rrt.planning(max_step=500)
+                path, step, actual_time_duration = rrt.planning(max_step=1000)
 
                 if path != [] and type(path) == list:
                     success_count += 1
@@ -736,6 +764,7 @@ def main():
         #     rrt.draw_graph()
 
         # plt.draw()
+        # text = input("stop")
 
         print("time budget")
         print(time_budget)
@@ -745,13 +774,13 @@ def main():
         print(np.mean(step_array))
 
         print("average success count")
-        print(total_success_count_array)
+        # print(total_success_count_array)
         print(np.mean(total_success_count_array))
         print("number of trails")
-        print(total_num_of_trails_array)
+        # print(total_num_of_trails_array)
         print(np.mean(total_num_of_trails_array))
         print("success rate")
-        print(total_success_rate_array)
+        # print(total_success_rate_array)
         print(np.mean(total_success_rate_array))
 
         print("average path length")

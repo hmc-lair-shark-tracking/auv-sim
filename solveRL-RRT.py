@@ -39,7 +39,7 @@ NUM_OF_EPISODES = 1000
 MAX_STEP = 500
 
 NUM_OF_EPISODES_TEST = 50
-MAX_STEP_TEST = 500
+MAX_STEP_TEST = 1000
 
 N_V = 7
 N_W = 7
@@ -62,7 +62,7 @@ NUM_GOALS_SAMPLED_HER = 4
 
 TARGET_UPDATE = 10000
 
-NUM_OF_OBSTACLES = 6
+NUM_OF_OBSTACLES = 20
 
 ENV_SIZE = 50.0
 ENV_GRID_CELL_SIDE_LENGTH = 5.0
@@ -92,14 +92,14 @@ FILTER_IN_UPDATING_NN = True
 DEBUG = False
 
 RAND_PICK = True
-RAND_PICK_RATE = 0.5
+RAND_PICK_RATE = 0.75
 
-USE_MEMO = True
+USE_MEMO = False
 COMPLETELY_USE_MEMO = False
 
 # to limit the terminal output for training over high computing resources
 PLOT_INTERMEDIATE_TESTING = False
-LIMIT_TERMINAL_OUTPUT = True
+LIMIT_TERMINAL_OUTPUT = False
 
 duration_for_memo = []
 duration_for_nn = []
@@ -202,6 +202,13 @@ def validate_new_obstacle(new_obstacle, new_obs_size, auv_init_pos, shark_init_p
             break
     return auv_overlaps or shark_overlaps or obs_overlaps
 
+def validate_start(start, obstacle_array):
+    obs_overlaps = False
+    for obs in obstacle_array:
+        if calculate_range([obs.x, obs.y], [start.x, start.y]) <= obs.size + 1:
+            obs_overlaps = True
+            break
+    return not obs_overlaps
 
 def generate_rand_complex_env():
     obstacle_array = []
@@ -260,6 +267,34 @@ def generate_fix_complex_env():
     empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
 
     return obstacle_array, empty_slot_tensor
+
+
+def generate_fix_env_4():
+    obstacle_array = []
+    # the empty space in each obstacle layer
+    empty_slot_array = []
+
+    obstacles_to_remove_array= [[5, 18], [3, 15], [1, 12], [8, 20], [4, 16]]
+
+    for i in range(0,5):
+        # each layer will have 10 obstacles, randomly remove 2 obstacles
+        obstacles_to_remove = obstacles_to_remove_array[i]
+        # obstacles at y = 10m
+        x = 1.0
+        y = 7.5 + 9 * i
+        for j in range(25):
+            if (j != obstacles_to_remove[0]) and (j != obstacles_to_remove[0] + 1) and (j != obstacles_to_remove[1]) and (j != obstacles_to_remove[1] + 1):
+                obstacle_array.append(Motion_plan_state(x=x, y=y, size=1.25))
+            else:
+                empty_slot_array.append([x, y, 1.25])
+            x += 2
+
+    # convert the empty slot array
+    # empty_slot_array = np.array(empty_slot_array)
+    # empty_slot_tensor = torch.from_numpy(empty_slot_array)
+    # empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
+
+    return obstacle_array, empty_slot_array
 
 
 def generate_gradually_changing_complex_env(eps):
@@ -673,18 +708,32 @@ class AuvEnvManager():
         self.done = False
 
     
-    def init_env_randomly(self, eps = 1, dist = DIST):
+    def init_env_randomly(self, shark_init_pos_in, eps = 1, dist = DIST):
         empty_slot_tensor = []
 
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(5.0, 45.0), y = 5.0, z = -5.0, theta = 0.0)
-        shark_init_pos = Motion_plan_state(x = 45.0, y = 45.0, z = -5.0, theta = 0.0)
+        rand_layer = random.choice([1, 2])
+    
+        shark_init_pos = Motion_plan_state(x = 5.0, y = 52, z = -5.0, theta = 0.0)
         # shark_init_pos = Motion_plan_state(x = np.random.uniform(5.0, 45.0), y = 45.0, z = -5.0, theta = 0.0)
 
-        if auv_init_pos.x > 30:
-            auv_init_pos.theta = -np.pi
+        # if rand_layer == 1:
+        #     # the start should be in layer 1
+        #     auv_init_pos = Motion_plan_state(x = np.random.uniform(5.0, 45.0), y = 5.0, z = -5.0, theta = 0.0)
+        #     if auv_init_pos.x > 30:
+        #         auv_init_pos.theta = -np.pi
+        # elif rand_layer == 2:
+        #     # the start should be in layer 2
+        #     auv_init_pos = Motion_plan_state(x = np.random.uniform(5.0, 40.0), y = 17.5, z = -5.0, theta = 0.0)
+        #     if auv_init_pos.x > 10:
+        #         auv_init_pos.theta = -np.pi
 
-        obstacle_array, empty_slot_tensor = generate_fix_complex_env()
-        
+        # obstacle_array, empty_slot_tensor = generate_fix_env_4()
+        obstacle_array = []
+        # auv_init_pos = Motion_plan_state(x = np.random.uniform(0.1, 49.9), y = np.random.uniform(0.1, 49.9), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+        # while not validate_start(auv_init_pos, obstacle_array):
+        #     auv_init_pos = Motion_plan_state(x = np.random.uniform(0.1, 49.9), y = np.random.uniform(0.1, 49.9), z = -5.0, theta = np.random.uniform(-np.pi, np.pi))
+        auv_init_pos = Motion_plan_state(x = 5.0, y = 2.5, z = -5.0, theta = 0.0)
+
         boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = ENV_SIZE, y = ENV_SIZE)]
 
         # self.habitat_grid = HabitatGrid(habitat_bound_x, habitat_bound_y, habitat_bound_size_x, habitat_bound_size_y, HABITAT_SIDE_LENGTH, HABITAT_CELL_SIDE_LENGTH)
@@ -997,8 +1046,6 @@ class DQN():
         print(bad_choices_array)
         print(bad_choices_over_total_choices_array)
 
-        text = input("stop")
-
         if PLOT_INTERMEDIATE_TESTING:
             # begin plotting the graph
             # plot #1: 
@@ -1210,7 +1257,8 @@ class DQN():
         for eps in range(1, num_episodes+1):
             # initialize the starting point of the shark and the auv randomly
             # receive initial observation state s1 
-            state = self.em.init_env_randomly(eps)
+            shark_init_pos = Motion_plan_state(x = 25.0, y = 47.5, z = -5.0, theta = 0.0)
+            state = self.em.init_env_randomly(shark_init_pos_in = shark_init_pos)
 
             # reward received in this episode
             eps_reward = 0
@@ -1298,10 +1346,6 @@ class DQN():
                     if not LIMIT_TERMINAL_OUTPUT:
                         print("UPDATE TARGET NETWORK")
                     self.target_net.load_state_dict(self.policy_net.state_dict())
-
-            # print("*********************************")
-            # print("final state")
-            # print(state)
             
             if not LIMIT_TERMINAL_OUTPUT:
                 if self.loss_in_eps != []:
@@ -1314,11 +1358,6 @@ class DQN():
                     print("+++++++++++++++++++++++++++++")
                     print("Episode # ", eps, "end with reward: ", score, "total reward: ", eps_reward, "average loss nan", " used time: ", iteration)
                     print("+++++++++++++++++++++++++++++")
-
-            # text = input("stop")
-            # if eps % TARGET_UPDATE == 0:
-            #     print("UPDATE TARGET NETWORK")
-            #     self.target_net.load_state_dict(self.policy_net.state_dict())
 
             if eps % SAVE_EVERY == 0:
                 save_model(self.policy_net, self.target_net)
@@ -1357,9 +1396,6 @@ class DQN():
         episode_durations = []
         total_reward_array = []
 
-        bad_choices_array = []
-        bad_choices_over_total_choices_array = []
-
         path_length_array = []
 
         episode_actual_time_durations = []
@@ -1376,7 +1412,8 @@ class DQN():
         for eps in range(0, num_episodes):
             # initialize the starting point of the shark and the auv randomly
             # receive initial observation state s1 
-            state = self.em.init_env_randomly()
+            shark_init_pos = Motion_plan_state(x = 25.0, y = 47.5, z = -5.0, theta = 0.0)
+            state = self.em.init_env_randomly(shark_init_pos)
 
             episode_durations.append(max_step)
 
@@ -1445,7 +1482,7 @@ class DQN():
             # print("final state")
             # self.em.env.rrt_planner.print_env_grid()
             # print(state['rrt_grid_num_of_nodes_only'])
-            # text = input("stop")
+            text = input("stop")
 
         self.em.close()
 
@@ -1478,7 +1515,7 @@ class DQN():
             print(np.mean(ratio_in_an_ep_for_memo))
 
 
-    def test_with_time_budget(self, num_of_runs, time_budget, max_step, live_graph_2D = False):
+    def test_with_time_budget(self, num_of_runs, time_budget, max_step, shark_init_pos, live_graph_2D = False):
         # modify the starting distance betweeen the auv and the shark to prepare for testing
         episode_durations = []
 
@@ -1506,7 +1543,7 @@ class DQN():
             while True:
                 # initialize the starting point of the shark and the auv randomly
                 # receive initial observation state s1 
-                state = self.em.init_env_randomly()
+                state = self.em.init_env_randomly(shark_init_pos)
 
                 eps_reward = 0.0
 
@@ -1576,13 +1613,12 @@ class DQN():
 
         self.em.close()
 
-        print("average time")
-        print(np.mean(episode_durations))
+        # print("average time")
+        # print(np.mean(episode_durations))
 
         print("average success count")
         print(np.mean(total_success_count_array))
         print("number of trails")
-        print(total_num_of_trails_array)
         print(np.mean(total_num_of_trails_array))
         print("success rate")
         print(np.mean(total_success_rate_array))
@@ -1590,26 +1626,26 @@ class DQN():
         print("actual time duration")
         print(np.mean(episode_actual_time_durations))
         
-        print("==")
+        # print("==")
 
-        print("path length")
-        print(np.mean(path_length_array))
+        # print("path length")
+        # print(np.mean(path_length_array))
 
-        if not COMPLETELY_USE_MEMO:
-            print("average duration for nn")
-            print(np.mean(duration_for_nn))
-        print("each node expansion time")
-        print(np.mean(each_expansion_time_durations))
+        # if not COMPLETELY_USE_MEMO:
+        #     print("average duration for nn")
+        #     print(np.mean(duration_for_nn))
+        # print("each node expansion time")
+        # print(np.mean(each_expansion_time_durations))
         
-        if USE_MEMO:
-            print("average duration for memo")
-            print(np.mean(duration_for_memo))
-            print("average duration for if")
-            print(np.mean(duration_for_check_key_in_dict))
-            print("average duration for convert to string")
-            print(np.mean(duration_convert_to_str))
-            print("average rate of using memo")
-            print(np.mean(ratio_in_an_ep_for_memo))
+        # if USE_MEMO:
+        #     print("average duration for memo")
+        #     print(np.mean(duration_for_memo))
+        #     print("average duration for if")
+        #     print(np.mean(duration_for_check_key_in_dict))
+        #     print("average duration for convert to string")
+        #     print(np.mean(duration_convert_to_str))
+        #     print("average rate of using memo")
+        #     print(np.mean(ratio_in_an_ep_for_memo))
             
 
     def test_model_during_training (self, num_episodes, max_step, starting_dist):
@@ -1628,7 +1664,8 @@ class DQN():
         for eps in range(num_episodes):
             # initialize the starting point of the shark and the auv randomly
             # receive initial observation state s1 
-            state = self.em.init_env_randomly(starting_dist)
+            shark_init_pos = Motion_plan_state(x = 25.0, y = 47.5, z = -5.0, theta = 0.0)
+            state = self.em.init_env_randomly(shark_init_pos_in = shark_init_pos)
 
             episode_durations.append(max_step)
 
@@ -1690,20 +1727,15 @@ class DQN():
 
 def main():
     dqn = DQN()
-    # save_model(dqn.policy_net, dqn.target_net)
+
     # alg_time_start = time.time()
     # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
 
     # print("++++")
     # print("used time: ")
     # print(time.time() - alg_time_start)
-    
-    # filename = "7-23_sub=1_og-nn_max-step=500_eps=1000_75rand.csv"
-    dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
-    # dqn.store_agent_dictionary(filename)
 
-    # if COMPLETELY_USE_MEMO:
-    # dqn.load_agent_dictionary(filename)
+    dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
 
     # print("seconds: 3")
     # dqn.test_with_time_budget(100, 3.0, MAX_STEP_TEST, live_graph_2D = False)
@@ -1712,7 +1744,16 @@ def main():
     # dqn.test_with_time_budget(100, 5.0, MAX_STEP_TEST, live_graph_2D = False)
     # text = input("stop")
 
+    # moving from right to left 
+    # for i in range(9):
+        # print("========================")
+        # print(45.0 - i * 5.0)
+        # print("========================")
+        # shark_init_pos = Motion_plan_state(x = 45.0 - i * 5.0, y = 45.0, z = -5.0, theta = 0.0)
     
+        # dqn.test_with_time_budget(50, 3.0, MAX_STEP_TEST, shark_init_pos, live_graph_2D = False)
+    
+    # text = input("stop")
 
 
 if __name__ == "__main__":
