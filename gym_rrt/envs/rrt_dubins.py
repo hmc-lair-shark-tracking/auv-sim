@@ -13,11 +13,11 @@ import matplotlib.path as mpath
 import matplotlib.patches as mpatches
 from matplotlib.patches import Rectangle
 
-from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
-from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
+# from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
+# from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
 
-# from motion_plan_state_rrt import Motion_plan_state
-# from grid_cell_rrt import Grid_cell_RRT
+from motion_plan_state_rrt import Motion_plan_state
+from grid_cell_rrt import Grid_cell_RRT
 
 # TODO: wrong import
 # import catalina
@@ -35,7 +35,7 @@ class Planner_RRT:
     """
     Class for RRT planning
     """
-    def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 50, cell_side_length = 5, subsections_in_cell = 1):
+    def __init__(self, start, goal, boundary, obstacles, habitats, exp_rate = 1, dist_to_end = 2, diff_max = 0.5, freq = 50, cell_side_length = 5, subsections_in_cell = 1, reversible = False, dubins_path = True):
         '''
         Parameters:
             start - initial Motion_plan_state of AUV, [x, y, z, theta, v, w, time_stamp]
@@ -83,6 +83,14 @@ class Planner_RRT:
         self.diff_max = diff_max
         self.freq = freq
 
+        # setting modes for path planning
+        # if True, the RRT is able to expand in any direction
+        # if False, the RRT has a limit on how many degrees it can generate a new path
+        self.reversible = reversible
+        # if True, the RRT will generate dubins path (curve-like)
+        # if False, the RRT will generate straight lines as its path
+        self.dubins_path = dubins_path
+
         self.t_start = time.time()
 
 
@@ -125,6 +133,7 @@ class Planner_RRT:
     
     def add_node_to_grid(self, mps, remove_cell_with_many_nodes = False):
         """
+        Add a node cell into the environment grid
 
         Parameter:
             mps - a motion plan state object, represent the RRT node that we are trying add to the grid
@@ -151,24 +160,6 @@ class Planner_RRT:
         # however, if index < 0, we have to do an extra step to find the right index
         if hab_index_subsection < 0:
             hab_index_subsection = int(self.subsections_in_cell + hab_index_subsection)
-
-        if hab_index_subsection == self.subsections_in_cell:
-            print("why invalid subsection ;-;")
-            print(mps)
-            print("found roow and col")
-            print(hab_index_row)
-            print(hab_index_col)
-            print("all cells")
-            print(self.env_grid[hab_index_row][hab_index_col])
-            print("subsections")
-            print(self.env_grid[hab_index_row][hab_index_col].subsection_cells)
-            print("raw")
-            print(raw_hab_index_subsection)
-            print("found index")
-            print(hab_index_subsection)
-            text = input("stop")
-
-            hab_index_subsection -= 1
 
         self.env_grid[hab_index_row][hab_index_col].subsection_cells[hab_index_subsection].node_array.append(mps)
         
@@ -217,10 +208,12 @@ class Planner_RRT:
 
             done, path = self.generate_one_node((grid_cell_row, grid_cell_col, grid_cell_subsection))
 
-            # if (not done) and path != None:
-            #     self.draw_graph(path)
-            # elif done:
-            #     plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
+            if (not done) and path != None:
+                self.draw_graph(path)
+            elif done:
+                plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
+            
+            print(self.rrt_grid_1D_array_num_of_nodes_only)
 
             step += 1
 
@@ -234,7 +227,7 @@ class Planner_RRT:
         return path, step, actual_time_duration
 
 
-    def generate_one_node(self, grid_cell_index, step_num = None, min_length=250, remove_cell_with_many_nodes = False):
+    def generate_one_node(self, grid_cell_index, step_num = None, min_length = 250, remove_cell_with_many_nodes = False):
         """
         Based on the grid cell, randomly pick a node to expand the tree from from
 
@@ -246,14 +239,6 @@ class Planner_RRT:
         grid_cell_row, grid_cell_col, grid_cell_subsection = grid_cell_index
 
         grid_cell = self.env_grid[grid_cell_row][grid_cell_col].subsection_cells[grid_cell_subsection]
-
-        if grid_cell.node_array == []:
-            print("hmmmm invalid grid cell pick")     
-            print(grid_cell)
-            print("node list")
-            print(grid_cell.node_array)
-            text = input("stop")
-            return False, None
 
         # randomly pick a node from the grid cell   
         rand_node = random.choice(grid_cell.node_array)
@@ -273,13 +258,22 @@ class Planner_RRT:
 
             if remove_cell_with_many_nodes and remove_the_chosen_grid_cell:
                 index_in_1D_array = grid_cell_row * self.size_of_col * self.subsections_in_cell + grid_cell_col * self.subsections_in_cell + grid_cell_subsection
-                print("too many nodes generated from this grid cell")
+                
                 self.has_node_array[index_in_1D_array] = 0
 
-        final_node = self.connect_to_goal_curve_alt(self.mps_list[-1], self.exp_rate, step_num=step_num)
+        # attempt to construct the final path
+        if self.dubins_path and not self.reversible:
+            # dubins path, with limits on how much it can turn
+            final_node = self.connect_to_goal_curve_alt(self.mps_list[-1], self.exp_rate, step_num=step_num)
+        elif not self.dubins_path and not self.reversible:
+            # striaght path, with limits (determined by self.diff_max) on how much it can turn
+            final_node = self.connect_to_goal_straight_with_theta_limit(self.mps_list[-1])
+        elif not self.dubins_path and self.reversible:
+            # straight path, without limits on how much it can turn
+            final_node = self.connect_to_goal_straight_no_theta_limit(self.mps_list[-1])
 
         # if we can create a path between the newly generated node and the goal
-        if self.check_collision_free(final_node, self.obstacle_list):
+        if final_node != None and self.check_collision_free(final_node, self.obstacle_list):
             final_node.parent = self.mps_list[-1]
             path = self.generate_final_course(final_node)   
             return True, path
@@ -292,41 +286,66 @@ class Planner_RRT:
 
     def steer(self, mps, dist_to_end, diff_max, freq, velocity = 1, traj_time_stamp = False, step_num = None):
         """
+        Create a path from the starting node mps
+
+        Parameters:
+            mps - a Motion Plan State object, represent the starting node
         """
         if traj_time_stamp:
             new_mps = Motion_plan_state(mps.x, mps.y, theta = mps.theta, traj_time_stamp = mps.traj_time_stamp, rl_state_id = step_num)
         else:
             new_mps = Motion_plan_state(mps.x, mps.y, theta = mps.theta, plan_time_stamp = time.time()-self.t_start, traj_time_stamp = mps.traj_time_stamp, rl_state_id = step_num)
 
+        # store the generated path
         new_mps.path = [mps]
 
+        # the number of times that the path should expand
         n_expand = random.uniform(0, freq)
-        n_expand = math.floor(n_expand/1)
-        for _ in range(n_expand):
-            #setting random parameters
-            dist = random.uniform(0, dist_to_end)  # setting random range
-            diff = random.uniform(-diff_max, diff_max)  # setting random range
+        n_expand = math.floor(n_expand/1)  # round down
 
-            if abs(dist) > abs(diff):
-                s1 = dist + diff
-                s2 = dist - diff
-                radius = (s1 + s2)/(-s1 + s2)
-                phi = (s1 + s2)/ (2 * radius)
-                
-                ori_theta = new_mps.theta
-                new_mps.theta = self.angle_wrap(new_mps.theta + phi)
-                delta_x = radius * (math.sin(new_mps.theta) - math.sin(ori_theta))
-                delta_y = radius * (-math.cos(new_mps.theta) + math.cos(ori_theta))
-                new_mps.x += delta_x
-                new_mps.y += delta_y
-                if traj_time_stamp:
-                    new_mps.traj_time_stamp += (math.sqrt(delta_x ** 2 + delta_y ** 2)) / velocity
-                else:
-                    new_mps.plan_time_stamp = time.time() - self.t_start
-                    new_mps.traj_time_stamp += (math.sqrt(delta_x ** 2 + delta_y ** 2)) / velocity
-                new_mps.path.append(Motion_plan_state(new_mps.x, new_mps.y, theta=new_mps.theta, traj_time_stamp=new_mps.traj_time_stamp, plan_time_stamp=new_mps.plan_time_stamp, rl_state_id = step_num))
+        if self.dubins_path:
+            # generate curve-like dubins path
+            for _ in range(n_expand):
+                # setting random parameters
+                dist = random.uniform(0, dist_to_end)  # setting random range
+                diff = random.uniform(-diff_max, diff_max)  # setting random range
 
-        new_mps.path[0] = mps
+                if abs(dist) > abs(diff):
+                    s1 = dist + diff
+                    s2 = dist - diff
+                    radius = (s1 + s2)/(-s1 + s2)
+                    phi = (s1 + s2)/ (2 * radius)
+                    
+                    ori_theta = new_mps.theta
+                    new_mps.theta = self.angle_wrap(new_mps.theta + phi)
+                    delta_x = radius * (math.sin(new_mps.theta) - math.sin(ori_theta))
+                    delta_y = radius * (-math.cos(new_mps.theta) + math.cos(ori_theta))
+                    new_mps.x += delta_x
+                    new_mps.y += delta_y
+                    if traj_time_stamp:
+                        new_mps.traj_time_stamp += (math.sqrt(delta_x ** 2 + delta_y ** 2)) / velocity
+                    else:
+                        new_mps.plan_time_stamp = time.time() - self.t_start
+                        new_mps.traj_time_stamp += (math.sqrt(delta_x ** 2 + delta_y ** 2)) / velocity
+                    new_mps.path.append(Motion_plan_state(new_mps.x, new_mps.y, theta=new_mps.theta, traj_time_stamp=new_mps.traj_time_stamp, plan_time_stamp=new_mps.plan_time_stamp, rl_state_id = step_num))
+        else:
+            # generate a straight path
+            if self.reversible:           
+                new_mps.theta = self.angle_wrap(new_mps.theta + random.uniform(-np.pi, np.pi))
+            else:
+                # use diff_max to limit the theta range
+                new_mps.theta = self.angle_wrap(new_mps.theta + random.uniform(-diff_max, diff_max))
+
+            for _ in range(n_expand): 
+                dist = random.uniform(0, dist_to_end)  # setting random range
+
+                new_mps.x = dist * np.cos(new_mps.theta) + new_mps.x
+                new_mps.y = dist * np.sin(new_mps.theta) + new_mps.y
+
+                new_mps.path.append(Motion_plan_state(new_mps.x, new_mps.y, new_mps.theta, traj_time_stamp=new_mps.traj_time_stamp, plan_time_stamp=new_mps.plan_time_stamp, rl_state_id = step_num))
+
+        print("new path")
+        print(new_mps.path)
 
         return new_mps
 
@@ -354,7 +373,82 @@ class Planner_RRT:
         new_mps.path[0] = mps
 
         return new_mps
+
     
+    def connect_to_goal_straight_no_theta_limit(self, mps, segment_len = 1):
+        """
+        Starting from node at "mps" can we connect a straight line to the goal
+
+        Parameters:
+            mps - starting node
+            segment_len - how far should the intermediate points be apart from each other
+                Warning: Because of the collision check only checks
+                    whether the points in the path is in an obstacle or not, if you set
+                    segment len to a large number, it's possible that the line segment 
+                    actually crosses an obstacle. 
+        """
+        new_mps = Motion_plan_state(mps.x, mps.y, mps.theta)
+        d, theta = self.get_distance_angle(new_mps, self.goal)
+
+        new_mps.path = [new_mps]
+
+        new_mps.theta = self.angle_wrap(new_mps.theta + theta)
+
+        for _ in range(int(d / segment_len)):
+            new_mps.x += segment_len * np.cos(new_mps.theta)
+            new_mps.y += segment_len * np.sin(new_mps.theta)
+            new_mps.path.append(Motion_plan_state(new_mps.x, new_mps.y))
+
+        new_mps.path.append(self.goal)
+        new_mps.path[0] = mps
+
+        return new_mps
+
+    
+    def connect_to_goal_straight_with_theta_limit(self, mps, segment_len = 1):
+        """
+        Starting from node at "mps" can we connect a straight line to the goal
+
+        Warning:
+            If the theta difference between the node and the goal is larger than
+            self.diff_max (which set a limit on the angle range), will not create
+            a path
+
+        Parameters:
+            mps - starting node
+            segment_len - how far should the intermediate points be apart from each other
+                Warning: Because of the collision check only checks
+                    whether the points in the path is in an obstacle or not, if you set
+                    segment len to a large number, it's possible that the line segment 
+                    actually crosses an obstacle. 
+
+        Return:
+            A motion plan state - if we can construct a straight path
+                that makes turns within self.diff_max
+            None - if the angle difference between the node and the goal is greater than
+                self.diff_max
+        """
+        new_mps = Motion_plan_state(mps.x, mps.y, mps.theta)
+        d, theta = self.get_distance_angle(new_mps, self.goal)
+
+        # if theta is within the allowed turn degree
+        if abs(theta) < abs(self.diff_max):
+            new_mps.path = [new_mps]
+
+            new_mps.theta = self.angle_wrap(new_mps.theta + theta)
+
+            for _ in range(int(d / segment_len)):
+                new_mps.x += segment_len * np.cos(new_mps.theta)
+                new_mps.y += segment_len * np.sin(new_mps.theta)
+                new_mps.path.append(Motion_plan_state(new_mps.x, new_mps.y))
+
+            new_mps.path.append(self.goal)
+            new_mps.path[0] = mps
+
+            return new_mps
+        else:
+            return None
+
 
     def generate_final_course(self, mps):
         path = [mps]
@@ -364,7 +458,6 @@ class Planner_RRT:
             for point in reversed_path:
                 path.append(point)
             mps = mps.parent
-        #path.append(mps)
 
         return path
 
@@ -390,10 +483,8 @@ class Planner_RRT:
         plt.gcf().canvas.mpl_connect('key_release_event',
                                      lambda event: [exit(0) if event.key == 'escape' else None])
         if rnd != None:
-            # self.ax.plot(rnd.x, rnd.y, ",", color="#000000")
-
             plt.plot([point.x for point in rnd.path], [point.y for point in rnd.path], '-', color="#000000")
-            plt.plot(rnd.x, rnd.y, 'o', color="#000000")
+            plt.plot(rnd.x, rnd.y, '.', color="#000000")
         else:
             for mps in self.mps_list:
                 if mps.parent:
@@ -401,7 +492,9 @@ class Planner_RRT:
 
         plt.axis("equal")
 
-        plt.pause(1)
+        plt.pause(0.001)
+
+        # plt.pause(1)
 
 
     @staticmethod
@@ -599,42 +692,6 @@ def generate_fix_complex_env():
                 empty_slot_array.append([x, y, 2.5])
             x += 4.0 
 
-    # convert the empty slot array
-    # empty_slot_array = np.array(empty_slot_array)
-    # empty_slot_tensor = torch.from_numpy(empty_slot_array)
-    # empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
-
-    return obstacle_array
-
-def generate_two_types_env():
-    """
-    The environment will randomly be one of 2 types
-    """
-    obstacle_array = []
-    # the empty space in each obstacle layer
-    empty_slot_array = []
-
-    # 2 types of the obstacle environment
-    obstacles_to_remove_array= random.choice([[6, 1, 9], [4, 10, 6]])
-
-    for i in range(0,3):
-        # each layer will have 10 obstacles, randomly remove 2 obstacles
-        obstacles_to_remove = obstacles_to_remove_array[i]
-        # obstacles at y = 10m
-        x = 2.0
-        y = 10.0 + 15.0 * i
-        for j in range(13):
-            if (j != obstacles_to_remove) and (j != obstacles_to_remove + 1):
-                obstacle_array.append(Motion_plan_state(x=x, y=y, size=2.5))
-            else:
-                empty_slot_array.append([x, y, 2.5])
-            x += 4.0 
-
-    # convert the empty slot array
-    # empty_slot_array = np.array(empty_slot_array)
-    # empty_slot_tensor = torch.from_numpy(empty_slot_array)
-    # empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
-
     return obstacle_array
 
 def calculate_range(a_pos, b_pos):
@@ -666,7 +723,6 @@ def validate_start(start, obstacle_array):
             break
     return not obs_overlaps
 
-
 def generate_fix_env_4():
     obstacle_array = []
     # the empty space in each obstacle layer
@@ -688,6 +744,34 @@ def generate_fix_env_4():
             x += 2
 
     return obstacle_array
+
+def test():
+    boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = 50.0, y = 50.0)]
+
+    obstacle_array = generate_fix_complex_env()
+    # obstacle_array = []
+
+    shark_init_pos = Motion_plan_state(x = 10.0, y = 20.0, z = -5.0, theta = 0.0)
+    # shark_init_pos = Motion_plan_state(x = 10.0, y = 55.0, z = -5.0, theta = 0.0)
+
+    auv_init_pos = Motion_plan_state(x = 5.0, y = 5.0, z = -5.0, theta = 0.0)
+    # auv_init_pos = Motion_plan_state(x = 25.0, y = 25.0, z = -5.0, theta = 0.0)
+
+    rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], dist_to_end = 1, diff_max = np.pi/2, freq = 10, cell_side_length = 5, subsections_in_cell = 1, reversible = False, dubins_path = False)
+
+    rrt.init_live_graph()
+                
+    path, step, actual_time_duration = rrt.planning(max_step=250)
+
+    if path != [] and type(path) == list:
+        rrt.draw_graph()
+        plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
+    else:
+        print("Failed to find path")
+        rrt.draw_graph()
+
+    plt.draw()
+    text = input("stop")
 
 
 def main():
@@ -720,9 +804,9 @@ def main():
 
                 obstacle_array = []
 
-                shark_init_pos = Motion_plan_state(x = 25.0, y = 47.5, z = -5.0, theta = 0.0)
+                shark_init_pos = Motion_plan_state(x = 45.0, y = 45.0, z = -5.0, theta = 0.0)
                 
-                obstacle_array = generate_fix_env_4()
+                obstacle_array = []
 
                 auv_init_pos = Motion_plan_state(x = 5.0, y = 2.5, z = -5.0, theta = 0.0)
 
@@ -794,4 +878,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    test()
