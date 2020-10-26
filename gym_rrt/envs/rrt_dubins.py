@@ -4,6 +4,7 @@ import time
 import sys
 import torch
 import numpy as np
+import copy
 
 # Warning: Comment out matplotlib library if we are using XSEDE
 import matplotlib
@@ -13,11 +14,11 @@ import matplotlib.path as mpath
 import matplotlib.patches as mpatches
 from matplotlib.patches import Rectangle
 
-from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
-from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
+# from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
+# from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
 
-# from motion_plan_state_rrt import Motion_plan_state
-# from grid_cell_rrt import Grid_cell_RRT
+from motion_plan_state_rrt import Motion_plan_state
+from grid_cell_rrt import Grid_cell_RRT
 
 # TODO: wrong import
 # import catalina
@@ -60,7 +61,7 @@ class Planner_RRT:
         self.rrt_grid_1D_array_num_of_nodes_only = []
 
         # discretize the environment into grids
-        self.discretize_env(self.cell_side_length, self.subsections_in_cell)
+        self.discretize_env(self.cell_side_length, self.subsections_in_cell, obstacles)
         
         self.occupied_grid_cells_array = []
 
@@ -86,7 +87,7 @@ class Planner_RRT:
         self.t_start = time.time()
 
 
-    def discretize_env(self, cell_side_length, subsections_in_cell):
+    def discretize_env(self, cell_side_length, subsections_in_cell, obstacle_array):
         """
         Separate the environment into grid
         """
@@ -99,16 +100,51 @@ class Planner_RRT:
 
         self.size_of_row = int(env_height) // int(cell_side_length)
         self.size_of_col = int(env_width) // int(cell_side_length)
+        
+        havent_seen_obstacles_array = copy.deepcopy(obstacle_array)
 
         for row in range(self.size_of_row):
             self.env_grid.append([])
             for col in range(self.size_of_col):
                 env_cell_x = env_btm_left_corner.x + col * cell_side_length
                 env_cell_y = env_btm_left_corner.y + row * cell_side_length
-                self.env_grid[row].append(Grid_cell_RRT(env_cell_x, env_cell_y, side_length = cell_side_length, num_of_subsections=subsections_in_cell))
+                
+                # check if the grid cell has obstacles
+                hasObstacle = False
+
+                if havent_seen_obstacles_array != []:
+                    obs = havent_seen_obstacles_array[0]
+                    if env_cell_x == obs.x and env_cell_y == obs.y:
+                        hasObstacle = True
+                        havent_seen_obstacles_array = havent_seen_obstacles_array[1:]
+
+                self.env_grid[row].append(Grid_cell_RRT(env_cell_x, env_cell_y, hasObstacle = hasObstacle, side_length = cell_side_length, num_of_subsections=subsections_in_cell))
+
                 # initialize the has_node_array and rrt_grid_1D_array_num_of_nodes_only
-                self.has_node_array += [0] * self.subsections_in_cell
-                self.rrt_grid_1D_array_num_of_nodes_only += [0] * self.subsections_in_cell
+                if hasObstacle:
+                    self.has_node_array += [-1] * self.subsections_in_cell
+                    self.rrt_grid_1D_array_num_of_nodes_only += [-1] * self.subsections_in_cell
+                else:
+                    self.has_node_array += [0] * self.subsections_in_cell
+                    self.rrt_grid_1D_array_num_of_nodes_only += [0] * self.subsections_in_cell
+
+        # print("obstacle count")
+        # print(obstacle_count)
+        # print('has node')
+        # print(self.has_node_array)
+        # print('rrt_grid')
+        # count = 1
+        # for x in self.rrt_grid_1D_array_num_of_nodes_only:
+            
+        #     print(x, end = "")
+        #     if count == 10:
+        #         print(" ")
+        #         count = 0
+        #     count += 1
+            
+        # # print(self.rrt_grid_1D_array_num_of_nodes_only)
+
+        # text = input("stop")
 
 
     def print_env_grid(self):
@@ -151,42 +187,28 @@ class Planner_RRT:
         # however, if index < 0, we have to do an extra step to find the right index
         if hab_index_subsection < 0:
             hab_index_subsection = int(self.subsections_in_cell + hab_index_subsection)
-
-        if hab_index_subsection == self.subsections_in_cell:
-            print("why invalid subsection ;-;")
-            print(mps)
-            print("found roow and col")
-            print(hab_index_row)
-            print(hab_index_col)
-            print("all cells")
-            print(self.env_grid[hab_index_row][hab_index_col])
-            print("subsections")
-            print(self.env_grid[hab_index_row][hab_index_col].subsection_cells)
-            print("raw")
-            print(raw_hab_index_subsection)
-            print("found index")
-            print(hab_index_subsection)
-            text = input("stop")
-
-            hab_index_subsection -= 1
-
-        self.env_grid[hab_index_row][hab_index_col].subsection_cells[hab_index_subsection].node_array.append(mps)
         
-        index_in_1D_array = hab_index_row * self.size_of_col * self.subsections_in_cell + hab_index_col * self.subsections_in_cell + hab_index_subsection
+        # check that the grid cell is not occupied by any obstacles
+        if not self.env_grid[hab_index_row][hab_index_col].subsection_cells[hab_index_subsection].hasObstacle:
+            # add the new node to the grid cell
+            self.env_grid[hab_index_row][hab_index_col].subsection_cells[hab_index_subsection].node_array.append(mps)
+        
+            # calculate the grid cell index in 1D array
+            index_in_1D_array = hab_index_row * self.size_of_col * self.subsections_in_cell + hab_index_col * self.subsections_in_cell + hab_index_subsection
 
-        # increase the counter for the number of nodes in the grid cell
-        self.rrt_grid_1D_array_num_of_nodes_only[index_in_1D_array] += 1
+            # increase the counter for the number of nodes in the grid cell
+            self.rrt_grid_1D_array_num_of_nodes_only[index_in_1D_array] += 1
 
-        # add the grid cell into the occupied grid cell array if it hasn't been added
-        if len(self.env_grid[hab_index_row][hab_index_col].subsection_cells[hab_index_subsection].node_array) == 1:
-            self.occupied_grid_cells_array.append((hab_index_row, hab_index_col, hab_index_subsection))
+            # add the grid cell into the occupied grid cell array if it hasn't been added
+            if len(self.env_grid[hab_index_row][hab_index_col].subsection_cells[hab_index_subsection].node_array) == 1:
+                self.occupied_grid_cells_array.append((hab_index_row, hab_index_col, hab_index_subsection))
 
-            self.has_node_array[index_in_1D_array] += 1
+                self.has_node_array[index_in_1D_array] += 1
 
-        if remove_cell_with_many_nodes and self.rrt_grid_1D_array_num_of_nodes_only[index_in_1D_array] > NODE_THRESHOLD:
-            return True
-        else:
-            return False
+            if remove_cell_with_many_nodes and self.rrt_grid_1D_array_num_of_nodes_only[index_in_1D_array] > NODE_THRESHOLD:
+                return True
+            else:
+                return False
 
 
     def planning(self, max_step = 200, min_length = 250, plan_time=True):
@@ -217,10 +239,12 @@ class Planner_RRT:
 
             done, path = self.generate_one_node((grid_cell_row, grid_cell_col, grid_cell_subsection))
 
-            # if (not done) and path != None:
-            #     self.draw_graph(path)
-            # elif done:
-            #     plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
+            if (not done) and path != None:
+                self.draw_graph(path)
+            elif done:
+                plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
+            
+            print(self.rrt_grid_1D_array_num_of_nodes_only)
 
             step += 1
 
@@ -247,30 +271,31 @@ class Planner_RRT:
 
         grid_cell = self.env_grid[grid_cell_row][grid_cell_col].subsection_cells[grid_cell_subsection]
 
-        if grid_cell.node_array == []:
-            print("hmmmm invalid grid cell pick")     
-            print(grid_cell)
-            print("node list")
-            print(grid_cell.node_array)
-            text = input("stop")
-            return False, None
-
+        print("=========")
         # randomly pick a node from the grid cell   
         rand_node = random.choice(grid_cell.node_array)
 
         new_node = self.steer(rand_node, self.dist_to_end, self.diff_max, self.freq, step_num=step_num)
 
+        print("new node")
+        print(new_node)
+        print("--")
+
         valid_new_node = False
         
         # only add the new node if it's collision free
-        if self.check_collision_free(new_node, self.obstacle_list):
+        if self.check_collision_free_square(new_node, self.obstacle_list):
+            print("collision free!")
+
             new_node.parent = rand_node
             new_node.length += rand_node.length
             self.mps_list.append(new_node)
             valid_new_node = True
 
-            remove_the_chosen_grid_cell = self.add_node_to_grid(new_node, remove_cell_with_many_nodes=remove_cell_with_many_nodes)
+            remove_the_chosen_grid_cell = self.add_node_to_grid(new_node, remove_cell_with_many_nodes = remove_cell_with_many_nodes)
 
+            # remove_cell_with_many_nodes is True (a parameter for the function)
+            # determine if we need to remove this grid cell from the grid cells that we can pick
             if remove_cell_with_many_nodes and remove_the_chosen_grid_cell:
                 index_in_1D_array = grid_cell_row * self.size_of_col * self.subsections_in_cell + grid_cell_col * self.subsections_in_cell + grid_cell_subsection
                 print("too many nodes generated from this grid cell")
@@ -279,7 +304,7 @@ class Planner_RRT:
         final_node = self.connect_to_goal_curve_alt(self.mps_list[-1], self.exp_rate, step_num=step_num)
 
         # if we can create a path between the newly generated node and the goal
-        if self.check_collision_free(final_node, self.obstacle_list):
+        if self.check_collision_free_square(final_node, self.obstacle_list):
             final_node.parent = self.mps_list[-1]
             path = self.generate_final_course(final_node)   
             return True, path
@@ -378,12 +403,13 @@ class Planner_RRT:
                 self.ax.add_patch(cell)
         
         for obstacle in self.obstacle_list:
-            self.plot_circle(obstacle.x, obstacle.y, obstacle.size)
+            square_obstacle = Rectangle((obstacle.x, obstacle.y), width=obstacle.size, height=obstacle.size, color='#000000', fill=True, alpha=0.5)
+            self.ax.add_patch(square_obstacle)
 
         self.ax.plot(self.start.x, self.start.y, "xr")
         self.ax.plot(self.goal.x, self.goal.y, "xr")
-
     
+
     def draw_graph(self, rnd=None):
         # plt.clf()  # if we want to clear the plot
         # for stopping simulation with the esc key.
@@ -401,7 +427,7 @@ class Planner_RRT:
 
         plt.axis("equal")
 
-        plt.pause(1)
+        plt.pause(0.001)
 
 
     @staticmethod
@@ -426,7 +452,6 @@ class Planner_RRT:
         #polar coordinate
         r_G = math.hypot(self.goal.x - new_mps.x, self.goal.y - new_mps.y)
         phi_G = math.atan2(self.goal.y - new_mps.y, self.goal.x - new_mps.x)
-
 
         # arc
         if phi_G - new_mps.theta != 0:
@@ -493,6 +518,31 @@ class Planner_RRT:
             if (min(dList) + sys.float_info.epsilon) <= obstacle.size:
                 return False  # collision
     
+        for point in mps.path:
+            if not self.check_within_boundary(point):
+                return False
+
+        return True  # safe
+
+
+    def check_collision_free_square(self, mps, obstacleList):
+        """
+        Collision
+        Return:
+            True -  if the new node (as a motion plan state) and its path is collision free
+            False - otherwise
+        """
+        if mps is None:
+            return False
+
+        for obstacle in obstacleList:
+            # the obstacle's x and y are its bottom left corner
+            for point in mps.path:
+                # if the point is within the obstacle square, 
+                #   it is an collision
+                if (point.x >= obstacle.x) and (point.x <= obstacle.x + obstacle.size) and (point.y >= obstacle.y) and (point.y <= obstacle.y + obstacle.size):
+                    return False
+
         for point in mps.path:
             if not self.check_within_boundary(point):
                 return False
@@ -582,9 +632,9 @@ def generate_fix_complex_env():
     # the empty space in each obstacle layer
     empty_slot_array = []
 
-    # obstacles_to_remove_array = [6, 1, 9]
+    obstacles_to_remove_array = [6, 1, 9]
     
-    obstacles_to_remove_array = [4, 10, 6]
+    # obstacles_to_remove_array = [4, 10, 6]
 
     for i in range(0,3):
         # each layer will have 10 obstacles, randomly remove 2 obstacles
@@ -637,20 +687,39 @@ def generate_two_types_env():
 
     return obstacle_array
 
-def main():
-    auv_init_pos = Motion_plan_state(x = 10.0, y = 10.0, z = -5.0, theta = 0.0)
-    shark_init_pos = Motion_plan_state(x = 35.0, y = 40.0, z = -5.0, theta = 0.0)
-    
-    obstacle_array = [\
-        Motion_plan_state(x=12.0, y=38.0, size=4),\
-        Motion_plan_state(x=17.0, y=34.0, size=5),\
-        Motion_plan_state(x=20.0, y=29.0, size=4),\
-        Motion_plan_state(x=25.0, y=25.0, size=3),\
-        Motion_plan_state(x=29.0, y=20.0, size=4),\
-        Motion_plan_state(x=34.0, y=17.0, size=3),\
-        Motion_plan_state(x=37.0, y=8.0, size=5)\
-    ]
 
+def generate_new_two_types_complex_env():
+    """
+    Make the square obstacles
+    """
+    obstacle_array = []
+    # the empty space in each obstacle layer
+    empty_slot_array = []
+
+    obstacles_to_remove_array= random.choice([[6, 1, 8], [4, 7, 2]])
+    
+    env_type = 4
+    if obstacles_to_remove_array == [6, 1, 8]:
+        env_type = 3
+
+    for i in range(0,3):
+        # each layer will have 10 obstacles, randomly remove 2 obstacles
+        obstacles_to_remove = obstacles_to_remove_array[i]
+        # obstacles at y = 10m
+        # x and y represents the bottom left corner of the square obstacle
+        x = 0.0
+        y = 10 + 15 * i
+        for j in range(10):
+            if (j != obstacles_to_remove) and (j != obstacles_to_remove + 1):
+                obstacle_array.append(Motion_plan_state(x=x, y=y, size=5))
+            else:
+                empty_slot_array.append([x, y, 5])
+            x += 5
+
+    return obstacle_array, env_type
+
+
+def main():
     boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = 50.0, y = 50.0)]
 
     num_of_runs = 100
@@ -680,30 +749,26 @@ def main():
             while True:
                 obstacle_array = []
 
-                auv_min_x = 5.0
-                auv_max_x = 15.0
-                auv_min_y = 5.0
-                auv_max_y = 15.0
-
-                shark_min_x = 35.0
-                shark_max_x = 45.0
-                shark_min_y = 35.0
-                shark_max_y = 45.0
-
                 auv_init_pos = Motion_plan_state(x = 5.0, y = 5.0, z = -5.0, theta = 0.0)
-                shark_init_pos = Motion_plan_state(x = 45.0, y = 45.0, z = -5.0, theta = 0.0)
-                
-                obstacle_array = generate_two_types_env()
+                shark_init_pos = Motion_plan_state(x = 45.0, y = 47.5, z = -5.0, theta = 0.0)
+                # shark_init_pos = Motion_plan_state(x = np.random.uniform(5.0, 45.0), y = 45.0, z = -5.0, theta = 0.0)
 
-                # print("===============================")
-                # print("Starting Positions")
-                # print(auv_init_pos)
-                # print(shark_init_pos)
+                obstacle_array, env_type = generate_new_two_types_complex_env()
+
+                if env_type == 4:
+                    shark_init_pos = Motion_plan_state(x = 15.0, y = 47.5, z = -5.0, theta = 0.0)
+
+                print("===============================")
+                print("Starting Positions")
+                print(auv_init_pos)
+                print(shark_init_pos)
                 # print("-")
                 # print(obstacle_array)
-                # print("===============================")
+                print("===============================")
 
-                rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], freq=10, cell_side_length=5, subsections_in_cell = 1)
+                rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], exp_rate = 1, dist_to_end = 1, diff_max = 0.5, freq=20, cell_side_length=5, subsections_in_cell = 1)
+
+                rrt.init_live_graph()
                 
                 path, step, actual_time_duration = rrt.planning(max_step=500)
 

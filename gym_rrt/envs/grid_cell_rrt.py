@@ -32,7 +32,7 @@ def angle_wrap(ang):
 A wrapper class to represent state of a grid cell in RRT planning
 """
 class Grid_cell_RRT:
-    def __init__(self, x, y, side_length = 1, num_of_subsections = 8):
+    def __init__(self, x, y, hasObstacle, side_length = 1, num_of_subsections = 8):
         """
         Parameters:
             x - x coordinates of the bottom left corner of the grid cell
@@ -47,12 +47,14 @@ class Grid_cell_RRT:
         self.side_length = side_length
         self.subsection_cells = []
 
+        self.hasObstacle = hasObstacle
+
         self.delta_theta = float(2.0 * np.pi) / float(num_of_subsections)
         
         theta = 0.0
         # the node list will go in counter-clock wise direction
         for i in range(num_of_subsections):
-            self.subsection_cells.append(self.Subsection_grid_cell_RRT(theta))
+            self.subsection_cells.append(self.Subsection_grid_cell_RRT(theta, self.hasObstacle))
             theta = angle_wrap(theta + self.delta_theta)
 
     def has_node(self):
@@ -73,13 +75,15 @@ class Grid_cell_RRT:
         return "RRT Grid: [x=" + str(self.x) + ", y="  + str(self.y) + ", side length=" + str(self.side_length) +\
              "], node list: " + str(self.subsection_cells)
 
+
     class Subsection_grid_cell_RRT:
-        def __init__(self, theta):
+        def __init__(self, theta, hasObstacle):
             self.theta = theta
+            self.hasObstacle = hasObstacle
             self.node_array = []
 
         def __repr__(self):
-            return "Subsec: theta=" + str(self.theta) + ", node list: " + str(self.node_array)
+            return "Subsec: theta=" + str(self.theta) + ", hasObstacle?: " + str(self.hasObstacle) + ", node list: " + str(self.node_array)
 
         def __str__(self):
-            return "Subsec: theta=" + str(self.theta) + ", node list: " + str(self.node_array)
+            return "Subsec: theta=" + str(self.theta) + ", hasObstacle?: " + str(self.hasObstacle) + ", node list: " + str(self.node_array)

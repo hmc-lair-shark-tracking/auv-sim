@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, Rectangle
 import mpl_toolkits.mplot3d.art3d as Art3d
 from matplotlib.widgets import Button
 from matplotlib.widgets import CheckButtons
@@ -330,6 +330,19 @@ class Live3DGraph:
             if dangerous_zone_radius != 0.0:
                 dangerous_zone = Circle((obs.x,obs.y), radius = obs.size + dangerous_zone_radius, color='#c42525', fill=False)
                 self.ax_2D.add_patch(dangerous_zone)
+
+
+    def plot_square_obstacles_2D(self, obstacle_array):
+        """
+        Plot obstacles as sphere based on location and size indicated by the "obstacle_array"
+
+        Parameter - obstacle_array
+            an array of motion_plan_states that represent the obstacles's
+                top left corner position and size
+        """
+        for obs in obstacle_array:
+            square_obstacle = Rectangle((obs.x, obs.y), width=obs.size, height=obs.size, color='#000000', fill=True, alpha=0.5)
+            self.ax_2D.add_patch(square_obstacle)
 
     
     def end_simulation(self, events):

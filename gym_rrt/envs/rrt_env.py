@@ -184,7 +184,7 @@ class RRTEnv(gym.Env):
             'habitats_pos': spaces.Box(low = np.array([shark_init_pos.x - ENV_SIZE, shark_init_pos.y - ENV_SIZE, -ENV_SIZE, 0.0]), high = np.array([shark_init_pos.x + ENV_SIZE, shark_init_pos.y + ENV_SIZE, 0.0, 0.0]), dtype = np.float64)
         })
 
-        # initialize the 
+        # initialize the lists for the plot
         self.init_data_for_plot(auv_init_pos, shark_init_pos)
         
         return self.reset()
@@ -401,8 +401,6 @@ class RRTEnv(gym.Env):
         Return:
             a new copy of the habitats_array with the updated number of time visited 
         """
-        # print(visited_habitat_cell)
-
         # make a deep copy of the original habitats array to ensure that we are not modifying the habitats_array that gets passed in
         new_habitats_array = copy.deepcopy(habitats_array)
 
@@ -425,12 +423,6 @@ class RRTEnv(gym.Env):
         Return:
             a dictionary with the initial observation of the environment
         """
-        # reset the habitat array, make sure that the number of time visited is cleared to 0
-        # self.habitats_array = []
-        # for hab in self.habitats_array_for_rendering:
-        #     self.habitats_array.append([hab.x, hab.y, hab.side_length, hab.num_of_time_visited])
-        # self.habitats_array = np.array(self.habitats_array)
-
         # reset the count for how many unique habitat had the auv visited
         self.visited_unique_habitat_count = 0
         # reset the count for how many time steps had the auv visited an habitat
@@ -456,16 +448,6 @@ class RRTEnv(gym.Env):
             'rrt_grid_num_of_nodes_only': np.array(self.rrt_planner.rrt_grid_1D_array_num_of_nodes_only),\
             'empty_slot_tensor': self.empty_slot_tensor,\
         }
-
-        # print("initial state")
-        # print(has_node_array)
-        # print(self.state["has_node"])
-        # print(has_node_array == self.state["has_node"])
-        # print("---")
-        # print(rrt_grid_1D_array_num_of_nodes_only)
-        # print(self.state["rrt_grid_num_of_nodes_only"])
-        # print(rrt_grid_1D_array_num_of_nodes_only == self.state["rrt_grid_num_of_nodes_only"])
-        # text = input("stop")
 
         return self.state
 
@@ -521,13 +503,13 @@ class RRTEnv(gym.Env):
             self.live_graph.ax_2D.plot(self.auv_init_pos.x, self.auv_init_pos.y, "xr")
             self.live_graph.ax_2D.plot(self.shark_init_pos.x, self.shark_init_pos.y, "xr")
 
-            if self.obstacle_array_for_rendering != []:
-                self.live_graph.plot_obstacles_2D(self.obstacle_array_for_rendering, OBSTACLE_ZONE)
-
             for row in self.rrt_planner.env_grid:
                 for grid_cell in row:
                     cell = Rectangle((grid_cell.x, grid_cell.y), width=grid_cell.side_length, height=grid_cell.side_length, color='#2a753e', fill=False)
                     self.live_graph.ax_2D.add_patch(cell)
+
+            if self.obstacle_array_for_rendering != []:
+                self.live_graph.plot_square_obstacles_2D(self.obstacle_array_for_rendering)
             
             self.live_graph.ax_2D.set_xlabel('X')
             self.live_graph.ax_2D.set_ylabel('Y')

@@ -36,7 +36,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 DIST = 20.0
 
 NUM_OF_EPISODES = 1000
-MAX_STEP = 500
+MAX_STEP = 20
 
 NUM_OF_EPISODES_TEST = 50
 MAX_STEP_TEST = 500
@@ -260,6 +260,44 @@ def generate_fix_complex_env():
     empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
 
     return obstacle_array, empty_slot_tensor
+
+
+def generate_new_two_types_complex_env():
+    """
+    Make the square obstacles
+    """
+    obstacle_array = []
+    # the empty space in each obstacle layer
+    empty_slot_array = []
+
+    obstacles_to_remove_array= random.choice([[6, 1, 8], [4, 7, 2]])
+    
+    env_type = 4
+    if obstacles_to_remove_array == [6, 1, 8]:
+        env_type = 3
+
+    for i in range(0,3):
+        # each layer will have 10 obstacles, randomly remove 2 obstacles
+        obstacles_to_remove = obstacles_to_remove_array[i]
+        # obstacles at y = 10m
+        # x and y represents the bottom left corner of the square obstacle
+        x = 0.0
+        y = 10 + 15 * i
+        for j in range(10):
+            if (j != obstacles_to_remove) and (j != obstacles_to_remove + 1):
+                obstacle_array.append(Motion_plan_state(x=x, y=y, size=5))
+            else:
+                empty_slot_array.append([x, y, 5])
+            x += 5
+
+    # convert the empty slot array
+    empty_slot_array = np.array(empty_slot_array)
+    empty_slot_tensor = torch.from_numpy(empty_slot_array)
+    empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
+
+    print(empty_slot_tensor)
+
+    return obstacle_array, empty_slot_tensor, env_type
 
 
 def generate_gradually_changing_complex_env(eps):
@@ -675,15 +713,15 @@ class AuvEnvManager():
     
     def init_env_randomly(self, eps = 1, dist = DIST):
         empty_slot_tensor = []
-
-        auv_init_pos = Motion_plan_state(x = np.random.uniform(5.0, 45.0), y = 5.0, z = -5.0, theta = 0.0)
-        shark_init_pos = Motion_plan_state(x = 45.0, y = 45.0, z = -5.0, theta = 0.0)
+    
+        auv_init_pos = Motion_plan_state(x = 5.0, y = 5.0, z = -5.0, theta = 0.0)
+        shark_init_pos = Motion_plan_state(x = 45.0, y = 47.5, z = -5.0, theta = 0.0)
         # shark_init_pos = Motion_plan_state(x = np.random.uniform(5.0, 45.0), y = 45.0, z = -5.0, theta = 0.0)
 
-        if auv_init_pos.x > 30:
-            auv_init_pos.theta = -np.pi
+        obstacle_array, empty_slot_tensor, env_type = generate_new_two_types_complex_env()
 
-        obstacle_array, empty_slot_tensor = generate_fix_complex_env()
+        if env_type == 4:
+            shark_init_pos = Motion_plan_state(x = 15.0, y = 47.5, z = -5.0, theta = 0.0)
         
         boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = ENV_SIZE, y = ENV_SIZE)]
 
@@ -996,8 +1034,6 @@ class DQN():
         print("choice")
         print(bad_choices_array)
         print(bad_choices_over_total_choices_array)
-
-        text = input("stop")
 
         if PLOT_INTERMEDIATE_TESTING:
             # begin plotting the graph
@@ -1690,16 +1726,15 @@ class DQN():
 
 def main():
     dqn = DQN()
-    # save_model(dqn.policy_net, dqn.target_net)
     # alg_time_start = time.time()
-    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
+    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
 
     # print("++++")
     # print("used time: ")
     # print(time.time() - alg_time_start)
     
     # filename = "7-23_sub=1_og-nn_max-step=500_eps=1000_75rand.csv"
-    dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
+    # dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
     # dqn.store_agent_dictionary(filename)
 
     # if COMPLETELY_USE_MEMO:
