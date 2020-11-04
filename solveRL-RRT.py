@@ -35,10 +35,10 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 # define the range between the starting point of the auv and shark
 DIST = 20.0
 
-NUM_OF_EPISODES = 1000
-MAX_STEP = 20
+NUM_OF_EPISODES = 200
+MAX_STEP = 5
 
-NUM_OF_EPISODES_TEST = 50
+NUM_OF_EPISODES_TEST = 2
 MAX_STEP_TEST = 500
 
 N_V = 7
@@ -85,21 +85,13 @@ SAVE_EVERY = 10
 # how many episode should we render the model
 RENDER_EVERY = 1
 # how many episode should we run a test on the model
-TEST_EVERY = 100
+TEST_EVERY = 10
 
 FILTER_IN_UPDATING_NN = True
 
 DEBUG = False
 
-RAND_PICK = True
-RAND_PICK_RATE = 0.5
-
-USE_MEMO = True
-COMPLETELY_USE_MEMO = False
-
-# to limit the terminal output for training over high computing resources
 PLOT_INTERMEDIATE_TESTING = False
-LIMIT_TERMINAL_OUTPUT = True
 
 duration_for_memo = []
 duration_for_nn = []
@@ -108,7 +100,7 @@ duration_convert_to_str = []
 
 ratio_in_an_ep_for_memo = []
 
-obstacles_to_remove_array = [[6,7], [1,2], [9,10]]
+obstacles_to_remove_array = [[6,7], [1,2], [8,9]]
 
 """
 ============================================================================
@@ -161,8 +153,6 @@ def extract_tensors(experiences):
 
 
 def save_model(policy_net, target_net):
-    if not LIMIT_TERMINAL_OUTPUT:
-        print("Model Save...")
     torch.save(policy_net.state_dict(), 'checkpoint_policy.pth')
     torch.save(target_net.state_dict(), 'checkpoint_target.pth')
 
@@ -271,6 +261,8 @@ def generate_new_two_types_complex_env():
     empty_slot_array = []
 
     obstacles_to_remove_array= random.choice([[6, 1, 8], [4, 7, 2]])
+
+    obstacles_to_remove_array = [6, 1, 8]
     
     env_type = 4
     if obstacles_to_remove_array == [6, 1, 8]:
@@ -295,9 +287,86 @@ def generate_new_two_types_complex_env():
     empty_slot_tensor = torch.from_numpy(empty_slot_array)
     empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
 
-    print(empty_slot_tensor)
-
     return obstacle_array, empty_slot_tensor, env_type
+
+
+def generate_gradully_changing_square_env7(eps, limit_terminal_output):
+    """
+    Make the square obstacles
+    """
+    obstacle_array = []
+    # the empty space in each obstacle layer
+    empty_slot_array = []
+
+    for i in range(0,3):
+        # each layer will have 10 obstacles, randomly remove 2 obstacles
+        lower_b, upper_b = obstacles_to_remove_array[i]
+
+        if eps % 10 == 0 and eps >= 20:
+            # increase the range from right to left
+            #   increase the upper bound
+            if upper_b < 9:  
+                obstacles_to_remove_array[i][1] += 1
+            else:
+                # it has reached the max upper bound
+                #   decrease the lower bound
+                if (i == 0 and lower_b > 2) or (i > 0 and lower_b > 0):
+                    obstacles_to_remove_array[i][0] -= 1  
+
+        if not limit_terminal_output:
+            print("lower bound: ", obstacles_to_remove_array[i][0], ", upper bound: ", obstacles_to_remove_array[i][1])
+
+        obstacles_to_remove = np.random.randint(obstacles_to_remove_array[i][0], obstacles_to_remove_array[i][1])
+
+        # obstacles at y = 10m
+        # x and y represents the bottom left corner of the square obstacle
+        x = 0.0
+        y = 5 + 15 * i
+
+        for j in range(10):
+            if (j != obstacles_to_remove) and (j != obstacles_to_remove + 1):
+                obstacle_array.append(Motion_plan_state(x=x, y=y, size=5))
+            else:
+                empty_slot_array.append([x, y, 5])
+            x += 5
+
+    # convert the empty slot array
+    empty_slot_array = np.array(empty_slot_array)
+    empty_slot_tensor = torch.from_numpy(empty_slot_array)
+    empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
+
+    return obstacle_array, empty_slot_tensor
+
+
+def generate_rand_square_env():
+    obstacle_array = []
+    # the empty space in each obstacle layer
+    empty_slot_array = []
+
+    obstacle_range = [2, 0, 0]
+
+    for i in range(3):
+        # each layer will have 10 obstacles, randomly remove 2 obstacles
+        obstacles_to_remove = random.choice(range(obstacle_range[i], 9))
+
+        # obstacles at y = 10m
+        # x and y represents the bottom left corner of the square obstacle
+        x = 0.0
+        y = 5 + 15 * i
+
+        for j in range(10):
+            if (j != obstacles_to_remove) and (j != obstacles_to_remove + 1):
+                obstacle_array.append(Motion_plan_state(x=x, y=y, size=5))
+            else:
+                empty_slot_array.append([x, y, 5])
+            x += 5
+
+    # convert the empty slot array
+    empty_slot_array = np.array(empty_slot_array)
+    empty_slot_tensor = torch.from_numpy(empty_slot_array)
+    empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
+
+    return obstacle_array, empty_slot_tensor
 
 
 def generate_gradually_changing_complex_env(eps):
@@ -531,12 +600,11 @@ class EpsilonGreedyStrategy():
             math.exp(-1. * current_step * self.decay)
 
 
-
 """
 Class to represent the agent and decide its action in the environment
 """
 class Agent():
-    def __init__(self, device):
+    def __init__(self, device, rand_pick, rand_pick_rate, use_memo, completedly_use_memo):
         """
         Parameter: 
             strategy - Epsilon Greedy Strategy class (decide whether we should explore the environment or if we should use the DQN)
@@ -560,6 +628,14 @@ class Agent():
         self.count_for_using_memo = 0
 
         self.memo = {}
+
+        self.rand_pick = rand_pick
+
+        self.rand_pick_rate = rand_pick_rate
+
+        self.use_memo = use_memo
+
+        self.completedly_use_memo = completedly_use_memo
 
     
     def generate_index_to_pick (self, has_node_array):
@@ -608,7 +684,7 @@ class Agent():
             return torch.tensor([grid_cell_index]).to(self.device)
 
         else:
-            if random.random() < RAND_PICK_RATE and RAND_PICK:
+            if random.random() < self.rand_pick_rate and self.rand_pick:
                 grid_cell_index = random.choice(index_to_pick)
 
                 return torch.tensor([grid_cell_index]).to(self.device)
@@ -624,7 +700,7 @@ class Agent():
 
                     self.neural_net_choice += 1
 
-                    if USE_MEMO: 
+                    if self.use_memo: 
                         start_time_key = time.time()
                         memo_key = str(state['rrt_grid_num_of_nodes_only'].tolist())  # convert only number of nodes, 0.00118, this is pretty high when a tensor is converted to numpy array then to str
                         # problem with trying to make an object memo key
@@ -650,7 +726,7 @@ class Agent():
                             duration_for_memo.append(duration)
 
                             return result
-                        elif COMPLETELY_USE_MEMO:
+                        elif self.completedly_use_memo:
                             # if we decide to not use the neural network at all when we test:
                             # if the memo does not 
                             grid_cell_index = random.choice(index_to_pick)
@@ -680,7 +756,7 @@ class Agent():
 
                     nn_action = torch.tensor([grid_cell_index]).to(self.device)
 
-                    if USE_MEMO:
+                    if self.use_memo:
                         self.memo[memo_key] =  nn_action
 
                     duration = time.time() - start_time_nn
@@ -693,7 +769,7 @@ class Agent():
 Class Wrapper for the auv RL environment
 """
 class AuvEnvManager():
-    def __init__(self, device):
+    def __init__(self, device, limit_terminal_output):
         """
         Parameters: 
             device - what we want to PyTorch to use for tensor calculation
@@ -710,30 +786,34 @@ class AuvEnvManager():
         self.current_state = None
         self.done = False
 
+        self.limit_terminal_output = limit_terminal_output
+
     
-    def init_env_randomly(self, eps = 1, dist = DIST):
+    def init_env_randomly(self, eps = 1, dist = DIST,  diff_test_env = False):
         empty_slot_tensor = []
     
-        auv_init_pos = Motion_plan_state(x = 5.0, y = 5.0, z = -5.0, theta = 0.0)
-        shark_init_pos = Motion_plan_state(x = 45.0, y = 47.5, z = -5.0, theta = 0.0)
+        auv_init_pos = Motion_plan_state(x = 5.0, y = 2.5, z = -5.0, theta = 0.0)
+        shark_init_pos = Motion_plan_state(x = 45.0, y = 45.0, z = -5.0, theta = 0.0)
         # shark_init_pos = Motion_plan_state(x = np.random.uniform(5.0, 45.0), y = 45.0, z = -5.0, theta = 0.0)
+        
+        if not self.limit_terminal_output:
+            print("gradually changing environment")
 
-        obstacle_array, empty_slot_tensor, env_type = generate_new_two_types_complex_env()
+        obstacle_array, empty_slot_tensor = generate_gradully_changing_square_env7(eps, self.limit_terminal_output)
 
-        if env_type == 4:
-            shark_init_pos = Motion_plan_state(x = 15.0, y = 47.5, z = -5.0, theta = 0.0)
+        if diff_test_env:
+            if not self.limit_terminal_output:
+                print("completely random environment")
+            obstacle_array, empty_slot_tensor = generate_rand_square_env()
         
         boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = ENV_SIZE, y = ENV_SIZE)]
 
         # self.habitat_grid = HabitatGrid(habitat_bound_x, habitat_bound_y, habitat_bound_size_x, habitat_bound_size_y, HABITAT_SIDE_LENGTH, HABITAT_CELL_SIDE_LENGTH)
-        if not LIMIT_TERMINAL_OUTPUT:
+        if not self.limit_terminal_output:
             print("===============================")
             print("Starting Positions")
             print(auv_init_pos)
             print(shark_init_pos)
-            print("-")
-            print(empty_slot_tensor)
-            print("-")
             print("Number of Environment Grid")
             print(NUM_OF_GRID_CELLS)
             print("===============================")
@@ -891,7 +971,7 @@ class QValues():
 
 
 class DQN():
-    def __init__(self):
+    def __init__(self, rand_pick, rand_pick_rate, use_memo, completedly_use_memo = False, limit_terminal_output = False):
         # initialize the policy network and the target network
         self.policy_net = Neural_network(STATE_SIZE, NUM_OF_GRID_CELLS).to(DEVICE)
         self.target_net = Neural_network(STATE_SIZE, NUM_OF_GRID_CELLS).to(DEVICE)
@@ -904,9 +984,16 @@ class DQN():
         self.memory = ReplayMemory(MEMORY_SIZE)
 
         # set up the environment
-        self.em = AuvEnvManager(DEVICE)
+        self.em = AuvEnvManager(DEVICE, limit_terminal_output)
+    
+        # parameters for the agent (need to store these two for print statement in testing)
+        self.use_memo = use_memo
+        self.completedly_use_memo = completedly_use_memo
 
-        self.agent = Agent(DEVICE)
+        self.agent = Agent(device = DEVICE, rand_pick = rand_pick, rand_pick_rate = rand_pick_rate, use_memo = use_memo, completedly_use_memo = completedly_use_memo)
+
+        # to limit the terminal output for training over high computing resources
+        self.limit_terminal_output = limit_terminal_output
 
 
     def hard_update(self, target, source):
@@ -1331,7 +1418,7 @@ class DQN():
                 target_update_counter += 1
 
                 if target_update_counter % TARGET_UPDATE == 0:
-                    if not LIMIT_TERMINAL_OUTPUT:
+                    if not self.limit_terminal_output:
                         print("UPDATE TARGET NETWORK")
                     self.target_net.load_state_dict(self.policy_net.state_dict())
 
@@ -1339,7 +1426,7 @@ class DQN():
             # print("final state")
             # print(state)
             
-            if not LIMIT_TERMINAL_OUTPUT:
+            if not self.limit_terminal_output:
                 if self.loss_in_eps != []:
                     avg_loss = np.mean(self.loss_in_eps)
                     avg_loss_in_training.append(avg_loss)
@@ -1357,6 +1444,9 @@ class DQN():
             #     self.target_net.load_state_dict(self.policy_net.state_dict())
 
             if eps % SAVE_EVERY == 0:
+                if not self.limit_terminal_output:
+                    print("Model Save...")
+
                 save_model(self.policy_net, self.target_net)
 
             if eps % TEST_EVERY == 0:
@@ -1412,7 +1502,7 @@ class DQN():
         for eps in range(0, num_episodes):
             # initialize the starting point of the shark and the auv randomly
             # receive initial observation state s1 
-            state = self.em.init_env_randomly()
+            state = self.em.init_env_randomly(diff_test_env=True)
 
             episode_durations.append(max_step)
 
@@ -1445,6 +1535,8 @@ class DQN():
                     text = input("stop")
                     stop_first = False
 
+                print(state['rrt_grid_num_of_nodes_only'])
+
                 if self.em.done:
                     # because the only way for an episode to terminate is when an rrt path is found
                     success_count += 1
@@ -1472,7 +1564,7 @@ class DQN():
             if live_graph_2D:
                 self.em.reset_render_graph(live_graph_2D = live_graph_2D)
             
-            if not LIMIT_TERMINAL_OUTPUT:
+            if not self.limit_terminal_output:
                 print("+++++++++++++++++++++++++++++")
                 print("Test Episode # ", eps, "end with reward: ", eps_reward, " used time: ", episode_durations[-1])
                 print("+++++++++++++++++++++++++++++")
@@ -1481,7 +1573,7 @@ class DQN():
             # print("final state")
             # self.em.env.rrt_planner.print_env_grid()
             # print(state['rrt_grid_num_of_nodes_only'])
-            # text = input("stop")
+            text = input("stop")
 
         self.em.close()
 
@@ -1497,13 +1589,13 @@ class DQN():
         print("actual time duration")
         print(np.mean(episode_actual_time_durations))
 
-        if not COMPLETELY_USE_MEMO:
+        if not self.completedly_use_memo:
             print("average duration for nn")
             print(np.mean(duration_for_nn))
         print("each node expansion time")
         print(np.mean(each_expansion_time_durations))
         
-        if USE_MEMO:
+        if self.use_memo:
             print("average duration for memo")
             print(np.mean(duration_for_memo))
             print("average duration for if")
@@ -1626,26 +1718,26 @@ class DQN():
         print("actual time duration")
         print(np.mean(episode_actual_time_durations))
         
-        print("==")
+        # print("==")
 
-        print("path length")
-        print(np.mean(path_length_array))
+        # print("path length")
+        # print(np.mean(path_length_array))
 
-        if not COMPLETELY_USE_MEMO:
-            print("average duration for nn")
-            print(np.mean(duration_for_nn))
-        print("each node expansion time")
-        print(np.mean(each_expansion_time_durations))
+        # if not self.completedly_use_memo:
+        #     print("average duration for nn")
+        #     print(np.mean(duration_for_nn))
+        # print("each node expansion time")
+        # print(np.mean(each_expansion_time_durations))
         
-        if USE_MEMO:
-            print("average duration for memo")
-            print(np.mean(duration_for_memo))
-            print("average duration for if")
-            print(np.mean(duration_for_check_key_in_dict))
-            print("average duration for convert to string")
-            print(np.mean(duration_convert_to_str))
-            print("average rate of using memo")
-            print(np.mean(ratio_in_an_ep_for_memo))
+        # if self.use_memo:
+        #     print("average duration for memo")
+        #     print(np.mean(duration_for_memo))
+        #     print("average duration for if")
+        #     print(np.mean(duration_for_check_key_in_dict))
+        #     print("average duration for convert to string")
+        #     print(np.mean(duration_convert_to_str))
+        #     print("average rate of using memo")
+        #     print(np.mean(ratio_in_an_ep_for_memo))
             
 
     def test_model_during_training (self, num_episodes, max_step, starting_dist):
@@ -1725,24 +1817,29 @@ class DQN():
     
 
 def main():
-    dqn = DQN()
+    dqn = DQN(rand_pick = True, rand_pick_rate = 0.75, use_memo = True, limit_terminal_output = False)
     # alg_time_start = time.time()
-    dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
+    # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
 
     # print("++++")
     # print("used time: ")
     # print(time.time() - alg_time_start)
+
+    dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
     
-    # filename = "7-23_sub=1_og-nn_max-step=500_eps=1000_75rand.csv"
-    # dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
-    # dqn.store_agent_dictionary(filename)
-
-    # if COMPLETELY_USE_MEMO:
-    # dqn.load_agent_dictionary(filename)
-
+    # print("======================")
     # print("seconds: 3")
-    # dqn.test_with_time_budget(100, 3.0, MAX_STEP_TEST, live_graph_2D = False)
+    # print("rand pick rate: 0.5")
+    # dqn = DQN(rand_pick = True, rand_pick_rate = 0.5, use_memo = True, limit_terminal_output = True)
+    # dqn.test_with_time_budget(10, 3.0, MAX_STEP_TEST, live_graph_2D = False)
     # print("----")
+    # print("======================")
+    # print("seconds: 3")
+    # print("rand pick rate: 0.75")
+    # dqn = DQN(rand_pick = True, rand_pick_rate = 0.75, use_memo = True, limit_terminal_output = True)
+    # dqn.test_with_time_budget(10, 3.0, MAX_STEP_TEST, live_graph_2D = False)
+    # print("----")
+
     # print("seconds: 5")
     # dqn.test_with_time_budget(100, 5.0, MAX_STEP_TEST, live_graph_2D = False)
     # text = input("stop")

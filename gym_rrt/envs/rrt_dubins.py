@@ -14,11 +14,11 @@ import matplotlib.path as mpath
 import matplotlib.patches as mpatches
 from matplotlib.patches import Rectangle
 
-# from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
-# from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
+from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
+from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
 
-from motion_plan_state_rrt import Motion_plan_state
-from grid_cell_rrt import Grid_cell_RRT
+# from motion_plan_state_rrt import Motion_plan_state
+# from grid_cell_rrt import Grid_cell_RRT
 
 # TODO: wrong import
 # import catalina
@@ -226,7 +226,6 @@ class Planner_RRT:
         """
         path = []
 
-        # self.init_live_graph()
 
         step = 0
 
@@ -239,12 +238,10 @@ class Planner_RRT:
 
             done, path = self.generate_one_node((grid_cell_row, grid_cell_col, grid_cell_subsection))
 
-            if (not done) and path != None:
-                self.draw_graph(path)
-            elif done:
-                plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
-            
-            print(self.rrt_grid_1D_array_num_of_nodes_only)
+            # if (not done) and path != None:
+            #     self.draw_graph(path)
+            # elif done:
+            #     plt.plot([mps.x for mps in path], [mps.y for mps in path], '-r')
 
             step += 1
 
@@ -271,22 +268,15 @@ class Planner_RRT:
 
         grid_cell = self.env_grid[grid_cell_row][grid_cell_col].subsection_cells[grid_cell_subsection]
 
-        print("=========")
         # randomly pick a node from the grid cell   
         rand_node = random.choice(grid_cell.node_array)
 
         new_node = self.steer(rand_node, self.dist_to_end, self.diff_max, self.freq, step_num=step_num)
 
-        print("new node")
-        print(new_node)
-        print("--")
-
         valid_new_node = False
         
         # only add the new node if it's collision free
         if self.check_collision_free_square(new_node, self.obstacle_list):
-            print("collision free!")
-
             new_node.parent = rand_node
             new_node.length += rand_node.length
             self.mps_list.append(new_node)
@@ -719,6 +709,37 @@ def generate_new_two_types_complex_env():
     return obstacle_array, env_type
 
 
+def generate_rand_square_env():
+    obstacle_array = []
+    # the empty space in each obstacle layer
+    empty_slot_array = []
+
+    obstacle_range = [2, 0, 0]
+
+    for i in range(3):
+        # each layer will have 10 obstacles, randomly remove 2 obstacles
+        obstacles_to_remove = random.choice(range(obstacle_range[i], 9))
+
+        # obstacles at y = 10m
+        # x and y represents the bottom left corner of the square obstacle
+        x = 0.0
+        y = 5 + 15 * i
+
+        for j in range(10):
+            if (j != obstacles_to_remove) and (j != obstacles_to_remove + 1):
+                obstacle_array.append(Motion_plan_state(x=x, y=y, size=5))
+            else:
+                empty_slot_array.append([x, y, 5])
+            x += 5
+
+    # convert the empty slot array
+    # empty_slot_array = np.array(empty_slot_array)
+    # empty_slot_tensor = torch.from_numpy(empty_slot_array)
+    # empty_slot_tensor = torch.flatten(empty_slot_tensor).float().to(DEVICE)
+
+    return obstacle_array
+
+
 def main():
     boundary_array = [Motion_plan_state(x=0.0, y=0.0), Motion_plan_state(x = 50.0, y = 50.0)]
 
@@ -749,26 +770,23 @@ def main():
             while True:
                 obstacle_array = []
 
-                auv_init_pos = Motion_plan_state(x = 5.0, y = 5.0, z = -5.0, theta = 0.0)
-                shark_init_pos = Motion_plan_state(x = 45.0, y = 47.5, z = -5.0, theta = 0.0)
+                auv_init_pos = Motion_plan_state(x = 5.0, y = 2.5, z = -5.0, theta = 0.0)
+                shark_init_pos = Motion_plan_state(x = 45.0, y = 45.0, z = -5.0, theta = 0.0)
                 # shark_init_pos = Motion_plan_state(x = np.random.uniform(5.0, 45.0), y = 45.0, z = -5.0, theta = 0.0)
 
-                obstacle_array, env_type = generate_new_two_types_complex_env()
+                obstacle_array = generate_rand_square_env()
 
-                if env_type == 4:
-                    shark_init_pos = Motion_plan_state(x = 15.0, y = 47.5, z = -5.0, theta = 0.0)
-
-                print("===============================")
-                print("Starting Positions")
-                print(auv_init_pos)
-                print(shark_init_pos)
-                # print("-")
-                # print(obstacle_array)
-                print("===============================")
+                # print("===============================")
+                # print("Starting Positions")
+                # print(auv_init_pos)
+                # print(shark_init_pos)
+                # # print("-")
+                # # print(obstacle_array)
+                # print("===============================")
 
                 rrt = Planner_RRT(auv_init_pos, shark_init_pos, boundary_array, obstacle_array, [], exp_rate = 1, dist_to_end = 1, diff_max = 0.5, freq=20, cell_side_length=5, subsections_in_cell = 1)
 
-                rrt.init_live_graph()
+                # rrt.init_live_graph()
                 
                 path, step, actual_time_duration = rrt.planning(max_step=500)
 
@@ -810,13 +828,13 @@ def main():
         print(np.mean(step_array))
 
         print("average success count")
-        print(total_success_count_array)
+        # print(total_success_count_array)
         print(np.mean(total_success_count_array))
         print("number of trails")
-        print(total_num_of_trails_array)
+        # print(total_num_of_trails_array)
         print(np.mean(total_num_of_trails_array))
         print("success rate")
-        print(total_success_rate_array)
+        # print(total_success_rate_array)
         print(np.mean(total_success_rate_array))
 
         print("average path length")

@@ -28,8 +28,6 @@ SHARK_MIN_V = 0.5
 SHARK_MAX_V = 1
 SHARK_MAX_W = np.pi/8
 
-RRT_PLANNER_FREQ = 10
-
 # the maximum range between the auv and shark to be considered that the auv has reached the shark
 END_GAME_RADIUS = 3.0
 FOLLOWING_RADIUS = 50.0
@@ -433,11 +431,7 @@ class RRTEnv(gym.Env):
         shark_init_pos = np.array([self.shark_init_pos.x, self.shark_init_pos.y, self.shark_init_pos.z, self.shark_init_pos.theta])
 
         # initialize the RRT planner
-        self.rrt_planner = Planner_RRT(self.auv_init_pos, self.shark_init_pos, self.boundary_array, self.obstacle_array_for_rendering, self.habitats_array_for_rendering, cell_side_length = self.cell_side_length, freq=RRT_PLANNER_FREQ, subsections_in_cell = self.num_of_subsections)
-
-        # rrt_grid_1D_array = self.convert_rrt_grid_to_1D(self.rrt_planner.env_grid)
-        # rrt_grid_1D_array_num_of_nodes_only = self.convert_rrt_grid_to_1D_num_of_nodes_only(self.rrt_planner.env_grid)
-        # has_node_array = self.generate_rrt_grid_has_node_array(self.rrt_planner.env_grid)
+        self.rrt_planner = Planner_RRT(self.auv_init_pos, self.shark_init_pos, self.boundary_array, self.obstacle_array_for_rendering, self.habitats_array_for_rendering, exp_rate = 1, dist_to_end = 1, diff_max = 0.3, freq = 12, cell_side_length = self.cell_side_length, subsections_in_cell = self.num_of_subsections)
 
         self.state = {
             'auv_pos': auv_init_pos,\
