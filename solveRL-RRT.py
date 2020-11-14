@@ -36,7 +36,7 @@ Experience = namedtuple('Experience', ('state', 'action', 'next_state', 'reward'
 DIST = 20.0
 
 NUM_OF_EPISODES = 200
-MAX_STEP = 5
+MAX_STEP = 500
 
 NUM_OF_EPISODES_TEST = 2
 MAX_STEP_TEST = 500
@@ -85,7 +85,7 @@ SAVE_EVERY = 10
 # how many episode should we render the model
 RENDER_EVERY = 1
 # how many episode should we run a test on the model
-TEST_EVERY = 10
+TEST_EVERY = 100
 
 FILTER_IN_UPDATING_NN = True
 
@@ -302,7 +302,7 @@ def generate_gradully_changing_square_env7(eps, limit_terminal_output):
         # each layer will have 10 obstacles, randomly remove 2 obstacles
         lower_b, upper_b = obstacles_to_remove_array[i]
 
-        if eps % 10 == 0 and eps >= 20:
+        if eps % 100 == 0 and eps >= 200:
             # increase the range from right to left
             #   increase the upper bound
             if upper_b < 9:  
@@ -345,9 +345,12 @@ def generate_rand_square_env():
 
     obstacle_range = [2, 0, 0]
 
+    obstacles_to_remove_array = [7, 4, 8]
+
     for i in range(3):
         # each layer will have 10 obstacles, randomly remove 2 obstacles
-        obstacles_to_remove = random.choice(range(obstacle_range[i], 9))
+        # obstacles_to_remove = random.choice(range(obstacle_range[i], 9))
+        obstacles_to_remove = obstacles_to_remove_array[i]
 
         # obstacles at y = 10m
         # x and y represents the bottom left corner of the square obstacle
@@ -662,6 +665,8 @@ class Agent():
             a tensor representing the index for v action and the index for w action
                 format: tensor([v_index, w_index])
         """
+        self.new_q_values = False
+
         if testing:
             # if we are doing intermediate testing
             self.rate = EPS_END
@@ -744,9 +749,16 @@ class Agent():
 
                     # filter out the grid cell without any node
                     processed_q_values_all_grid_cells = q_values_all_grid_cells+ (1 - has_node_tensor) * NEGATIVE_OFFSET
+
+                    self.new_q_values = True
+                    self.q_values_int = processed_q_values_all_grid_cells.int()
                     
                     # pick the grid cell with the largest q value
                     grid_cell_index = torch.argmax(processed_q_values_all_grid_cells).item()
+
+                    print("chosen grid_cell_index: ", grid_cell_index)
+                    print(type(grid_cell_index))
+                    input("stop")
 
                     if DEBUG:
                         print("-----")
@@ -845,7 +857,9 @@ class AuvEnvManager():
         """
         if live_graph_2D:
             self.env.render_2D_plot(self.current_state["path"])
-            
+
+    def render_q_values(self, q_value_list):
+        self.env.render_q_values(q_value_list)
 
     def reset_render_graph(self, live_graph_2D = False):
         if live_graph_2D:
@@ -871,8 +885,6 @@ class AuvEnvManager():
             print(step_num)
             print("chosen grid cell index: ")
             print(chosen_grid_cell_index)
-            print("chosen grid: ")
-            print(self.current_state["rrt_grid"][chosen_grid_cell_index])
             print("------")
             print("new state: ")
             print(self.current_state)
@@ -1189,7 +1201,7 @@ class DQN():
         return useful_state_idx_array
 
 
-    def post_process_reward_array_from_path(self, reward_array, useful_state_idx_array):
+    def post_process_reward_array_from_path(self, reward_array, useful_state_idx_array, backtrack_strategy = 0):
         """
         Modify the reward by boosting the reward for useful states
 
@@ -1197,14 +1209,40 @@ class DQN():
             reward_array - stores the reward for all the states
             useful_state_idx_array - store the step number of the useful states
                 (states that contribute to creating the final path)
+                in DESCENDING ORDER!
+            backtrack_strategy - int, represent the different backtrack stragtegy
+                0: uniform reward specified by R_USEFUL_STATE
+                1: closer the node it is to the goal, higher the reward is
+                    (Ascending)
+                2: closer the node it is to the start, higher the reward is
+                    (Descending)
 
         Warning:
             This function modifies the reward_array directly
         """
+        r_useful_state_min = 50
+        r_useful_state_max = 300
+
+        # if the planner is able to find the userful state
+        if len(useful_state_idx_array) > 0:
+            r_useful_state_step_size = int(int(r_useful_state_max - r_useful_state_min) / int(len(useful_state_idx_array)))
+
+        if backtrack_strategy == 1:
+            r_useful_state_changing = r_useful_state_max
+        elif backtrack_strategy == 2:
+            r_useful_state_changing = r_useful_state_min
+
         for idx in useful_state_idx_array:
             # we have to do idx-1 because the first for loop starts out at 1
             # we have to subtract by 1 to get the right index to modify the reward
-            reward_array[idx-1] =  torch.tensor([R_USEFUL_STATE], device=DEVICE).float()
+            if backtrack_strategy == 0:
+                reward_array[idx-1] =  torch.tensor([R_USEFUL_STATE], device=DEVICE).float()
+            elif backtrack_strategy == 1:
+                reward_array[idx-1] =  torch.tensor([r_useful_state_changing], device=DEVICE).float()
+                r_useful_state_changing -= r_useful_state_step_size
+            elif backtrack_strategy == 2:
+                reward_array[idx-1] =  torch.tensor([r_useful_state_changing], device=DEVICE).float()
+                r_useful_state_changing += r_useful_state_step_size
         
         return reward_array
 
@@ -1369,6 +1407,8 @@ class DQN():
 
                 done_array.append(torch.tensor([0], device=DEVICE).int())
 
+                print(next_state["rrt_grid_num_of_nodes_only"])
+
                 if (eps % RENDER_EVERY == 0) and live_graph_2D:
                     self.em.render(print_state = False, live_graph_2D = live_graph_2D)
                     
@@ -1389,8 +1429,8 @@ class DQN():
             
             useful_state_idx_array = self.extract_useful_states(state["path"])
 
-            reward_array = self.post_process_reward_array_from_path(reward_array, useful_state_idx_array)
-            
+            reward_array = self.post_process_reward_array_from_path(reward_array, useful_state_idx_array, backtrack_strategy = 0)
+
             # reset the state before we start updating the neural network
             state = self.em.reset()
 
@@ -1519,6 +1559,8 @@ class DQN():
 
             for t in range(1, max_step):
 
+                self.em.env.live_graph.ax_2D.texts = []
+
                 start_time_each_expansion = time.time()
 
                 chosen_grid_cell_index = self.agent.select_action(state, self.policy_net)
@@ -1527,15 +1569,19 @@ class DQN():
 
                 eps_reward += reward.item()
 
+                if self.agent.new_q_values or self.em.done:
+                    self.em.render_q_values(self.agent.q_values_int)
+
                 self.em.render(print_state = False, live_graph_2D = live_graph_2D)
+
+                # if self.agent.new_q_values:
+                #     input("stop the graph")
 
                 state = self.em.get_state()
 
                 if stop_first:
-                    text = input("stop")
+                    text = input("stop first")
                     stop_first = False
-
-                print(state['rrt_grid_num_of_nodes_only'])
 
                 if self.em.done:
                     # because the only way for an episode to terminate is when an rrt path is found
@@ -1560,6 +1606,10 @@ class DQN():
 
             if self.agent.neural_net_choice != 0:
                 ratio_in_an_ep_for_memo.append(float(self.agent.count_for_using_memo) / float(self.agent.neural_net_choice))
+            
+            self.em.render_q_values(self.agent.q_values_int)
+            self.em.render(print_state = False, live_graph_2D = live_graph_2D)
+            text = input("finish eps stop")
 
             if live_graph_2D:
                 self.em.reset_render_graph(live_graph_2D = live_graph_2D)
@@ -1573,7 +1623,6 @@ class DQN():
             # print("final state")
             # self.em.env.rrt_planner.print_env_grid()
             # print(state['rrt_grid_num_of_nodes_only'])
-            text = input("stop")
 
         self.em.close()
 
@@ -1634,7 +1683,7 @@ class DQN():
             while True:
                 # initialize the starting point of the shark and the auv randomly
                 # receive initial observation state s1 
-                state = self.em.init_env_randomly()
+                state = self.em.init_env_randomly(diff_test_env=True)
 
                 eps_reward = 0.0
 
@@ -1756,7 +1805,7 @@ class DQN():
         for eps in range(num_episodes):
             # initialize the starting point of the shark and the auv randomly
             # receive initial observation state s1 
-            state = self.em.init_env_randomly(starting_dist)
+            state = self.em.init_env_randomly(diff_test_env=True)
 
             episode_durations.append(max_step)
 
@@ -1817,34 +1866,33 @@ class DQN():
     
 
 def main():
-    dqn = DQN(rand_pick = True, rand_pick_rate = 0.75, use_memo = True, limit_terminal_output = False)
+    # dqn = DQN(rand_pick = True, rand_pick_rate = 0.5, use_memo = False, limit_terminal_output = False)
     # alg_time_start = time.time()
     # dqn.train(NUM_OF_EPISODES, MAX_STEP, load_prev_training = False, live_graph_2D = True, use_HER = False)
 
     # print("++++")
     # print("used time: ")
     # print(time.time() - alg_time_start)
-
-    dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
     
     # print("======================")
     # print("seconds: 3")
     # print("rand pick rate: 0.5")
     # dqn = DQN(rand_pick = True, rand_pick_rate = 0.5, use_memo = True, limit_terminal_output = True)
-    # dqn.test_with_time_budget(10, 3.0, MAX_STEP_TEST, live_graph_2D = False)
+    # dqn.test_with_time_budget(5, 1.0, MAX_STEP_TEST, live_graph_2D = False)
     # print("----")
     # print("======================")
     # print("seconds: 3")
     # print("rand pick rate: 0.75")
     # dqn = DQN(rand_pick = True, rand_pick_rate = 0.75, use_memo = True, limit_terminal_output = True)
-    # dqn.test_with_time_budget(10, 3.0, MAX_STEP_TEST, live_graph_2D = False)
+    # dqn.test_with_time_budget(5, 1.0, MAX_STEP_TEST, live_graph_2D = False)
     # print("----")
 
     # print("seconds: 5")
     # dqn.test_with_time_budget(100, 5.0, MAX_STEP_TEST, live_graph_2D = False)
     # text = input("stop")
 
-    
+    dqn = DQN(rand_pick = True, rand_pick_rate = 0.75, use_memo = True, limit_terminal_output = False)
+    dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)
 
 
 if __name__ == "__main__":

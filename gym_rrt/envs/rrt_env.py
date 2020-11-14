@@ -431,7 +431,7 @@ class RRTEnv(gym.Env):
         shark_init_pos = np.array([self.shark_init_pos.x, self.shark_init_pos.y, self.shark_init_pos.z, self.shark_init_pos.theta])
 
         # initialize the RRT planner
-        self.rrt_planner = Planner_RRT(self.auv_init_pos, self.shark_init_pos, self.boundary_array, self.obstacle_array_for_rendering, self.habitats_array_for_rendering, exp_rate = 1, dist_to_end = 1, diff_max = 0.3, freq = 12, cell_side_length = self.cell_side_length, subsections_in_cell = self.num_of_subsections)
+        self.rrt_planner = Planner_RRT(self.auv_init_pos, self.shark_init_pos, self.boundary_array, self.obstacle_array_for_rendering, self.habitats_array_for_rendering, exp_rate = 1, dist_to_end = 1, diff_max = 0.5, freq = 15, cell_side_length = self.cell_side_length, subsections_in_cell = self.num_of_subsections)
 
         self.state = {
             'auv_pos': auv_init_pos,\
@@ -490,6 +490,21 @@ class RRTEnv(gym.Env):
 
         # pause so the plot can be updated
         plt.pause(0.0001)
+
+    
+    def render_q_values(self, q_values_array):
+        if self.rrt_planner.subsections_in_cell == 1:
+            for i in range(len(q_values_array)):
+                row = i // (self.rrt_planner.size_of_col * self.rrt_planner.subsections_in_cell)
+                col = i % (self.rrt_planner.size_of_col * self.rrt_planner.subsections_in_cell)
+                grid_cell = self.rrt_planner.env_grid[row][col]
+
+                text_color = 'b'
+
+                if q_values_array[i].item() > 0:
+                    text_color = 'r'
+
+                self.live_graph.ax_2D.text(grid_cell.x, grid_cell.y, str(q_values_array[i].item()), c = text_color, fontsize=15)
 
 
     def init_live_graph(self, live_graph_2D):
