@@ -13,9 +13,10 @@ import torchvision.transforms as T
 import copy
 import csv
 
-# Warning: Comment out matplotlib library if we are using XSEDE
+""" Warning: Comment out matplotlib library if we are using XSEDE """
 import matplotlib
 import matplotlib.pyplot as plt
+""" Warning: Comment out matplotlib library if we are using XSEDE """
 
 from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
 
@@ -52,7 +53,7 @@ EPS_DECAY = 0.000075
 
 LEARNING_RATE = 0.001
 
-NEGATIVE_OFFSET = -10000
+NEGATIVE_OFFSET = -100
 
 MEMORY_SIZE = 100000
 BATCH_SIZE = 64
@@ -751,14 +752,23 @@ class Agent():
                     processed_q_values_all_grid_cells = q_values_all_grid_cells+ (1 - has_node_tensor) * NEGATIVE_OFFSET
 
                     self.new_q_values = True
-                    self.q_values_int = processed_q_values_all_grid_cells.int()
-                    
-                    # pick the grid cell with the largest q value
-                    grid_cell_index = torch.argmax(processed_q_values_all_grid_cells).item()
+                    self.q_values_int = processed_q_values_all_grid_cells
 
-                    print("chosen grid_cell_index: ", grid_cell_index)
-                    print(type(grid_cell_index))
-                    input("stop")
+                    # pick the grid cell with the largest q value
+                    #   if there are multiple grid cells with the largest value,
+                    #   randomly pick a grid cell
+                    max_q_value = torch.max(processed_q_values_all_grid_cells)
+
+                    # find the index of the maximum q value
+                    index_max_q_grid_cell = (processed_q_values_all_grid_cells == max_q_value).nonzero().flatten()
+        
+                    if index_max_q_grid_cell.size()[0] == 1:
+                        grid_cell_index = index_max_q_grid_cell.item()
+                    else:
+                        # only use random choice when needed
+                        #   because converting tensor to numpy takes computation time
+                        index_max_q_grid_cell = index_max_q_grid_cell.numpy()
+                        grid_cell_index = np.random.choice(index_max_q_grid_cell)
 
                     if DEBUG:
                         print("-----")
@@ -1407,8 +1417,6 @@ class DQN():
 
                 done_array.append(torch.tensor([0], device=DEVICE).int())
 
-                print(next_state["rrt_grid_num_of_nodes_only"])
-
                 if (eps % RENDER_EVERY == 0) and live_graph_2D:
                     self.em.render(print_state = False, live_graph_2D = live_graph_2D)
                     
@@ -1609,7 +1617,7 @@ class DQN():
             
             self.em.render_q_values(self.agent.q_values_int)
             self.em.render(print_state = False, live_graph_2D = live_graph_2D)
-            text = input("finish eps stop")
+            input("finish eps stop")
 
             if live_graph_2D:
                 self.em.reset_render_graph(live_graph_2D = live_graph_2D)
@@ -1878,18 +1886,14 @@ def main():
     # print("seconds: 3")
     # print("rand pick rate: 0.5")
     # dqn = DQN(rand_pick = True, rand_pick_rate = 0.5, use_memo = True, limit_terminal_output = True)
-    # dqn.test_with_time_budget(5, 1.0, MAX_STEP_TEST, live_graph_2D = False)
+    # dqn.test_with_time_budget(50, 3.0, MAX_STEP_TEST, live_graph_2D = False)
     # print("----")
     # print("======================")
     # print("seconds: 3")
     # print("rand pick rate: 0.75")
     # dqn = DQN(rand_pick = True, rand_pick_rate = 0.75, use_memo = True, limit_terminal_output = True)
-    # dqn.test_with_time_budget(5, 1.0, MAX_STEP_TEST, live_graph_2D = False)
+    # dqn.test_with_time_budget(50, 3.0, MAX_STEP_TEST, live_graph_2D = False)
     # print("----")
-
-    # print("seconds: 5")
-    # dqn.test_with_time_budget(100, 5.0, MAX_STEP_TEST, live_graph_2D = False)
-    # text = input("stop")
 
     dqn = DQN(rand_pick = True, rand_pick_rate = 0.75, use_memo = True, limit_terminal_output = False)
     dqn.test(100, MAX_STEP_TEST, live_graph_2D = True)

@@ -6,12 +6,13 @@ import copy
 import random
 import torch
 
-# Warning: Comment out matplotlib library if we are using XSEDE
+""" Warning: Comment out matplotlib library if we are using XSEDE """
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.patches import Circle, Rectangle
 import mpl_toolkits.mplot3d.art3d as Art3d
 from gym_rrt.envs.live3DGraph_rrt_env import Live3DGraph
+""" Warning: Comment out matplotlib library if we are using XSEDE """
 
 from gym_rrt.envs.rrt_dubins import Planner_RRT
 from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
@@ -122,7 +123,9 @@ class RRTEnv(gym.Env):
         self.habitats_array = []
         self.habitats_array_for_rendering = []
 
+        """ Warning: Comment out matplotlib library if we are using XSEDE """
         self.live_graph = Live3DGraph(PLOT_3D)
+        """ Warning: Comment out matplotlib library if we are using XSEDE """
 
         self.auv_x_array_plot = []
         self.auv_y_array_plot = []
@@ -504,7 +507,7 @@ class RRTEnv(gym.Env):
                 if q_values_array[i].item() > 0:
                     text_color = 'r'
 
-                self.live_graph.ax_2D.text(grid_cell.x, grid_cell.y, str(q_values_array[i].item()), c = text_color, fontsize=15)
+                self.live_graph.ax_2D.text(grid_cell.x, grid_cell.y, '%.1f' % q_values_array[i].item(), c = text_color, fontsize=15)
 
 
     def init_live_graph(self, live_graph_2D):

@@ -6,13 +6,14 @@ import torch
 import numpy as np
 import copy
 
-# Warning: Comment out matplotlib library if we are using XSEDE
+""" Warning: Comment out matplotlib library if we are using XSEDE """
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import matplotlib.path as mpath
 import matplotlib.patches as mpatches
 from matplotlib.patches import Rectangle
+""" Warning: Comment out matplotlib library if we are using XSEDE """
 
 from gym_rrt.envs.motion_plan_state_rrt import Motion_plan_state
 from gym_rrt.envs.grid_cell_rrt import Grid_cell_RRT
